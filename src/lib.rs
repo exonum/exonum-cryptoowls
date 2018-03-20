@@ -1,6 +1,8 @@
 #[macro_use]
 extern crate exonum;
 
+mod schema;
+
 /// Некоторый уникальный идентификатор сервиса.
 pub const CRYPTOOWLS_SERVICE_ID: u16 = 521;
 /// Уникальное имя сервиса, которое будет использоваться в апи и конфигурации.
@@ -45,8 +47,10 @@ mod data_layout {
             name: &str,
             /// Текущий баланс
             balance: u64,
-            /// merkle_root таблицы с принадлежащими ему совами
-            owls_root: &Hash,
+            /// Время последнего пополнения баланса
+            last_fillup: SystemTime,
+            // merkle_root таблицы с принадлежащими ему совами
+            // owls_root: &Hash,
             /// merkle_root истории ордеров, которые пользователь разместил
             orders_root: &Hash,
         }
@@ -67,10 +71,6 @@ mod data_layout {
     }
 }
 
-/// Модуль со схемой данных
-mod schema {
-
-}
 
 /// Модуль с описанием транзакций для демки.
 mod transactions {
@@ -184,7 +184,4 @@ mod transactions {
 }
 
 /// Модуль с реализацией api
-mod api {
-
-}
-
+mod api {}
