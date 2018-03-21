@@ -1,5 +1,6 @@
 #[macro_use]
 extern crate exonum;
+extern crate exonum_time;
 
 mod schema;
 
@@ -78,7 +79,12 @@ pub mod transactions {
     use exonum::crypto::{Hash, PublicKey};
     use exonum::blockchain::{Transaction, ExecutionResult};
     use exonum::storage::Fork;
+    // use exonum::storage::{Snapshot, Fork, ProofListIndex, ProofMapIndex, ValueSetIndex};
     use exonum::messages::Message;
+
+    use schema;
+    use exonum_time::TimeSchema;
+
     use CRYPTOOWLS_SERVICE_ID;
 
     transactions! {
@@ -139,9 +145,22 @@ pub mod transactions {
         }
 
         fn execute(&self, fork: &mut Fork) -> ExecutionResult {
-            unimplemented!()
+            let ts = {
+                let time_schema = TimeSchema::new(&fork);
+                time_schema.time().get().unwrap()
+            };
+
+            let key = self.public_key();
+
+            let mut schema = schema::CryptoOwlsSchema::new(fork);
+            if schema.users_proof().get(key).is_none() {
+                let orders_history = schema.user_orders_history(key).merkle_root();
+                // Errrr!                                            ^^^^^
+            }
+            Ok(())
         }
     }
+
 
     impl Transaction for MakeOwl {
         fn verify(&self) -> bool {
