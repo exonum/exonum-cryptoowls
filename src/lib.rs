@@ -9,6 +9,16 @@ pub const CRYPTOOWLS_SERVICE_ID: u16 = 521;
 /// Уникальное имя сервиса, которое будет использоваться в апи и конфигурации.
 pub const CRYPTOOWLS_SERVICE_NAME: &str = "cryptoowls";
 
+/// Сумма пополнения баланса
+pub const ISSUE_AMMOUNT: u64 = 100;
+
+/// Таймаут, после которого разрешено повторное пополнение баланса.
+pub const ISSUE_TIMEOUT: u64 = 5 * 60;
+
+/// Таймаут, после которого разрешено повторное размножение.
+pub const BREEDING_TIMEOUT: u64 = 5 * 60;
+
+
 /// Модуль со структурами данных, которые хранятся в блокчейне
 mod data_layout {
     use std::time::SystemTime;
@@ -75,17 +85,17 @@ mod data_layout {
 
 /// Модуль с описанием транзакций для демки.
 pub mod transactions {
-    use std::time::SystemTime;
     use exonum::crypto::{Hash, PublicKey};
     use exonum::blockchain::{Transaction, ExecutionResult};
     use exonum::storage::Fork;
-    // use exonum::storage::{Snapshot, Fork, ProofListIndex, ProofMapIndex, ValueSetIndex};
     use exonum::messages::Message;
-
     use schema;
+    use data_layout::{User, CryptoOwl, CryptoOwlState};
     use exonum_time::TimeSchema;
 
-    use CRYPTOOWLS_SERVICE_ID;
+    use std::time::{SystemTime, Duration};
+
+    use {CRYPTOOWLS_SERVICE_ID, ISSUE_AMMOUNT, ISSUE_TIMEOUT, BREEDING_TIMEOUT};
 
     transactions! {
         pub Transactions {
@@ -107,7 +117,7 @@ pub mod transactions {
                 /// Идентификатор отца
                 father_id: &Hash,
                 /// Идентификатор матери
-                mather_id: &Hash,
+                mother_id: &Hash,
             }
             /// Транзакция запроса новых средств
             struct Issue {
@@ -154,8 +164,9 @@ pub mod transactions {
 
             let mut schema = schema::CryptoOwlsSchema::new(fork);
             if schema.users_proof().get(key).is_none() {
-                let orders_history = schema.user_orders_history(key).merkle_root();
-                // Errrr!                                            ^^^^^
+                let orders_history = schema.user_orders_history(key).root_hash();
+                let user = User::new(&key, self.name(), ISSUE_AMMOUNT, ts, &orders_history);
+                schema.users().put(key, user);
             }
             Ok(())
         }
@@ -168,7 +179,28 @@ pub mod transactions {
         }
 
         fn execute(&self, fork: &mut Fork) -> ExecutionResult {
-            unimplemented!()
+            let ts = {
+                let time_schema = TimeSchema::new(&fork);
+                time_schema.time().get().unwrap()
+            };
+            let mut schema = schema::CryptoOwlsSchema::new(fork);
+            let parents = [self.father_id(), self.mother_id()]
+                .iter()
+                .map(|&i| schema.owls_state().get(&i))
+                .collect::<Option<Vec<CryptoOwlState>>>();
+
+            if let Some(parents) = parents {
+                let (mother, father) = (&parents[0], &parents[1]);
+
+                if parents.iter().all(|ref p| {
+                    ts.duration_since(p.last_breeding()).unwrap().as_secs() >= BREEDING_TIMEOUT
+                })
+                {
+                    // Create New Owl here and add it to users list
+                }
+            }
+
+            Ok(())
         }
     }
 
