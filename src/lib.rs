@@ -80,15 +80,23 @@ mod data_layout {
             price: u64,
         }
     }
+
+    impl CryptoOwl {
+        pub fn breed(&self, other: &CryptoOwl, name: &str) -> CryptoOwl {
+            // FIXME: real breeding
+            CryptoOwl::new(name, 1u32)
+        }
+    }
 }
 
 
 /// Модуль с описанием транзакций для демки.
 pub mod transactions {
-    use exonum::crypto::{Hash, PublicKey};
+    use exonum::crypto::{Hash, PublicKey, CryptoHash};
     use exonum::blockchain::{Transaction, ExecutionResult};
     use exonum::storage::Fork;
     use exonum::messages::Message;
+
     use schema;
     use data_layout::{User, CryptoOwl, CryptoOwlState};
     use exonum_time::TimeSchema;
@@ -184,19 +192,41 @@ pub mod transactions {
                 time_schema.time().get().unwrap()
             };
             let mut schema = schema::CryptoOwlsSchema::new(fork);
-            let parents = [self.father_id(), self.mother_id()]
+            let parents = [self.mother_id(), self.father_id()]
                 .iter()
                 .map(|&i| schema.owls_state().get(&i))
                 .collect::<Option<Vec<CryptoOwlState>>>();
 
             if let Some(parents) = parents {
-                let (mother, father) = (&parents[0], &parents[1]);
-
                 if parents.iter().all(|ref p| {
                     ts.duration_since(p.last_breeding()).unwrap().as_secs() >= BREEDING_TIMEOUT
                 })
                 {
-                    // Create New Owl here and add it to users list
+                    let (mother, father) = (parents[0].owl(), parents[1].owl());
+                    let son = mother.breed(&father, self.name());
+                    let owl_key = son.hash();
+                    let orders_history = schema.owl_orders_history(&owl_key).root_hash();
+                    let sons_state =
+                        CryptoOwlState::new(son, self.public_key(), ts, &orders_history);
+
+                    //TODO: add renew_breeding_time method
+                    let mothers_state = CryptoOwlState::new(
+                        mother,
+                        self.public_key(),
+                        ts,
+                        &parents[0].orders_history(),
+                    );
+
+                    let fathers_state = CryptoOwlState::new(
+                        father,
+                        self.public_key(),
+                        ts,
+                        &parents[1].orders_history(),
+                    );
+
+                    schema.owls_state().put(&owl_key, sons_state);
+                    schema.owls_state().put(self.mother_id(), mothers_state);
+                    schema.owls_state().put(self.father_id(), fathers_state);
                 }
             }
 
