@@ -78,6 +78,7 @@ pub mod transactions {
     use exonum::crypto::{Hash, PublicKey};
     use exonum::blockchain::{Transaction, ExecutionResult};
     use exonum::storage::Fork;
+    use exonum::messages::Message;
     use CRYPTOOWLS_SERVICE_ID;
 
     transactions! {
@@ -134,7 +135,7 @@ pub mod transactions {
 
     impl Transaction for CreateUser {
         fn verify(&self) -> bool {
-            unimplemented!()
+            self.verify_signature(self.public_key())
         }
 
         fn execute(&self, fork: &mut Fork) -> ExecutionResult {
@@ -144,7 +145,7 @@ pub mod transactions {
 
     impl Transaction for MakeOwl {
         fn verify(&self) -> bool {
-            unimplemented!()
+            self.verify_signature(self.public_key())
         }
 
         fn execute(&self, fork: &mut Fork) -> ExecutionResult {
@@ -154,7 +155,7 @@ pub mod transactions {
 
     impl Transaction for Issue {
         fn verify(&self) -> bool {
-            unimplemented!()
+            self.verify_signature(self.public_key())
         }
 
         fn execute(&self, fork: &mut Fork) -> ExecutionResult {
@@ -164,7 +165,7 @@ pub mod transactions {
 
     impl Transaction for CreateOrder {
         fn verify(&self) -> bool {
-            unimplemented!()
+            self.verify_signature(self.public_key())
         }
 
         fn execute(&self, fork: &mut Fork) -> ExecutionResult {
@@ -174,7 +175,7 @@ pub mod transactions {
 
     impl Transaction for AcceptOrder {
         fn verify(&self) -> bool {
-            unimplemented!()
+            self.verify_signature(self.public_key())
         }
 
         fn execute(&self, fork: &mut Fork) -> ExecutionResult {
