@@ -18,6 +18,9 @@ pub const ISSUE_TIMEOUT: u64 = 5 * 60;
 /// Таймаут, после которого разрешено повторное размножение.
 pub const BREEDING_TIMEOUT: u64 = 5 * 60;
 
+/// Стоимость размножения
+pub const BREEDING_PRICE: u64 = 42;
+
 
 /// Модуль со структурами данных, которые хранятся в блокчейне
 mod data_layout {
@@ -87,8 +90,8 @@ mod data_layout {
             CryptoOwl::new(name, 1u32)
         }
     }
-}
 
+}
 
 /// Модуль с описанием транзакций для демки.
 pub mod transactions {
@@ -98,12 +101,12 @@ pub mod transactions {
     use exonum::messages::Message;
 
     use schema;
-    use data_layout::{User, CryptoOwl, CryptoOwlState};
+    use data_layout::{User, CryptoOwl, CryptoOwlState, Order};
     use exonum_time::TimeSchema;
 
     use std::time::{SystemTime, Duration};
 
-    use {CRYPTOOWLS_SERVICE_ID, ISSUE_AMMOUNT, ISSUE_TIMEOUT, BREEDING_TIMEOUT};
+    use {CRYPTOOWLS_SERVICE_ID, ISSUE_AMMOUNT, ISSUE_TIMEOUT, BREEDING_TIMEOUT, BREEDING_PRICE};
 
     transactions! {
         pub Transactions {
@@ -197,36 +200,40 @@ pub mod transactions {
                 .map(|&i| schema.owls_state().get(&i))
                 .collect::<Option<Vec<CryptoOwlState>>>();
 
+            let user = schema.users().get(self.public_key()).unwrap();
+            let key = user.public_key();
+
             if let Some(parents) = parents {
-                if parents.iter().all(|ref p| {
-                    ts.duration_since(p.last_breeding()).unwrap().as_secs() >= BREEDING_TIMEOUT
-                })
+                if user.balance() >= BREEDING_PRICE &&
+                    parents.iter().all(|ref p| {
+                        ts.duration_since(p.last_breeding()).unwrap().as_secs() >= BREEDING_TIMEOUT
+                    })
                 {
                     let (mother, father) = (parents[0].owl(), parents[1].owl());
                     let son = mother.breed(&father, self.name());
                     let owl_key = son.hash();
                     let orders_history = schema.owl_orders_history(&owl_key).root_hash();
-                    let sons_state =
-                        CryptoOwlState::new(son, self.public_key(), ts, &orders_history);
+                    let sons_state = CryptoOwlState::new(son, &key, ts, &orders_history);
 
                     //TODO: add renew_breeding_time method
-                    let mothers_state = CryptoOwlState::new(
-                        mother,
-                        self.public_key(),
-                        ts,
-                        &parents[0].orders_history(),
-                    );
+                    let mothers_state =
+                        CryptoOwlState::new(mother, &key, ts, &parents[0].orders_history());
 
-                    let fathers_state = CryptoOwlState::new(
-                        father,
-                        self.public_key(),
+                    let fathers_state =
+                        CryptoOwlState::new(father, &key, ts, &parents[1].orders_history());
+
+                    let user = User::new(
+                        &key,
+                        user.name(),
+                        user.balance() - BREEDING_PRICE,
                         ts,
-                        &parents[1].orders_history(),
+                        &user.orders_root(),
                     );
 
                     schema.owls_state().put(&owl_key, sons_state);
                     schema.owls_state().put(self.mother_id(), mothers_state);
                     schema.owls_state().put(self.father_id(), fathers_state);
+                    schema.users().put(&key, user);
                 }
             }
 
@@ -240,7 +247,27 @@ pub mod transactions {
         }
 
         fn execute(&self, fork: &mut Fork) -> ExecutionResult {
-            unimplemented!()
+            let ts = {
+                let time_schema = TimeSchema::new(&fork);
+                time_schema.time().get().unwrap()
+            };
+
+            let mut schema = schema::CryptoOwlsSchema::new(fork);
+            let key = self.public_key();
+            let user = schema.users().get(key).unwrap();
+
+            if ts.duration_since(user.last_fillup()).unwrap().as_secs() >= ISSUE_TIMEOUT {
+                let user = User::new(
+                    &key,
+                    user.name(),
+                    user.balance() + ISSUE_AMMOUNT,
+                    ts,
+                    &user.orders_root(),
+                );
+                schema.users().put(&key, user);
+            }
+
+            Ok(())
         }
     }
 
@@ -250,7 +277,20 @@ pub mod transactions {
         }
 
         fn execute(&self, fork: &mut Fork) -> ExecutionResult {
-            unimplemented!()
+            let mut schema = schema::CryptoOwlsSchema::new(fork);
+            let key = self.public_key();
+            let user = schema.users().get(&key).unwrap();
+            if let Some(owl_state) = schema.owls_state().get(self.owl_id()) {
+                if self.price() <= user.balance() {
+                    let order = Order::new(&key, self.owl_id(), "pending", self.price());
+                    let order_hash = order.hash();
+                    schema.orders().put(&order.hash(), order);
+                    schema.owl_orders_history(self.owl_id()).push(order_hash);
+                    schema.user_orders_history(&key).push(order_hash);
+                }
+            }
+
+            Ok(())
         }
     }
 
@@ -260,9 +300,44 @@ pub mod transactions {
         }
 
         fn execute(&self, fork: &mut Fork) -> ExecutionResult {
-            unimplemented!()
+            let mut schema = schema::CryptoOwlsSchema::new(fork);
+            if let Some(order) = schema.orders().get(self.order_id()) {
+                let buyer = schema.users().get(order.public_key()).unwrap();
+                if order.status() == "pending" {
+                    if buyer.balance() >= order.price() &&
+                        schema.users_owls(self.public_key()).contains(
+                            order.owl_id(),
+                        )
+                    {
+                        let new_order = Order::new(
+                            order.public_key(),
+                            order.owl_id(),
+                            "accepted",
+                            order.price(),
+                        );
+
+                        schema.users_owls(self.public_key()).remove(order.owl_id());
+                        schema.users_owls(order.public_key()).insert(
+                            *order.owl_id(),
+                        );
+
+                        schema.orders().put(&order.hash(), new_order);
+
+                    } else {
+                        let new_order = Order::new(
+                            order.public_key(),
+                            order.owl_id(),
+                            "declined",
+                            order.price(),
+                        );
+                        schema.orders().put(&order.hash(), new_order);
+                    }
+                }
+            }
+            Ok(())
         }
     }
+
 }
 
 /// Модуль с реализацией api

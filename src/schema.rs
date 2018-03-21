@@ -50,7 +50,7 @@ impl<'a> CryptoOwlsSchema<&'a mut Fork> {
         ProofMapIndex::new("cryptoowls.owls_state", self.view)
     }
 
-    pub fn users_owls(&mut self, public_key: &PublicKey) -> ValueSetIndex<&mut Fork, CryptoOwl> {
+    pub fn users_owls(&mut self, public_key: &PublicKey) -> ValueSetIndex<&mut Fork, Hash> {
         ValueSetIndex::with_prefix("cryptoowls.users_owls", gen_prefix(public_key), self.view)
     }
 
