@@ -73,7 +73,7 @@ mod data_layout {
 
 
 /// Модуль с описанием транзакций для демки.
-mod transactions {
+pub mod transactions {
     use std::time::SystemTime;
     use exonum::crypto::{Hash, PublicKey};
     use exonum::blockchain::{Transaction, ExecutionResult};
