@@ -96,16 +96,16 @@ mod data_layout {
     }
 
     impl CryptoOwl {
-        pub fn breed(&self, other: &CryptoOwl, name: &str) -> CryptoOwl {
-            // FIXME: use state_hash
-            // let j: &[u8] = "jDFGklnsd;jklsdL".as_ref();
-            // let mut xxx = Cursor::new(j);
-            // for i in 0..4 {
-            //     seed[i] = xxx.read_u32::<BigEndian>().unwrap();
-            // }
-            // let mut rng = IsaacRng::from_seed(&seed);
+        pub fn breed(&self, other: &CryptoOwl, name: &str, hash_seed: &Hash) -> CryptoOwl {
 
-            let mut rng = rand::thread_rng();
+            let hash_seed: &[u8] = hash_seed.as_ref();
+            let mut seed = [0u32; 4];
+            let mut cursor = Cursor::new(hash_seed);
+
+            for i in 0..4 {
+                seed[i] = cursor.read_u32::<BigEndian>().unwrap();
+            }
+            let mut rng = IsaacRng::from_seed(&seed);
             let mut son_dna = 0u32;
 
             for i in 0..32 {
@@ -130,7 +130,7 @@ mod data_layout {
                 } else {
                     // Если биты различаются, то результирующий бит будет выбираться с вероятностью 1/2.
                     if rng.gen() {
-                        son_dna |=  mask;
+                        son_dna |= mask;
                     }
                 }
             }
@@ -144,7 +144,7 @@ mod data_layout {
 /// Модуль с описанием транзакций для демки.
 pub mod transactions {
     use exonum::crypto::{Hash, PublicKey, CryptoHash};
-    use exonum::blockchain::{Transaction, ExecutionResult, Service};
+    use exonum::blockchain::{Transaction, ExecutionResult, Service, Schema};
     use exonum::storage::Fork;
     use exonum::messages::Message;
 
@@ -242,6 +242,12 @@ pub mod transactions {
                 let time_schema = TimeSchema::new(&fork);
                 time_schema.time().get().unwrap()
             };
+
+            let state_hash = {
+                let info_schema = Schema::new(&fork);
+                info_schema.state_hash_aggregator().root_hash()
+            };
+
             let mut schema = schema::CryptoOwlsSchema::new(fork);
             let parents = [self.mother_id(), self.father_id()]
                 .iter()
@@ -258,8 +264,8 @@ pub mod transactions {
                     })
                 {
                     let (mother, father) = (parents[0].owl(), parents[1].owl());
-                    // let rnd_seed = schema.state_hash();
-                    let son = mother.breed(&father, self.name());
+
+                    let son = mother.breed(&father, self.name(), &state_hash);
 
                     let owl_key = son.hash();
                     let orders_history = schema.owl_orders_history(&owl_key).root_hash();
