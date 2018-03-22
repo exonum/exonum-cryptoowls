@@ -98,10 +98,13 @@ mod data_layout {
 
     impl CryptoOwl {
         pub fn breed(&self, other: &CryptoOwl, name: &str, hash_seed: &Hash) -> CryptoOwl {
+            // мы можем получить хэш только как [u8:32], чтоб получить что-то,
+            // что можно использовать для сидирования генератора случайных чисел,
+            // нужно собрать из каждых 4-х u8 один u32
+
             let hash_seed: &[u8] = hash_seed.as_ref();
             let mut seed = [0u32; 4];
             let mut cursor = Cursor::new(hash_seed);
-
             for i in 0..4 {
                 seed[i] = cursor.read_u32::<BigEndian>().unwrap();
             }
@@ -109,6 +112,7 @@ mod data_layout {
             let mut son_dna = 0u32;
 
             for i in 0..32 {
+                // проходим по всем `генам` и выставляем их в соответствии с генами родителей
                 let mask = 2u32.pow(i);
                 let (fg, mg) = (self.dna() & mask, other.dna() & mask);
                 if fg == mg {
