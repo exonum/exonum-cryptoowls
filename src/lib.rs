@@ -1,3 +1,4 @@
+extern crate bodyparser;
 #[macro_use]
 extern crate exonum;
 extern crate exonum_time;
@@ -6,10 +7,9 @@ extern crate iron;
 extern crate router;
 
 extern crate serde;
-extern crate serde_json;
 
 #[macro_use]
-extern crate serde_derive;
+extern crate serde_json;
 
 extern crate byteorder;
 extern crate rand;
@@ -33,18 +33,17 @@ pub const BREEDING_TIMEOUT: u64 = 5 * 60;
 /// Стоимость размножения
 pub const BREEDING_PRICE: u64 = 42;
 
-
 /// Модуль со структурами данных, которые хранятся в блокчейне
 mod data_layout {
 
     use std::time::SystemTime;
     use exonum::crypto::{Hash, PublicKey};
 
-    use byteorder::{ReadBytesExt, BigEndian};
+    use byteorder::{BigEndian, ReadBytesExt};
 
     use std::io::Cursor;
-    use rand::{Rng, IsaacRng, SeedableRng};
-    use rand::distributions::{Weighted, WeightedChoice, Sample};
+    use rand::{IsaacRng, Rng, SeedableRng};
+    use rand::distributions::{Sample, Weighted, WeightedChoice};
 
     encoding_struct! {
         /// Интересующая нас криптосова, ее уникальный идентифицатор вычисляется как хеш
@@ -99,7 +98,6 @@ mod data_layout {
 
     impl CryptoOwl {
         pub fn breed(&self, other: &CryptoOwl, name: &str, hash_seed: &Hash) -> CryptoOwl {
-
             let hash_seed: &[u8] = hash_seed.as_ref();
             let mut seed = [0u32; 4];
             let mut cursor = Cursor::new(hash_seed);
@@ -129,7 +127,6 @@ mod data_layout {
 
                     let mut choices = WeightedChoice::new(&mut possible_genes);
                     son_dna |= choices.sample(&mut rng);
-
                 } else {
                     // Если биты различаются, то результирующий бит будет
                     // выбираться с вероятностью 1/2.
@@ -147,18 +144,18 @@ mod data_layout {
 
 /// Модуль с описанием транзакций для демки.
 pub mod transactions {
-    use exonum::crypto::{Hash, PublicKey, CryptoHash};
-    use exonum::blockchain::{Transaction, ExecutionResult, Schema};
+    use exonum::crypto::{CryptoHash, Hash, PublicKey};
+    use exonum::blockchain::{ExecutionResult, Schema, Transaction};
     use exonum::storage::Fork;
     use exonum::messages::Message;
 
     use schema;
-    use data_layout::{User, CryptoOwlState, Order};
+    use data_layout::{CryptoOwlState, Order, User};
     use exonum_time::TimeSchema;
 
     use std::time::SystemTime;
 
-    use {CRYPTOOWLS_SERVICE_ID, ISSUE_AMMOUNT, ISSUE_TIMEOUT, BREEDING_TIMEOUT, BREEDING_PRICE};
+    use {BREEDING_PRICE, BREEDING_TIMEOUT, CRYPTOOWLS_SERVICE_ID, ISSUE_AMMOUNT, ISSUE_TIMEOUT};
 
     transactions! {
         pub Transactions {
@@ -234,7 +231,6 @@ pub mod transactions {
         }
     }
 
-
     impl Transaction for MakeOwl {
         fn verify(&self) -> bool {
             self.verify_signature(self.public_key())
@@ -261,11 +257,9 @@ pub mod transactions {
             let key = user.public_key();
 
             if let Some(parents) = parents {
-                if user.balance() >= BREEDING_PRICE &&
-                    parents.iter().all(|ref p| {
-                        ts.duration_since(p.last_breeding()).unwrap().as_secs() >= BREEDING_TIMEOUT
-                    })
-                {
+                if user.balance() >= BREEDING_PRICE && parents.iter().all(|ref p| {
+                    ts.duration_since(p.last_breeding()).unwrap().as_secs() >= BREEDING_TIMEOUT
+                }) {
                     let (mother, father) = (parents[0].owl(), parents[1].owl());
 
                     let son = mother.breed(&father, self.name(), &state_hash);
@@ -349,10 +343,10 @@ pub mod transactions {
             if let Some(order) = schema.orders().get(self.order_id()) {
                 let buyer = schema.users().get(order.public_key()).unwrap();
                 if order.status() == "pending" {
-                    if buyer.balance() >= order.price() &&
-                        schema.users_owls(self.public_key()).contains(
-                            order.owl_id(),
-                        )
+                    if buyer.balance() >= order.price()
+                        && schema
+                            .users_owls(self.public_key())
+                            .contains(order.owl_id())
                     {
                         let new_order = Order::new(
                             order.public_key(),
@@ -368,15 +362,13 @@ pub mod transactions {
                             owl_state.last_breeding(),
                         );
 
-
                         schema.users_owls(self.public_key()).remove(order.owl_id());
-                        schema.users_owls(order.public_key()).insert(
-                            *order.owl_id(),
-                        );
+                        schema
+                            .users_owls(order.public_key())
+                            .insert(*order.owl_id());
 
                         schema.orders().put(&order.hash(), new_order);
                         schema.owls_state().put(order.owl_id(), new_owl_state);
-
                     } else {
                         let new_order = Order::new(
                             order.public_key(),
@@ -396,26 +388,27 @@ pub mod transactions {
 
 /// Модуль с реализацией api
 mod api {
+    use serde_json;
+    use serde::Deserialize;
+
+    use bodyparser;
     use iron::prelude::*;
-    use iron::Handler;
     use iron::status::Status;
     use iron::headers::ContentType;
     use iron::modifiers::Header;
 
     use router::Router;
 
-
     use exonum::api::{Api, ApiError};
     use exonum::crypto::{Hash, PublicKey};
     use exonum::encoding::serialize::{FromHex, FromHexError};
 
-    use exonum::node::{TransactionSend, ApiSender};
-    use exonum::blockchain::{Blockchain, Service, Transaction, ApiContext, ExecutionResult,
-                             TransactionSet};
+    use exonum::node::{ApiSender, TransactionSend};
+    use exonum::blockchain::{Blockchain, Transaction};
 
     use schema;
-    use data_layout::{CryptoOwlState, User, Order};
-    use serde_json;
+    use data_layout::{CryptoOwlState, Order, User};
+    use transactions::{AcceptOrder, CreateOrder, CreateUser, Issue};
 
     #[derive(Clone)]
     struct CryptoOwlsApi {
@@ -446,11 +439,18 @@ mod api {
             let self_ = self.clone();
             let get_users_owls = move |req: &mut Request| self_.get_users_owls(req);
 
-            // let self_ = self.clone();
-            // let post_order = move |req: &mut Request| self_.post_owl_order(req);
+            let self_ = self.clone();
+            let post_user = move |req: &mut Request| self_.post_transaction::<CreateUser>(req);
 
-            // let self_ = self.clone();
-            // let post_acceptance = move |req: &mut Request| self_.post_acceptance(req);
+            let self_ = self.clone();
+            let post_order = move |req: &mut Request| self_.post_transaction::<CreateOrder>(req);
+
+            let self_ = self.clone();
+            let post_issue = move |req: &mut Request| self_.post_transaction::<Issue>(req);
+
+            let self_ = self.clone();
+            let post_acceptance =
+                move |req: &mut Request| self_.post_transaction::<AcceptOrder>(req);
 
             // Bind handlers to specific routes.
 
@@ -474,8 +474,10 @@ mod api {
                 "get_owls_orders",
             );
 
-            // router.post("/v1/order", post_owl_order, "post_owl_order");
-            // router.post("/v1/order/:order_hash", post_acceptance, "post_acceptance");
+            router.post("/v1/user", post_user, "post_user");
+            router.post("/v1/order", post_order, "post_order");
+            router.post("/v1/accept_order", post_acceptance, "post_acceptance");
+            router.post("/v1/issue", post_issue, "post_issue");
         }
     }
 
@@ -506,7 +508,6 @@ mod api {
 
         /// Информация о пользователе
         fn get_user(&self, req: &mut Request) -> IronResult<Response> {
-
             let public_key = CryptoOwlsApi::find_pub_key(req).map_err(|e| {
                 CryptoOwlsApi::bad_request(e, "\"Invalid request param: `pub_key`\"")
             })?;
@@ -532,7 +533,6 @@ mod api {
             let users: Vec<User> = idx.values().collect();
 
             self.ok_response(&serde_json::to_value(&users).unwrap())
-
         }
 
         /// Информация о cове
@@ -563,7 +563,6 @@ mod api {
             self.ok_response(&serde_json::to_value(&owls).unwrap())
         }
 
-
         /// Cписок сов для пользователя
         fn get_users_owls(&self, req: &mut Request) -> IronResult<Response> {
             let users_key = CryptoOwlsApi::find_pub_key(req).map_err(|e| {
@@ -586,7 +585,6 @@ mod api {
                 self.not_found_response(&serde_json::to_value("User not found").unwrap())
             }
         }
-
 
         /// Информация об ордерах на cову
         fn get_owls_orders(&self, req: &mut Request) -> IronResult<Response> {
@@ -627,6 +625,23 @@ mod api {
                 self.ok_response(&serde_json::to_value(&orders).unwrap())
             } else {
                 self.not_found_response(&serde_json::to_value("User not found").unwrap())
+            }
+        }
+
+        /// Общий код для постинга транзакций
+        fn post_transaction<T>(&self, req: &mut Request) -> IronResult<Response>
+        where
+            T: Transaction + Clone + for<'de> Deserialize<'de>,
+        {
+            match req.get::<bodyparser::Struct<T>>() {
+                Ok(Some(transaction)) => {
+                    let transaction: Box<Transaction> = Box::new(transaction);
+                    let tx_hash = transaction.hash();
+                    self.channel.send(transaction).map_err(ApiError::from)?;
+                    self.ok_response(&json!({ "tx_hash": tx_hash }))
+                }
+                Ok(None) => Err(ApiError::BadRequest("Empty request body".into()))?,
+                Err(e) => Err(ApiError::InternalError(Box::new(e)))?,
             }
         }
     }

@@ -1,7 +1,7 @@
-use super::data_layout::{User, CryptoOwlState, Order};
-use exonum::storage::{Snapshot, Fork, ListIndex, ProofMapIndex, ValueSetIndex};
+use super::data_layout::{CryptoOwlState, Order, User};
+use exonum::storage::{Fork, ListIndex, ProofMapIndex, Snapshot, ValueSetIndex};
 use exonum::blockchain::gen_prefix;
-use exonum::crypto::{PublicKey, Hash};
+use exonum::crypto::{Hash, PublicKey};
 
 /// Schema of the key-value storage used by the cryptoowls service.
 pub struct CryptoOwlsSchema<T> {
