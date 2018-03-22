@@ -272,6 +272,7 @@ pub mod transactions {
                     let sons_state = CryptoOwlState::new(son, &key, ts, &orders_history);
 
                     //TODO: add renew_breeding_time method
+
                     let mothers_state =
                         CryptoOwlState::new(mother, &key, ts, &parents[0].orders_history());
 
@@ -343,6 +344,22 @@ pub mod transactions {
                     schema.orders().put(&order.hash(), order);
                     schema.owl_orders_history(self.owl_id()).push(order_hash);
                     schema.user_orders_history(&key).push(order_hash);
+
+                    let new_owl_state = CryptoOwlState::new(
+                        owl_state.owl(),
+                        owl_state.owner(),
+                        owl_state.last_breeding(),
+                        &schema.owl_orders_history(self.owl_id()).root_hash(),
+                    );
+                    let new_user = User::new(
+                        &key,
+                        user.name(),
+                        user.balance(),
+                        user.last_fillup(),
+                        &schema.user_orders_history(&key).root_hash(),
+                    );
+                    schema.users().put(&key, new_user);
+                    schema.owls_state().put(self.owl_id(), new_owl_state);
                 }
             }
 
@@ -371,6 +388,14 @@ pub mod transactions {
                             "accepted",
                             order.price(),
                         );
+                        let owl_state = schema.owls_state().get(order.owl_id()).unwrap();
+                        let new_owl_state = CryptoOwlState::new(
+                            owl_state.owl(),
+                            order.public_key(),
+                            owl_state.last_breeding(),
+                            owl_state.orders_history(),
+                        );
+
 
                         schema.users_owls(self.public_key()).remove(order.owl_id());
                         schema.users_owls(order.public_key()).insert(
@@ -378,6 +403,7 @@ pub mod transactions {
                         );
 
                         schema.orders().put(&order.hash(), new_order);
+                        schema.owls_state().put(order.owl_id(), new_owl_state);
 
                     } else {
                         let new_order = Order::new(
