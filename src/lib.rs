@@ -333,6 +333,7 @@ pub mod transactions {
                     let order_hash = order.hash();
                     schema.orders().put(&order.hash(), order);
                     schema.user_orders(&key).push(order_hash);
+                    schema.owl_orders(&self.owl_id()).push(order_hash);
                 }
             }
 

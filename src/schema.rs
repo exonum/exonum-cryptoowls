@@ -35,6 +35,10 @@ where
     pub fn user_orders_view(&self, public_key: &PublicKey) -> ListIndex<&T, Hash> {
         ListIndex::with_prefix("cryptoowls.user_orders", gen_prefix(public_key), &self.view)
     }
+
+    pub fn owl_orders_view(&self, owl_id: &Hash) -> ListIndex<&T, Hash> {
+        ListIndex::with_prefix("cryptoowls.owl_orders", gen_prefix(owl_id), &self.view)
+    }
 }
 
 impl<'a> CryptoOwlsSchema<&'a mut Fork> {
@@ -54,10 +58,11 @@ impl<'a> CryptoOwlsSchema<&'a mut Fork> {
         ProofMapIndex::new("cryptoowls.orders", self.view)
     }
 
-    pub fn user_orders(
-        &mut self,
-        public_key: &PublicKey,
-    ) -> ListIndex<&mut Fork, Hash> {
+    pub fn user_orders(&mut self, public_key: &PublicKey) -> ListIndex<&mut Fork, Hash> {
         ListIndex::with_prefix("cryptoowls.user_orders", gen_prefix(public_key), self.view)
+    }
+
+    pub fn owl_orders(&mut self, owl_id: &Hash) -> ListIndex<&mut Fork, Hash> {
+        ListIndex::with_prefix("cryptoowls.owl_orders", gen_prefix(owl_id), self.view)
     }
 }
