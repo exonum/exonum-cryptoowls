@@ -1,6 +1,15 @@
 #[macro_use]
 extern crate exonum;
 extern crate exonum_time;
+extern crate iron;
+
+extern crate router;
+
+extern crate serde;
+extern crate serde_json;
+
+#[macro_use]
+extern crate serde_derive;
 
 extern crate byteorder;
 extern crate rand;
@@ -31,12 +40,11 @@ mod data_layout {
     use std::time::SystemTime;
     use exonum::crypto::{Hash, PublicKey};
 
-    use byteorder::{ReadBytesExt, WriteBytesExt, BigEndian};
+    use byteorder::{ReadBytesExt, BigEndian};
 
     use std::io::Cursor;
-    use rand;
     use rand::{Rng, IsaacRng, SeedableRng};
-    use rand::distributions::{Range, Weighted, WeightedChoice, Sample};
+    use rand::distributions::{Weighted, WeightedChoice, Sample};
 
     encoding_struct! {
         /// Интересующая нас криптосова, ее уникальный идентифицатор вычисляется как хеш
@@ -106,7 +114,8 @@ mod data_layout {
                 let mask = 2u32.pow(i);
                 let (fg, mg) = (self.dna() & mask, other.dna() & mask);
                 if fg == mg {
-                    // Если биты у родителей совпадают, то с вероятностью 8/10 бит ребенка будет таким же
+                    // Если биты у родителей совпадают, то с вероятностью
+                    // 8/10 бит ребенка будет таким же
                     let mut possible_genes = vec![
                         Weighted {
                             weight: 8,
@@ -122,7 +131,8 @@ mod data_layout {
                     son_dna |= choices.sample(&mut rng);
 
                 } else {
-                    // Если биты различаются, то результирующий бит будет выбираться с вероятностью 1/2.
+                    // Если биты различаются, то результирующий бит будет
+                    // выбираться с вероятностью 1/2.
                     if rng.gen() {
                         son_dna |= mask;
                     }
@@ -138,15 +148,15 @@ mod data_layout {
 /// Модуль с описанием транзакций для демки.
 pub mod transactions {
     use exonum::crypto::{Hash, PublicKey, CryptoHash};
-    use exonum::blockchain::{Transaction, ExecutionResult, Service, Schema};
+    use exonum::blockchain::{Transaction, ExecutionResult, Schema};
     use exonum::storage::Fork;
     use exonum::messages::Message;
 
     use schema;
-    use data_layout::{User, CryptoOwl, CryptoOwlState, Order};
+    use data_layout::{User, CryptoOwlState, Order};
     use exonum_time::TimeSchema;
 
-    use std::time::{SystemTime, Duration};
+    use std::time::SystemTime;
 
     use {CRYPTOOWLS_SERVICE_ID, ISSUE_AMMOUNT, ISSUE_TIMEOUT, BREEDING_TIMEOUT, BREEDING_PRICE};
 
@@ -265,18 +275,11 @@ pub mod transactions {
 
                     //TODO: add renew_breeding_time method
 
-                    let mothers_state =
-                        CryptoOwlState::new(mother, &key, ts);
+                    let mothers_state = CryptoOwlState::new(mother, &key, ts);
 
-                    let fathers_state =
-                        CryptoOwlState::new(father, &key, ts);
+                    let fathers_state = CryptoOwlState::new(father, &key, ts);
 
-                    let user = User::new(
-                        &key,
-                        user.name(),
-                        user.balance() - BREEDING_PRICE,
-                        ts,
-                    );
+                    let user = User::new(&key, user.name(), user.balance() - BREEDING_PRICE, ts);
 
                     schema.owls_state().put(&owl_key, sons_state);
                     schema.owls_state().put(self.mother_id(), mothers_state);
@@ -305,12 +308,7 @@ pub mod transactions {
             let user = schema.users().get(key).unwrap();
 
             if ts.duration_since(user.last_fillup()).unwrap().as_secs() >= ISSUE_TIMEOUT {
-                let user = User::new(
-                    &key,
-                    user.name(),
-                    user.balance() + ISSUE_AMMOUNT,
-                    ts,
-                );
+                let user = User::new(&key, user.name(), user.balance() + ISSUE_AMMOUNT, ts);
                 schema.users().put(&key, user);
             }
 
@@ -327,7 +325,7 @@ pub mod transactions {
             let mut schema = schema::CryptoOwlsSchema::new(fork);
             let key = self.public_key();
             let user = schema.users().get(&key).unwrap();
-            if let Some(owl_state) = schema.owls_state().get(self.owl_id()) {
+            if let Some(_) = schema.owls_state().get(self.owl_id()) {
                 if self.price() <= user.balance() {
                     let order = Order::new(&key, self.owl_id(), "pending", self.price());
                     let order_hash = order.hash();
@@ -397,4 +395,239 @@ pub mod transactions {
 }
 
 /// Модуль с реализацией api
-mod api {}
+mod api {
+    use iron::prelude::*;
+    use iron::Handler;
+    use iron::status::Status;
+    use iron::headers::ContentType;
+    use iron::modifiers::Header;
+
+    use router::Router;
+
+
+    use exonum::api::{Api, ApiError};
+    use exonum::crypto::{Hash, PublicKey};
+    use exonum::encoding::serialize::{FromHex, FromHexError};
+
+    use exonum::node::{TransactionSend, ApiSender};
+    use exonum::blockchain::{Blockchain, Service, Transaction, ApiContext, ExecutionResult,
+                             TransactionSet};
+
+    use schema;
+    use data_layout::{CryptoOwlState, User, Order};
+    use serde_json;
+
+    #[derive(Clone)]
+    struct CryptoOwlsApi {
+        channel: ApiSender,
+        blockchain: Blockchain,
+    }
+
+    impl Api for CryptoOwlsApi {
+        fn wire(&self, router: &mut Router) {
+            let self_ = self.clone();
+            let get_user = move |req: &mut Request| self_.get_user(req);
+
+            let self_ = self.clone();
+            let get_users = move |req: &mut Request| self_.get_users(req);
+
+            let self_ = self.clone();
+            let get_users_orders = move |req: &mut Request| self_.get_users_orders(req);
+
+            let self_ = self.clone();
+            let get_owl = move |req: &mut Request| self_.get_owl(req);
+
+            let self_ = self.clone();
+            let get_owls = move |req: &mut Request| self_.get_owls(req);
+
+            let self_ = self.clone();
+            let get_owls_orders = move |req: &mut Request| self_.get_owls_orders(req);
+
+            let self_ = self.clone();
+            let get_users_owls = move |req: &mut Request| self_.get_users_owls(req);
+
+            // let self_ = self.clone();
+            // let post_order = move |req: &mut Request| self_.post_owl_order(req);
+
+            // let self_ = self.clone();
+            // let post_acceptance = move |req: &mut Request| self_.post_acceptance(req);
+
+            // Bind handlers to specific routes.
+
+            router.get("/v1/users", get_users, "get_users");
+            router.get("/v1/user/:pub_key", get_user, "get_user");
+
+            router.get(
+                "/v1/user/:pub_key/orders",
+                get_users_orders,
+                "get_users_orders",
+            );
+
+            router.get("/v1/user/:pub_key/owls", get_users_owls, "get_users_owls");
+
+            router.get("/v1/owl/:owl_hash", get_owl, "get_owl");
+            router.get("/v1/owls", get_owls, "get_owls");
+
+            router.get(
+                "/v1/owl/:owl_hash/orders",
+                get_owls_orders,
+                "get_owls_orders",
+            );
+
+            // router.post("/v1/order", post_owl_order, "post_owl_order");
+            // router.post("/v1/order/:order_hash", post_acceptance, "post_acceptance");
+        }
+    }
+
+    impl CryptoOwlsApi {
+        // /// Вычленение хэша совы из url
+        fn find_owl_hash(req: &mut Request) -> Result<Hash, FromHexError> {
+            let ref owl_hash = req.extensions
+                .get::<Router>()
+                .unwrap()
+                .find("owl_hash")
+                .unwrap();
+            Hash::from_hex(owl_hash)
+        }
+
+        /// Вычленение публичного ключа из url
+        fn find_pub_key(req: &mut Request) -> Result<PublicKey, FromHexError> {
+            let ref pub_key = req.extensions
+                .get::<Router>()
+                .unwrap()
+                .find("pub_key")
+                .unwrap();
+            PublicKey::from_hex(pub_key)
+        }
+
+        fn bad_request(e: FromHexError, msg: &str) -> IronError {
+            IronError::new(e, (Status::BadRequest, Header(ContentType::json()), msg))
+        }
+
+        /// Информация о пользователе
+        fn get_user(&self, req: &mut Request) -> IronResult<Response> {
+
+            let public_key = CryptoOwlsApi::find_pub_key(req).map_err(|e| {
+                CryptoOwlsApi::bad_request(e, "\"Invalid request param: `pub_key`\"")
+            })?;
+
+            let user = {
+                let snapshot = self.blockchain.snapshot();
+                let schema = schema::CryptoOwlsSchema::new(snapshot);
+                schema.users_proof().get(&public_key)
+            };
+
+            if let Some(user) = user {
+                self.ok_response(&serde_json::to_value(user).unwrap())
+            } else {
+                self.not_found_response(&serde_json::to_value("User not found").unwrap())
+            }
+        }
+
+        /// Полный список пользователей
+        fn get_users(&self, _: &mut Request) -> IronResult<Response> {
+            let snapshot = self.blockchain.snapshot();
+            let schema = schema::CryptoOwlsSchema::new(snapshot);
+            let idx = schema.users_proof();
+            let users: Vec<User> = idx.values().collect();
+
+            self.ok_response(&serde_json::to_value(&users).unwrap())
+
+        }
+
+        /// Информация о cове
+        fn get_owl(&self, req: &mut Request) -> IronResult<Response> {
+            let owl_hash = CryptoOwlsApi::find_owl_hash(req).map_err(|e| {
+                CryptoOwlsApi::bad_request(e, "\"Invalid request param: `owl_hash`\"")
+            })?;
+
+            let owl = {
+                let snapshot = self.blockchain.snapshot();
+                let schema = schema::CryptoOwlsSchema::new(snapshot);
+                schema.owls_state_proof().get(&owl_hash)
+            };
+
+            if let Some(owl) = owl {
+                self.ok_response(&serde_json::to_value(owl).unwrap())
+            } else {
+                self.not_found_response(&serde_json::to_value("Owl not found").unwrap())
+            }
+        }
+
+        /// Полный список сов
+        fn get_owls(&self, _: &mut Request) -> IronResult<Response> {
+            let snapshot = self.blockchain.snapshot();
+            let schema = schema::CryptoOwlsSchema::new(snapshot);
+            let idx = schema.owls_state_proof();
+            let owls: Vec<CryptoOwlState> = idx.values().collect();
+            self.ok_response(&serde_json::to_value(&owls).unwrap())
+        }
+
+
+        /// Cписок сов для пользователя
+        fn get_users_owls(&self, req: &mut Request) -> IronResult<Response> {
+            let users_key = CryptoOwlsApi::find_pub_key(req).map_err(|e| {
+                CryptoOwlsApi::bad_request(e, "\"Invalid request param: `pub_key`\"")
+            })?;
+
+            let snapshot = self.blockchain.snapshot();
+            let schema = schema::CryptoOwlsSchema::new(snapshot);
+
+            if let Some(_) = schema.users_proof().get(&users_key) {
+                let idx = schema.users_owls_view(&users_key);
+
+                // type of iterator is ValueSetIndexIter<'_, Hash> !!!
+                let owls: Vec<CryptoOwlState> = idx.iter()
+                    .map(|h| schema.owls_state_proof().get(&h.1))
+                    .collect::<Option<Vec<CryptoOwlState>>>()
+                    .unwrap();
+                self.ok_response(&serde_json::to_value(&owls).unwrap())
+            } else {
+                self.not_found_response(&serde_json::to_value("User not found").unwrap())
+            }
+        }
+
+
+        /// Информация об ордерах на cову
+        fn get_owls_orders(&self, req: &mut Request) -> IronResult<Response> {
+            let owl_hash = CryptoOwlsApi::find_owl_hash(req).map_err(|e| {
+                CryptoOwlsApi::bad_request(e, "\"Invalid request param: `owl_hash`\"")
+            })?;
+            let snapshot = self.blockchain.snapshot();
+            let schema = schema::CryptoOwlsSchema::new(snapshot);
+
+            if let Some(_) = schema.owls_state_proof().get(&owl_hash) {
+                let idx = schema.owl_orders_view(&owl_hash);
+                let orders: Vec<Order> = idx.iter()
+                    .map(|h| schema.orders_proof_view().get(&h))
+                    .collect::<Option<Vec<Order>>>()
+                    .unwrap();
+                self.ok_response(&serde_json::to_value(&orders).unwrap())
+            } else {
+                self.not_found_response(&serde_json::to_value("Owl not found").unwrap())
+            }
+        }
+
+        /// Информация об ордерах выставленных юзером
+        fn get_users_orders(&self, req: &mut Request) -> IronResult<Response> {
+            let users_key = CryptoOwlsApi::find_pub_key(req).map_err(|e| {
+                CryptoOwlsApi::bad_request(e, "\"Invalid request param: `pub_key`\"")
+            })?;
+
+            let snapshot = self.blockchain.snapshot();
+            let schema = schema::CryptoOwlsSchema::new(snapshot);
+
+            if let Some(_) = schema.users_proof().get(&users_key) {
+                let idx = schema.user_orders_view(&users_key);
+
+                let orders: Vec<Order> = idx.iter()
+                    .map(|h| schema.orders_proof_view().get(&h))
+                    .collect::<Option<Vec<Order>>>()
+                    .unwrap();
+                self.ok_response(&serde_json::to_value(&orders).unwrap())
+            } else {
+                self.not_found_response(&serde_json::to_value("User not found").unwrap())
+            }
+        }
+    }
+}

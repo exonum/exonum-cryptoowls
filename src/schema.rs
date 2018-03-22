@@ -1,4 +1,4 @@
-use super::data_layout::{User, CryptoOwl, CryptoOwlState, Order};
+use super::data_layout::{User, CryptoOwlState, Order};
 use exonum::storage::{Snapshot, Fork, ListIndex, ProofMapIndex, ValueSetIndex};
 use exonum::blockchain::gen_prefix;
 use exonum::crypto::{PublicKey, Hash};
@@ -24,12 +24,12 @@ where
         ProofMapIndex::new("cryptoowls.owls_state", &self.view)
     }
 
-    pub fn users_owls_view(&self, public_key: &PublicKey) -> ValueSetIndex<&T, CryptoOwl> {
-        ValueSetIndex::with_prefix("cryptoowls.users_owls", gen_prefix(public_key), &self.view)
-    }
-
     pub fn orders_proof_view(&self) -> ProofMapIndex<&T, Hash, Order> {
         ProofMapIndex::new("cryptoowls.orders", &self.view)
+    }
+
+    pub fn users_owls_view(&self, public_key: &PublicKey) -> ValueSetIndex<&T, Hash> {
+        ValueSetIndex::with_prefix("cryptoowls.users_owls", gen_prefix(public_key), &self.view)
     }
 
     pub fn user_orders_view(&self, public_key: &PublicKey) -> ListIndex<&T, Hash> {
@@ -50,12 +50,12 @@ impl<'a> CryptoOwlsSchema<&'a mut Fork> {
         ProofMapIndex::new("cryptoowls.owls_state", self.view)
     }
 
-    pub fn users_owls(&mut self, public_key: &PublicKey) -> ValueSetIndex<&mut Fork, Hash> {
-        ValueSetIndex::with_prefix("cryptoowls.users_owls", gen_prefix(public_key), self.view)
-    }
-
     pub fn orders(&mut self) -> ProofMapIndex<&mut Fork, Hash, Order> {
         ProofMapIndex::new("cryptoowls.orders", self.view)
+    }
+
+    pub fn users_owls(&mut self, public_key: &PublicKey) -> ValueSetIndex<&mut Fork, Hash> {
+        ValueSetIndex::with_prefix("cryptoowls.users_owls", gen_prefix(public_key), self.view)
     }
 
     pub fn user_orders(&mut self, public_key: &PublicKey) -> ListIndex<&mut Fork, Hash> {
