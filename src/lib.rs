@@ -58,8 +58,6 @@ mod data_layout {
             owner: &PublicKey,
             /// Время последнего разведения.
             last_breeding: SystemTime,
-            /// merkle_root истории сделок с этой совой
-            orders_history: &Hash,
         }
     }
 
@@ -74,10 +72,6 @@ mod data_layout {
             balance: u64,
             /// Время последнего пополнения баланса
             last_fillup: SystemTime,
-            // merkle_root таблицы с принадлежащими ему совами
-            // owls_root: &Hash,
-            /// merkle_root истории ордеров, которые пользователь разместил
-            orders_root: &Hash,
         }
     }
 
@@ -223,8 +217,7 @@ pub mod transactions {
 
             let mut schema = schema::CryptoOwlsSchema::new(fork);
             if schema.users_proof().get(key).is_none() {
-                let orders_history = schema.user_orders_history(key).root_hash();
-                let user = User::new(&key, self.name(), ISSUE_AMMOUNT, ts, &orders_history);
+                let user = User::new(&key, self.name(), ISSUE_AMMOUNT, ts);
                 schema.users().put(key, user);
             }
             Ok(())
@@ -268,23 +261,21 @@ pub mod transactions {
                     let son = mother.breed(&father, self.name(), &state_hash);
 
                     let owl_key = son.hash();
-                    let orders_history = schema.owl_orders_history(&owl_key).root_hash();
-                    let sons_state = CryptoOwlState::new(son, &key, ts, &orders_history);
+                    let sons_state = CryptoOwlState::new(son, &key, ts);
 
                     //TODO: add renew_breeding_time method
 
                     let mothers_state =
-                        CryptoOwlState::new(mother, &key, ts, &parents[0].orders_history());
+                        CryptoOwlState::new(mother, &key, ts);
 
                     let fathers_state =
-                        CryptoOwlState::new(father, &key, ts, &parents[1].orders_history());
+                        CryptoOwlState::new(father, &key, ts);
 
                     let user = User::new(
                         &key,
                         user.name(),
                         user.balance() - BREEDING_PRICE,
                         ts,
-                        &user.orders_root(),
                     );
 
                     schema.owls_state().put(&owl_key, sons_state);
@@ -319,7 +310,6 @@ pub mod transactions {
                     user.name(),
                     user.balance() + ISSUE_AMMOUNT,
                     ts,
-                    &user.orders_root(),
                 );
                 schema.users().put(&key, user);
             }
@@ -342,24 +332,7 @@ pub mod transactions {
                     let order = Order::new(&key, self.owl_id(), "pending", self.price());
                     let order_hash = order.hash();
                     schema.orders().put(&order.hash(), order);
-                    schema.owl_orders_history(self.owl_id()).push(order_hash);
-                    schema.user_orders_history(&key).push(order_hash);
-
-                    let new_owl_state = CryptoOwlState::new(
-                        owl_state.owl(),
-                        owl_state.owner(),
-                        owl_state.last_breeding(),
-                        &schema.owl_orders_history(self.owl_id()).root_hash(),
-                    );
-                    let new_user = User::new(
-                        &key,
-                        user.name(),
-                        user.balance(),
-                        user.last_fillup(),
-                        &schema.user_orders_history(&key).root_hash(),
-                    );
-                    schema.users().put(&key, new_user);
-                    schema.owls_state().put(self.owl_id(), new_owl_state);
+                    schema.user_orders(&key).push(order_hash);
                 }
             }
 
@@ -389,11 +362,11 @@ pub mod transactions {
                             order.price(),
                         );
                         let owl_state = schema.owls_state().get(order.owl_id()).unwrap();
+
                         let new_owl_state = CryptoOwlState::new(
                             owl_state.owl(),
                             order.public_key(),
                             owl_state.last_breeding(),
-                            owl_state.orders_history(),
                         );
 
 
