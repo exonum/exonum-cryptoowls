@@ -2,6 +2,9 @@
 extern crate exonum;
 extern crate exonum_time;
 
+extern crate byteorder;
+extern crate rand;
+
 mod schema;
 
 /// Некоторый уникальный идентификатор сервиса.
@@ -24,8 +27,16 @@ pub const BREEDING_PRICE: u64 = 42;
 
 /// Модуль со структурами данных, которые хранятся в блокчейне
 mod data_layout {
+
     use std::time::SystemTime;
     use exonum::crypto::{Hash, PublicKey};
+
+    use byteorder::{ReadBytesExt, WriteBytesExt, BigEndian};
+
+    use std::io::Cursor;
+    use rand;
+    use rand::{Rng, IsaacRng, SeedableRng};
+    use rand::distributions::{Range, Weighted, WeightedChoice, Sample};
 
     encoding_struct! {
         /// Интересующая нас криптосова, ее уникальный идентифицатор вычисляется как хеш
@@ -86,8 +97,45 @@ mod data_layout {
 
     impl CryptoOwl {
         pub fn breed(&self, other: &CryptoOwl, name: &str) -> CryptoOwl {
-            // FIXME: real breeding
-            CryptoOwl::new(name, 1u32)
+            // FIXME: use state_hash
+            // let j: &[u8] = "jDFGklnsd;jklsdL".as_ref();
+            // let mut xxx = Cursor::new(j);
+            // for i in 0..4 {
+            //     seed[i] = xxx.read_u32::<BigEndian>().unwrap();
+            // }
+            // let mut rng = IsaacRng::from_seed(&seed);
+
+            let mut rng = rand::thread_rng();
+            let mut son_dna = 0u32;
+
+            for i in 0..32 {
+                let mask = 2u32.pow(i);
+                let (fg, mg) = (self.dna() & mask, other.dna() & mask);
+                if fg == mg {
+                    // Если биты у родителей совпадают, то с вероятностью 8/10 бит ребенка будет таким же
+                    let mut possible_genes = vec![
+                        Weighted {
+                            weight: 8,
+                            item: fg,
+                        },
+                        Weighted {
+                            weight: 2,
+                            item: fg ^ mask,
+                        },
+                    ];
+
+                    let mut choices = WeightedChoice::new(&mut possible_genes);
+                    son_dna |= choices.sample(&mut rng);
+
+                } else {
+                    // Если биты различаются, то результирующий бит будет выбираться с вероятностью 1/2.
+                    if rng.gen() {
+                        son_dna |=  mask;
+                    }
+                }
+            }
+
+            CryptoOwl::new(name, son_dna)
         }
     }
 
@@ -96,7 +144,7 @@ mod data_layout {
 /// Модуль с описанием транзакций для демки.
 pub mod transactions {
     use exonum::crypto::{Hash, PublicKey, CryptoHash};
-    use exonum::blockchain::{Transaction, ExecutionResult};
+    use exonum::blockchain::{Transaction, ExecutionResult, Service};
     use exonum::storage::Fork;
     use exonum::messages::Message;
 
@@ -210,7 +258,9 @@ pub mod transactions {
                     })
                 {
                     let (mother, father) = (parents[0].owl(), parents[1].owl());
+                    // let rnd_seed = schema.state_hash();
                     let son = mother.breed(&father, self.name());
+
                     let owl_key = son.hash();
                     let orders_history = schema.owl_orders_history(&owl_key).root_hash();
                     let sons_state = CryptoOwlState::new(son, &key, ts, &orders_history);
