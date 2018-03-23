@@ -189,6 +189,14 @@ mod schema {
         pub fn owl_orders(&self, owl_id: &Hash) -> ListIndex<&T, Hash> {
             ListIndex::with_prefix("cryptoowls.owl_orders", gen_prefix(owl_id), &self.view)
         }
+
+        pub fn state_hash(&self) -> Vec<Hash> {
+            vec![
+                self.users().root_hash(),
+                self.orders().root_hash(),
+                self.owls_state().root_hash(),
+            ]
+        }
     }
 
     /// Изменяемые близнецы таблиц выше
@@ -808,11 +816,7 @@ pub mod service {
         // Хэши таблиц, которые будут включены в общий стейт хэш
         fn state_hash(&self, snapshot: &Snapshot) -> Vec<Hash> {
             let schema = CryptoOwlsSchema::new(snapshot);
-            vec![
-                schema.users().root_hash(),
-                schema.orders().root_hash(),
-                schema.owls_state().root_hash(),
-            ]
+            schema.state_hash()
         }
 
         // Хэндлер для обработки запросов к ноде
