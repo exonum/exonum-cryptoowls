@@ -22,11 +22,11 @@ pub const CRYPTOOWLS_SERVICE_NAME: &str = "cryptoowls";
 /// Сумма пополнения баланса
 pub const ISSUE_AMMOUNT: u64 = 100;
 
-/// Таймаут, после которого разрешено повторное пополнение баланса.
-pub const ISSUE_TIMEOUT: u64 = 5 * 60;
+/// Таймаут (в секундах), после которого разрешено повторное пополнение баланса.
+pub const ISSUE_TIMEOUT: u64 = 60;
 
-/// Таймаут, после которого разрешено повторное размножение.
-pub const BREEDING_TIMEOUT: u64 = 5 * 60;
+/// Таймаут (в секундах), после которого разрешено повторное размножение.
+pub const BREEDING_TIMEOUT: u64 = 60;
 
 /// Стоимость размножения
 pub const BREEDING_PRICE: u64 = 42;
