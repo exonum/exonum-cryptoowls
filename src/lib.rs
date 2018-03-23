@@ -230,6 +230,55 @@ mod schema {
                     .put(&owl.hash(), CryptoOwlState::new(owl, owner_key, ts));
             }
         }
+
+        pub fn accept_order(&mut self, acceptor_key: &PublicKey, order_id: &Hash) -> Option<Order> {
+            if let Some(order) = self.orders().get(order_id) {
+                let buyer = self.users().get(order.public_key()).unwrap();
+                if order.status() == "pending" {
+                    if buyer.balance() >= order.price()
+                        && self.user_owls(acceptor_key).contains(order.owl_id())
+                    {
+                        let new_order = Order::new(
+                            order.public_key(),
+                            order.owl_id(),
+                            "accepted",
+                            order.price(),
+                        );
+                        self.orders_mut().put(order_id, new_order.clone());
+
+                        // после аксепта выбранного ордера все остальные ордера
+                        // на данную сову становятся недействительными
+                        let order_ids: Vec<Hash> = {
+                            let idx = self.owl_orders(order.owl_id());
+                            let order_ids = idx.iter().collect();
+                            order_ids
+                        };
+
+                        for order_id in order_ids {
+                            self.decline_order(&order_id);
+                        }
+                        return Some(new_order);
+                    }
+                    self.decline_order(order_id);
+                }
+            }
+            None
+        }
+
+        pub fn decline_order(&mut self, order_id: &Hash) {
+            if let Some(order) = self.orders().get(order_id) {
+                if order.status() == "pending" {
+                    let new_order = Order::new(
+                        order.public_key(),
+                        order.owl_id(),
+                        "declined",
+                        order.price(),
+                    );
+
+                    self.orders_mut().put(order_id, new_order);
+                }
+            }
+        }
     }
 }
 
@@ -429,50 +478,22 @@ pub mod transactions {
 
         fn execute(&self, fork: &mut Fork) -> ExecutionResult {
             let mut schema = schema::CryptoOwlsSchema::new(fork);
-            if let Some(order) = schema.orders().get(self.order_id()) {
-                let buyer = schema.users().get(order.public_key()).unwrap();
-                if order.status() == "pending" {
-                    if buyer.balance() >= order.price()
-                        && schema.user_owls(self.public_key()).contains(order.owl_id())
-                    {
-                        let new_order = Order::new(
-                            order.public_key(),
-                            order.owl_id(),
-                            "accepted",
-                            order.price(),
-                        );
-                        let owl_state = schema.owls_state().get(order.owl_id()).unwrap();
+            if let Some(accepted_order) = schema.accept_order(self.public_key(), self.order_id()) {
+                let owl_state = schema.owls_state().get(accepted_order.owl_id()).unwrap();
 
-                        let new_owl_state = CryptoOwlState::new(
-                            owl_state.owl(),
-                            order.public_key(),
-                            owl_state.last_breeding(),
-                        );
+                schema.refresh_owls(
+                    accepted_order.public_key(),
+                    vec![owl_state.owl()],
+                    owl_state.last_breeding(),
+                );
 
-                        schema
-                            .user_owls_mut(self.public_key())
-                            .remove(order.owl_id());
-                        schema
-                            .user_owls_mut(order.public_key())
-                            .insert(*order.owl_id());
-
-                        schema.orders_mut().put(&order.hash(), new_order);
-                        schema.owls_state_mut().put(order.owl_id(), new_owl_state);
-                    } else {
-                        let new_order = Order::new(
-                            order.public_key(),
-                            order.owl_id(),
-                            "declined",
-                            order.price(),
-                        );
-                        schema.orders_mut().put(&order.hash(), new_order);
-                    }
-                }
+                schema
+                    .user_owls_mut(self.public_key())
+                    .remove(accepted_order.owl_id());
             }
             Ok(())
         }
     }
-
 }
 
 /// Модуль с реализацией api
