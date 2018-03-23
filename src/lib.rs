@@ -146,12 +146,13 @@ mod data_layout {
 
 // схема данных для базы
 mod schema {
-    use data_layout::{CryptoOwlState, Order, User};
+    use data_layout::{CryptoOwl, CryptoOwlState, Order, User};
     use exonum::storage::{Fork, ListIndex, ProofMapIndex, Snapshot, ValueSetIndex};
     use exonum::blockchain::gen_prefix;
-    use exonum::crypto::{Hash, PublicKey};
+    use exonum::crypto::{CryptoHash, Hash, PublicKey};
 
-    /// Schema of the key-value storage used by the cryptoowls service.
+    use std::time::SystemTime;
+
     pub struct CryptoOwlsSchema<T> {
         view: T,
     }
@@ -215,6 +216,20 @@ mod schema {
         pub fn owl_orders_mut(&mut self, owl_id: &Hash) -> ListIndex<&mut Fork, Hash> {
             ListIndex::with_prefix("cryptoowls.owl_orders", gen_prefix(owl_id), self.view)
         }
+
+        // Хэлпер для обновления состояния сов после размножения или создания
+        pub fn refresh_owls(
+            &mut self,
+            owner_key: &PublicKey,
+            owls: Vec<CryptoOwl>,
+            ts: SystemTime,
+        ) {
+            for owl in owls {
+                self.user_owls_mut(owner_key).insert(owl.hash());
+                self.owls_state_mut()
+                    .put(&owl.hash(), CryptoOwlState::new(owl, owner_key, ts));
+            }
+        }
     }
 }
 
@@ -226,7 +241,7 @@ pub mod transactions {
     use exonum::messages::Message;
 
     use schema;
-    use data_layout::{CryptoOwlState, Order, User};
+    use data_layout::{CryptoOwl, CryptoOwlState, Order, User};
     use exonum_time::TimeSchema;
 
     use std::time::SystemTime;
@@ -297,11 +312,19 @@ pub mod transactions {
             };
 
             let key = self.public_key();
-
             let mut schema = schema::CryptoOwlsSchema::new(fork);
+
+            // Если пользователь с таким ключём уже существует - игнорируем.
             if schema.users().get(key).is_none() {
                 let user = User::new(&key, self.name(), ISSUE_AMMOUNT, ts);
                 schema.users_mut().put(key, user);
+
+                // Новый пользователь получает `в подарок` 2 примитивных совы с геномом 0u32.
+                let starter_pack = vec![
+                    CryptoOwl::new(&format!("Adam ({})", key.to_hex()), 0u32),
+                    CryptoOwl::new(&format!("Eve ({})", key.to_hex()), 0u32),
+                ];
+                schema.refresh_owls(key, starter_pack, ts);
             }
             Ok(())
         }
@@ -340,20 +363,10 @@ pub mod transactions {
 
                     let son = mother.breed(&father, self.name(), &state_hash);
 
-                    let owl_key = son.hash();
-                    let sons_state = CryptoOwlState::new(son, &key, ts);
-
-                    //TODO: add renew_breeding_time method
-
-                    let mothers_state = CryptoOwlState::new(mother, &key, ts);
-
-                    let fathers_state = CryptoOwlState::new(father, &key, ts);
+                    let owls_to_update = vec![son, mother, father];
+                    schema.refresh_owls(&key, owls_to_update, ts);
 
                     let user = User::new(&key, user.name(), user.balance() - BREEDING_PRICE, ts);
-
-                    schema.owls_state_mut().put(&owl_key, sons_state);
-                    schema.owls_state_mut().put(self.mother_id(), mothers_state);
-                    schema.owls_state_mut().put(self.father_id(), fathers_state);
                     schema.users_mut().put(&key, user);
                 }
             }
@@ -420,9 +433,7 @@ pub mod transactions {
                 let buyer = schema.users().get(order.public_key()).unwrap();
                 if order.status() == "pending" {
                     if buyer.balance() >= order.price()
-                        && schema
-                            .user_owls(self.public_key())
-                            .contains(order.owl_id())
+                        && schema.user_owls(self.public_key()).contains(order.owl_id())
                     {
                         let new_order = Order::new(
                             order.public_key(),
@@ -652,7 +663,6 @@ mod api {
 
             if schema.users().get(&users_key).is_some() {
                 let idx = schema.user_owls(&users_key);
-
                 // type of iterator is ValueSetIndexIter<'_, Hash> !!!
                 let owls: Vec<CryptoOwlState> = idx.iter()
                     .map(|h| schema.owls_state().get(&h.1))
