@@ -12,21 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-extern crate bodyparser;
 #[macro_use]
 extern crate exonum;
-extern crate exonum_time;
-extern crate iron;
-
-extern crate router;
-
-extern crate serde;
-
 #[macro_use]
 extern crate serde_json;
 
+extern crate bodyparser;
 extern crate byteorder;
+extern crate exonum_time;
+extern crate iron;
 extern crate rand;
+extern crate router;
+extern crate serde;
 
 /// Некоторый уникальный идентификатор сервиса.
 pub const CRYPTOOWLS_SERVICE_ID: u16 = 521;
