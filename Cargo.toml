@@ -12,6 +12,7 @@ publish = false
 display_derive = "0.0.0"
 exonum = "0.6.0"
 exonum-time = "0.6.0"
+exonum-configuration = "0.6.0"
 failure = "0.1.1"
 failure_derive = "0.1.1"
 iron = "0.6.0"

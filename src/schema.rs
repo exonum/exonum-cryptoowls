@@ -24,7 +24,7 @@ where
         ProofMapIndex::new("cryptoowls.owls_state", &self.view)
     }
 
-    pub fn orders_proof_view(&self) -> ProofMapIndex<&T, Hash, Order> {
+    pub fn orders_proof(&self) -> ProofMapIndex<&T, Hash, Order> {
         ProofMapIndex::new("cryptoowls.orders", &self.view)
     }
 

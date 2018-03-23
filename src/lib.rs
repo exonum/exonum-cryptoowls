@@ -415,9 +415,9 @@ mod api {
     use transactions::{AcceptOrder, CreateOrder, CreateUser, Issue};
 
     #[derive(Clone)]
-    struct CryptoOwlsApi {
-        channel: ApiSender,
-        blockchain: Blockchain,
+    pub struct CryptoOwlsApi {
+        pub channel: ApiSender,
+        pub blockchain: Blockchain,
     }
 
     impl Api for CryptoOwlsApi {
@@ -456,8 +456,7 @@ mod api {
             let post_acceptance =
                 move |req: &mut Request| self_.post_transaction::<AcceptOrder>(req);
 
-            // Bind handlers to specific routes.
-
+            // View-only хэндлеры
             router.get("/v1/users", get_users, "get_users");
             router.get("/v1/user/:pub_key", get_user, "get_user");
 
@@ -478,10 +477,11 @@ mod api {
                 "get_owls_orders",
             );
 
-            router.post("/v1/user", post_user, "post_user");
-            router.post("/v1/order", post_order, "post_order");
-            router.post("/v1/accept_order", post_acceptance, "post_acceptance");
-            router.post("/v1/issue", post_issue, "post_issue");
+            // Транзакции.
+            router.post("/v1/users", post_user, "post_user");
+            router.post("/v1/users/issue", post_issue, "post_issue");
+            router.post("/v1/orders", post_order, "post_order");
+            router.post("/v1/orders/accept", post_acceptance, "post_acceptance");
         }
     }
 
@@ -601,7 +601,7 @@ mod api {
             if let Some(_) = schema.owls_state_proof().get(&owl_hash) {
                 let idx = schema.owl_orders_view(&owl_hash);
                 let orders: Vec<Order> = idx.iter()
-                    .map(|h| schema.orders_proof_view().get(&h))
+                    .map(|h| schema.orders_proof().get(&h))
                     .collect::<Option<Vec<Order>>>()
                     .unwrap();
                 self.ok_response(&serde_json::to_value(&orders).unwrap())
@@ -623,7 +623,7 @@ mod api {
                 let idx = schema.user_orders_view(&users_key);
 
                 let orders: Vec<Order> = idx.iter()
-                    .map(|h| schema.orders_proof_view().get(&h))
+                    .map(|h| schema.orders_proof().get(&h))
                     .collect::<Option<Vec<Order>>>()
                     .unwrap();
                 self.ok_response(&serde_json::to_value(&orders).unwrap())
@@ -649,4 +649,80 @@ mod api {
             }
         }
     }
+}
+
+pub mod service {
+    use iron::Handler;
+    use router::Router;
+
+    use exonum::api::Api;
+    use exonum::crypto::Hash;
+    use exonum::encoding;
+    use exonum::storage::Snapshot;
+    use exonum::blockchain::{ApiContext, Service, Transaction, TransactionSet};
+    use exonum::helpers::fabric::{Context, ServiceFactory};
+    use exonum::messages::RawTransaction;
+
+    use api::CryptoOwlsApi;
+    use schema::CryptoOwlsSchema;
+    use transactions::Transactions;
+
+    use CRYPTOOWLS_SERVICE_ID;
+
+    pub struct CryptoOwlsService;
+
+    impl CryptoOwlsService {
+        pub fn new() -> Self {
+            CryptoOwlsService {}
+        }
+    }
+
+    impl ServiceFactory for CryptoOwlsService {
+        fn make_service(&mut self, _: &Context) -> Box<Service> {
+            Box::new(CryptoOwlsService::new())
+        }
+    }
+
+    impl Service for CryptoOwlsService {
+        fn service_name(&self) -> &'static str {
+            "cryptoowls"
+        }
+
+        fn service_id(&self) -> u16 {
+            CRYPTOOWLS_SERVICE_ID
+        }
+
+        // Метод десериализации для транзакций
+        fn tx_from_raw(&self, raw: RawTransaction) -> Result<Box<Transaction>, encoding::Error> {
+            let tx = Transactions::tx_from_raw(raw)?;
+            Ok(tx.into())
+        }
+
+        // Hashes for the service tables that will be included into the state hash.
+        // To simplify things, we don't have [Merkelized tables][merkle] in the service storage
+        // for now, so we return an empty vector.
+        //
+
+        // Хэши таблиц, которые будут включены в общий стейт хэш
+        fn state_hash(&self, snapshot: &Snapshot) -> Vec<Hash> {
+            let schema = CryptoOwlsSchema::new(snapshot);
+            vec![
+                schema.users_proof().root_hash(),
+                schema.orders_proof().root_hash(),
+                schema.owls_state_proof().root_hash(),
+            ]
+        }
+
+        // Хэндлер для обработки запросов к ноде
+        fn public_api_handler(&self, ctx: &ApiContext) -> Option<Box<Handler>> {
+            let mut router = Router::new();
+            let api = CryptoOwlsApi {
+                channel: ctx.node_channel().clone(),
+                blockchain: ctx.blockchain().clone(),
+            };
+            api.wire(&mut router);
+            Some(Box::new(router))
+        }
+    }
+
 }
