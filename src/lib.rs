@@ -156,6 +156,7 @@ mod schema {
         view: T,
     }
 
+    /// Read-only таблицы
     impl<T> CryptoOwlsSchema<T>
     where
         T: AsRef<Snapshot>,
@@ -163,58 +164,60 @@ mod schema {
         pub fn new(view: T) -> Self {
             CryptoOwlsSchema { view }
         }
-
-        pub fn users_proof(&self) -> ProofMapIndex<&T, PublicKey, User> {
+        /// Таблица для хранения пользователей
+        pub fn users(&self) -> ProofMapIndex<&T, PublicKey, User> {
             ProofMapIndex::new("cryptoowls.users", &self.view)
         }
-
-        pub fn owls_state_proof(&self) -> ProofMapIndex<&T, Hash, CryptoOwlState> {
+        /// Таблица для хранения сов и их стейта (см. data_layout::CryptoOwlState)
+        pub fn owls_state(&self) -> ProofMapIndex<&T, Hash, CryptoOwlState> {
             ProofMapIndex::new("cryptoowls.owls_state", &self.view)
         }
-
-        pub fn orders_proof(&self) -> ProofMapIndex<&T, Hash, Order> {
+        /// Таблица для хранения ордеров на покупку совы
+        pub fn orders(&self) -> ProofMapIndex<&T, Hash, Order> {
             ProofMapIndex::new("cryptoowls.orders", &self.view)
         }
-
-        pub fn users_owls_view(&self, public_key: &PublicKey) -> ValueSetIndex<&T, Hash> {
-            ValueSetIndex::with_prefix("cryptoowls.users_owls", gen_prefix(public_key), &self.view)
+        /// Вспомогательная таблица для связывания пользователя и принадлежащих ему сов
+        pub fn user_owls(&self, public_key: &PublicKey) -> ValueSetIndex<&T, Hash> {
+            ValueSetIndex::with_prefix("cryptoowls.user_owls", gen_prefix(public_key), &self.view)
         }
-
-        pub fn user_orders_view(&self, public_key: &PublicKey) -> ListIndex<&T, Hash> {
+        /// Вспомогательная таблица для связывания пользователя и выставленных им ордеров на покупку
+        pub fn user_orders(&self, public_key: &PublicKey) -> ListIndex<&T, Hash> {
             ListIndex::with_prefix("cryptoowls.user_orders", gen_prefix(public_key), &self.view)
         }
-
-        pub fn owl_orders_view(&self, owl_id: &Hash) -> ListIndex<&T, Hash> {
+        /// Вспомогательная таблица для связывания совы и выставленных ордеров на её покупку
+        pub fn owl_orders(&self, owl_id: &Hash) -> ListIndex<&T, Hash> {
             ListIndex::with_prefix("cryptoowls.owl_orders", gen_prefix(owl_id), &self.view)
         }
     }
 
+    /// Изменяемые близнецы таблиц выше
     impl<'a> CryptoOwlsSchema<&'a mut Fork> {
-        pub fn users(&mut self) -> ProofMapIndex<&mut Fork, PublicKey, User> {
+        pub fn users_mut(&mut self) -> ProofMapIndex<&mut Fork, PublicKey, User> {
             ProofMapIndex::new("cryptoowls.users", self.view)
         }
 
-        pub fn owls_state(&mut self) -> ProofMapIndex<&mut Fork, Hash, CryptoOwlState> {
+        pub fn owls_state_mut(&mut self) -> ProofMapIndex<&mut Fork, Hash, CryptoOwlState> {
             ProofMapIndex::new("cryptoowls.owls_state", self.view)
         }
 
-        pub fn orders(&mut self) -> ProofMapIndex<&mut Fork, Hash, Order> {
+        pub fn orders_mut(&mut self) -> ProofMapIndex<&mut Fork, Hash, Order> {
             ProofMapIndex::new("cryptoowls.orders", self.view)
         }
 
-        pub fn users_owls(&mut self, public_key: &PublicKey) -> ValueSetIndex<&mut Fork, Hash> {
-            ValueSetIndex::with_prefix("cryptoowls.users_owls", gen_prefix(public_key), self.view)
+        pub fn user_owls_mut(&mut self, public_key: &PublicKey) -> ValueSetIndex<&mut Fork, Hash> {
+            ValueSetIndex::with_prefix("cryptoowls.user_owls", gen_prefix(public_key), self.view)
         }
 
-        pub fn user_orders(&mut self, public_key: &PublicKey) -> ListIndex<&mut Fork, Hash> {
+        pub fn user_orders_mut(&mut self, public_key: &PublicKey) -> ListIndex<&mut Fork, Hash> {
             ListIndex::with_prefix("cryptoowls.user_orders", gen_prefix(public_key), self.view)
         }
 
-        pub fn owl_orders(&mut self, owl_id: &Hash) -> ListIndex<&mut Fork, Hash> {
+        pub fn owl_orders_mut(&mut self, owl_id: &Hash) -> ListIndex<&mut Fork, Hash> {
             ListIndex::with_prefix("cryptoowls.owl_orders", gen_prefix(owl_id), self.view)
         }
     }
 }
+
 /// Модуль с описанием транзакций для демки.
 pub mod transactions {
     use exonum::crypto::{CryptoHash, Hash, PublicKey};
@@ -296,9 +299,9 @@ pub mod transactions {
             let key = self.public_key();
 
             let mut schema = schema::CryptoOwlsSchema::new(fork);
-            if schema.users_proof().get(key).is_none() {
+            if schema.users().get(key).is_none() {
                 let user = User::new(&key, self.name(), ISSUE_AMMOUNT, ts);
-                schema.users().put(key, user);
+                schema.users_mut().put(key, user);
             }
             Ok(())
         }
@@ -348,10 +351,10 @@ pub mod transactions {
 
                     let user = User::new(&key, user.name(), user.balance() - BREEDING_PRICE, ts);
 
-                    schema.owls_state().put(&owl_key, sons_state);
-                    schema.owls_state().put(self.mother_id(), mothers_state);
-                    schema.owls_state().put(self.father_id(), fathers_state);
-                    schema.users().put(&key, user);
+                    schema.owls_state_mut().put(&owl_key, sons_state);
+                    schema.owls_state_mut().put(self.mother_id(), mothers_state);
+                    schema.owls_state_mut().put(self.father_id(), fathers_state);
+                    schema.users_mut().put(&key, user);
                 }
             }
 
@@ -376,7 +379,7 @@ pub mod transactions {
 
             if ts.duration_since(user.last_fillup()).unwrap().as_secs() >= ISSUE_TIMEOUT {
                 let user = User::new(&key, user.name(), user.balance() + ISSUE_AMMOUNT, ts);
-                schema.users().put(&key, user);
+                schema.users_mut().put(&key, user);
             }
 
             Ok(())
@@ -392,13 +395,13 @@ pub mod transactions {
             let mut schema = schema::CryptoOwlsSchema::new(fork);
             let key = self.public_key();
             let user = schema.users().get(&key).unwrap();
-            if let Some(_) = schema.owls_state().get(self.owl_id()) {
+            if schema.owls_state().get(self.owl_id()).is_some() {
                 if self.price() <= user.balance() {
                     let order = Order::new(&key, self.owl_id(), "pending", self.price());
                     let order_hash = order.hash();
-                    schema.orders().put(&order.hash(), order);
-                    schema.user_orders(&key).push(order_hash);
-                    schema.owl_orders(&self.owl_id()).push(order_hash);
+                    schema.orders_mut().put(&order.hash(), order);
+                    schema.user_orders_mut(&key).push(order_hash);
+                    schema.owl_orders_mut(&self.owl_id()).push(order_hash);
                 }
             }
 
@@ -418,7 +421,7 @@ pub mod transactions {
                 if order.status() == "pending" {
                     if buyer.balance() >= order.price()
                         && schema
-                            .users_owls(self.public_key())
+                            .user_owls(self.public_key())
                             .contains(order.owl_id())
                     {
                         let new_order = Order::new(
@@ -435,13 +438,15 @@ pub mod transactions {
                             owl_state.last_breeding(),
                         );
 
-                        schema.users_owls(self.public_key()).remove(order.owl_id());
                         schema
-                            .users_owls(order.public_key())
+                            .user_owls_mut(self.public_key())
+                            .remove(order.owl_id());
+                        schema
+                            .user_owls_mut(order.public_key())
                             .insert(*order.owl_id());
 
-                        schema.orders().put(&order.hash(), new_order);
-                        schema.owls_state().put(order.owl_id(), new_owl_state);
+                        schema.orders_mut().put(&order.hash(), new_order);
+                        schema.owls_state_mut().put(order.owl_id(), new_owl_state);
                     } else {
                         let new_order = Order::new(
                             order.public_key(),
@@ -449,7 +454,7 @@ pub mod transactions {
                             "declined",
                             order.price(),
                         );
-                        schema.orders().put(&order.hash(), new_order);
+                        schema.orders_mut().put(&order.hash(), new_order);
                     }
                 }
             }
@@ -510,7 +515,7 @@ mod api {
             let get_owls_orders = move |req: &mut Request| self_.get_owls_orders(req);
 
             let self_ = self.clone();
-            let get_users_owls = move |req: &mut Request| self_.get_users_owls(req);
+            let get_user_owls = move |req: &mut Request| self_.get_user_owls(req);
 
             let self_ = self.clone();
             let post_user = move |req: &mut Request| self_.post_transaction::<CreateUser>(req);
@@ -535,7 +540,7 @@ mod api {
                 "get_users_orders",
             );
 
-            router.get("/v1/user/:pub_key/owls", get_users_owls, "get_users_owls");
+            router.get("/v1/user/:pub_key/owls", get_user_owls, "get_user_owls");
 
             router.get("/v1/owl/:owl_hash", get_owl, "get_owl");
             router.get("/v1/owls", get_owls, "get_owls");
@@ -588,7 +593,7 @@ mod api {
             let user = {
                 let snapshot = self.blockchain.snapshot();
                 let schema = schema::CryptoOwlsSchema::new(snapshot);
-                schema.users_proof().get(&public_key)
+                schema.users().get(&public_key)
             };
 
             if let Some(user) = user {
@@ -602,7 +607,7 @@ mod api {
         fn get_users(&self, _: &mut Request) -> IronResult<Response> {
             let snapshot = self.blockchain.snapshot();
             let schema = schema::CryptoOwlsSchema::new(snapshot);
-            let idx = schema.users_proof();
+            let idx = schema.users();
             let users: Vec<User> = idx.values().collect();
 
             self.ok_response(&serde_json::to_value(&users).unwrap())
@@ -617,7 +622,7 @@ mod api {
             let owl = {
                 let snapshot = self.blockchain.snapshot();
                 let schema = schema::CryptoOwlsSchema::new(snapshot);
-                schema.owls_state_proof().get(&owl_hash)
+                schema.owls_state().get(&owl_hash)
             };
 
             if let Some(owl) = owl {
@@ -631,13 +636,13 @@ mod api {
         fn get_owls(&self, _: &mut Request) -> IronResult<Response> {
             let snapshot = self.blockchain.snapshot();
             let schema = schema::CryptoOwlsSchema::new(snapshot);
-            let idx = schema.owls_state_proof();
+            let idx = schema.owls_state();
             let owls: Vec<CryptoOwlState> = idx.values().collect();
             self.ok_response(&serde_json::to_value(&owls).unwrap())
         }
 
         /// Cписок сов для пользователя
-        fn get_users_owls(&self, req: &mut Request) -> IronResult<Response> {
+        fn get_user_owls(&self, req: &mut Request) -> IronResult<Response> {
             let users_key = CryptoOwlsApi::find_pub_key(req).map_err(|e| {
                 CryptoOwlsApi::bad_request(e, "\"Invalid request param: `pub_key`\"")
             })?;
@@ -645,12 +650,12 @@ mod api {
             let snapshot = self.blockchain.snapshot();
             let schema = schema::CryptoOwlsSchema::new(snapshot);
 
-            if let Some(_) = schema.users_proof().get(&users_key) {
-                let idx = schema.users_owls_view(&users_key);
+            if schema.users().get(&users_key).is_some() {
+                let idx = schema.user_owls(&users_key);
 
                 // type of iterator is ValueSetIndexIter<'_, Hash> !!!
                 let owls: Vec<CryptoOwlState> = idx.iter()
-                    .map(|h| schema.owls_state_proof().get(&h.1))
+                    .map(|h| schema.owls_state().get(&h.1))
                     .collect::<Option<Vec<CryptoOwlState>>>()
                     .unwrap();
                 self.ok_response(&serde_json::to_value(&owls).unwrap())
@@ -667,10 +672,10 @@ mod api {
             let snapshot = self.blockchain.snapshot();
             let schema = schema::CryptoOwlsSchema::new(snapshot);
 
-            if let Some(_) = schema.owls_state_proof().get(&owl_hash) {
-                let idx = schema.owl_orders_view(&owl_hash);
+            if schema.owls_state().get(&owl_hash).is_some() {
+                let idx = schema.owl_orders(&owl_hash);
                 let orders: Vec<Order> = idx.iter()
-                    .map(|h| schema.orders_proof().get(&h))
+                    .map(|h| schema.orders().get(&h))
                     .collect::<Option<Vec<Order>>>()
                     .unwrap();
                 self.ok_response(&serde_json::to_value(&orders).unwrap())
@@ -688,11 +693,11 @@ mod api {
             let snapshot = self.blockchain.snapshot();
             let schema = schema::CryptoOwlsSchema::new(snapshot);
 
-            if let Some(_) = schema.users_proof().get(&users_key) {
-                let idx = schema.user_orders_view(&users_key);
+            if schema.users().get(&users_key).is_some() {
+                let idx = schema.user_orders(&users_key);
 
                 let orders: Vec<Order> = idx.iter()
-                    .map(|h| schema.orders_proof().get(&h))
+                    .map(|h| schema.orders().get(&h))
                     .collect::<Option<Vec<Order>>>()
                     .unwrap();
                 self.ok_response(&serde_json::to_value(&orders).unwrap())
@@ -769,18 +774,13 @@ pub mod service {
             Ok(tx.into())
         }
 
-        // Hashes for the service tables that will be included into the state hash.
-        // To simplify things, we don't have [Merkelized tables][merkle] in the service storage
-        // for now, so we return an empty vector.
-        //
-
         // Хэши таблиц, которые будут включены в общий стейт хэш
         fn state_hash(&self, snapshot: &Snapshot) -> Vec<Hash> {
             let schema = CryptoOwlsSchema::new(snapshot);
             vec![
-                schema.users_proof().root_hash(),
-                schema.orders_proof().root_hash(),
-                schema.owls_state_proof().root_hash(),
+                schema.users().root_hash(),
+                schema.orders().root_hash(),
+                schema.owls_state().root_hash(),
             ]
         }
 
