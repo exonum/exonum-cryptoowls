@@ -537,25 +537,81 @@ mod api {
     impl Api for CryptoOwlsApi {
         fn wire(&self, router: &mut Router) {
             let self_ = self.clone();
-            let get_user = move |req: &mut Request| self_.get_user(req);
+            let get_user = move |req: &mut Request| {
+                let public_key = CryptoOwlsApi::find_pub_key(req).map_err(|e| {
+                    CryptoOwlsApi::bad_request(e, "\"Invalid request param: `pub_key`\"")
+                })?;
+
+                if let Some(user) = self_.get_user(&public_key) {
+                    self_.ok_response(&serde_json::to_value(user).unwrap())
+                } else {
+                    self_.not_found_response(&serde_json::to_value("User not found").unwrap())
+                }
+            };
 
             let self_ = self.clone();
-            let get_users = move |req: &mut Request| self_.get_users(req);
+            let get_users = move |_: &mut Request| {
+                let users = self_.get_users();
+                self_.ok_response(&serde_json::to_value(&users).unwrap())
+            };
 
             let self_ = self.clone();
-            let get_users_orders = move |req: &mut Request| self_.get_users_orders(req);
+            let get_users_orders = move |req: &mut Request| {
+                let users_key = CryptoOwlsApi::find_pub_key(req).map_err(|e| {
+                    CryptoOwlsApi::bad_request(e, "\"Invalid request param: `pub_key`\"")
+                })?;
+
+                if let Some(orders) = self_.get_users_orders(&users_key) {
+                    self_.ok_response(&serde_json::to_value(orders).unwrap())
+                } else {
+                    self_.not_found_response(&serde_json::to_value("User not found").unwrap())
+                }
+            };
 
             let self_ = self.clone();
-            let get_owl = move |req: &mut Request| self_.get_owl(req);
+            let get_owl = move |req: &mut Request| {
+                let owl_hash = CryptoOwlsApi::find_owl_hash(req).map_err(|e| {
+                    CryptoOwlsApi::bad_request(e, "\"Invalid request param: `owl_hash`\"")
+                })?;
+
+                if let Some(owl) = self_.get_owl(&owl_hash) {
+                    self_.ok_response(&serde_json::to_value(owl).unwrap())
+                } else {
+                    self_.not_found_response(&serde_json::to_value("Owl not found").unwrap())
+                }
+            };
 
             let self_ = self.clone();
-            let get_owls = move |req: &mut Request| self_.get_owls(req);
+            let get_owls = move |_: &mut Request| {
+                let owls = self_.get_owls();
+                self_.ok_response(&serde_json::to_value(&owls).unwrap())
+            };
 
             let self_ = self.clone();
-            let get_owls_orders = move |req: &mut Request| self_.get_owls_orders(req);
+            let get_owls_orders = move |req: &mut Request| {
+                let owl_hash = CryptoOwlsApi::find_owl_hash(req).map_err(|e| {
+                    CryptoOwlsApi::bad_request(e, "\"Invalid request param: `owl_hash`\"")
+                })?;
+
+                if let Some(orders) = self_.get_owls_orders(&owl_hash) {
+                    self_.ok_response(&serde_json::to_value(orders).unwrap())
+                } else {
+                    self_.not_found_response(&serde_json::to_value("Owl not found").unwrap())
+                }
+            };
 
             let self_ = self.clone();
-            let get_user_owls = move |req: &mut Request| self_.get_user_owls(req);
+            let get_user_owls = move |req: &mut Request| {
+                let users_key = CryptoOwlsApi::find_pub_key(req).map_err(|e| {
+                    CryptoOwlsApi::bad_request(e, "\"Invalid request param: `pub_key`\"")
+                })?;
+
+                if let Some(orders) = self_.get_user_owls(&users_key) {
+                    self_.ok_response(&serde_json::to_value(orders).unwrap())
+                } else {
+                    self_.not_found_response(&serde_json::to_value("User not found").unwrap())
+                }
+            };
 
             let self_ = self.clone();
             let post_user = move |req: &mut Request| self_.post_transaction::<CreateUser>(req);
@@ -607,6 +663,10 @@ mod api {
                 .unwrap()
                 .find("owl_hash")
                 .unwrap();
+            // .ok_or_else(|| {
+            //     ApiError::BadRequest(format!("Required parameter '{}' is missing", "BOOM"))
+            // })?;
+
             Hash::from_hex(owl_hash)
         }
 
@@ -625,124 +685,81 @@ mod api {
         }
 
         /// Информация о пользователе
-        fn get_user(&self, req: &mut Request) -> IronResult<Response> {
-            let public_key = CryptoOwlsApi::find_pub_key(req).map_err(|e| {
-                CryptoOwlsApi::bad_request(e, "\"Invalid request param: `pub_key`\"")
-            })?;
-
-            let user = {
-                let snapshot = self.blockchain.snapshot();
-                let schema = schema::CryptoOwlsSchema::new(snapshot);
-                schema.users().get(&public_key)
-            };
-
-            if let Some(user) = user {
-                self.ok_response(&serde_json::to_value(user).unwrap())
-            } else {
-                self.not_found_response(&serde_json::to_value("User not found").unwrap())
-            }
+        fn get_user(&self, public_key: &PublicKey) -> Option<User> {
+            let snapshot = self.blockchain.snapshot();
+            let schema = schema::CryptoOwlsSchema::new(snapshot);
+            schema.users().get(public_key)
         }
 
         /// Полный список пользователей
-        fn get_users(&self, _: &mut Request) -> IronResult<Response> {
+        fn get_users(&self) -> Vec<User> {
             let snapshot = self.blockchain.snapshot();
             let schema = schema::CryptoOwlsSchema::new(snapshot);
             let idx = schema.users();
             let users: Vec<User> = idx.values().collect();
-
-            self.ok_response(&serde_json::to_value(&users).unwrap())
+            users
         }
 
         /// Информация о cове
-        fn get_owl(&self, req: &mut Request) -> IronResult<Response> {
-            let owl_hash = CryptoOwlsApi::find_owl_hash(req).map_err(|e| {
-                CryptoOwlsApi::bad_request(e, "\"Invalid request param: `owl_hash`\"")
-            })?;
-
-            let owl = {
-                let snapshot = self.blockchain.snapshot();
-                let schema = schema::CryptoOwlsSchema::new(snapshot);
-                schema.owls_state().get(&owl_hash)
-            };
-
-            if let Some(owl) = owl {
-                self.ok_response(&serde_json::to_value(owl).unwrap())
-            } else {
-                self.not_found_response(&serde_json::to_value("Owl not found").unwrap())
-            }
+        fn get_owl(&self, owl_id: &Hash) -> Option<CryptoOwlState> {
+            let snapshot = self.blockchain.snapshot();
+            let schema = schema::CryptoOwlsSchema::new(snapshot);
+            schema.owls_state().get(&owl_id)
         }
 
         /// Полный список сов
-        fn get_owls(&self, _: &mut Request) -> IronResult<Response> {
+        fn get_owls(&self) -> Vec<CryptoOwlState> {
             let snapshot = self.blockchain.snapshot();
             let schema = schema::CryptoOwlsSchema::new(snapshot);
             let idx = schema.owls_state();
             let owls: Vec<CryptoOwlState> = idx.values().collect();
-            self.ok_response(&serde_json::to_value(&owls).unwrap())
+            owls
         }
 
         /// Cписок сов для пользователя
-        fn get_user_owls(&self, req: &mut Request) -> IronResult<Response> {
-            let users_key = CryptoOwlsApi::find_pub_key(req).map_err(|e| {
-                CryptoOwlsApi::bad_request(e, "\"Invalid request param: `pub_key`\"")
-            })?;
-
+        fn get_user_owls(&self, public_key: &PublicKey) -> Option<Vec<CryptoOwlState>> {
             let snapshot = self.blockchain.snapshot();
             let schema = schema::CryptoOwlsSchema::new(snapshot);
 
-            if schema.users().get(&users_key).is_some() {
-                let idx = schema.user_owls(&users_key);
+            schema.users().get(&public_key).and({
+                let idx = schema.user_owls(&public_key);
                 // type of iterator is ValueSetIndexIter<'_, Hash> !!!
-                let owls: Vec<CryptoOwlState> = idx.iter()
+                let owls = idx.iter()
                     .map(|h| schema.owls_state().get(&h.1))
                     .collect::<Option<Vec<CryptoOwlState>>>()
-                    .unwrap();
-                self.ok_response(&serde_json::to_value(&owls).unwrap())
-            } else {
-                self.not_found_response(&serde_json::to_value("User not found").unwrap())
-            }
+                    .or(Some(vec![]));
+                owls
+            })
         }
 
         /// Информация об ордерах на cову
-        fn get_owls_orders(&self, req: &mut Request) -> IronResult<Response> {
-            let owl_hash = CryptoOwlsApi::find_owl_hash(req).map_err(|e| {
-                CryptoOwlsApi::bad_request(e, "\"Invalid request param: `owl_hash`\"")
-            })?;
+        fn get_owls_orders(&self, owl_id: &Hash) -> Option<Vec<Order>> {
             let snapshot = self.blockchain.snapshot();
             let schema = schema::CryptoOwlsSchema::new(snapshot);
 
-            if schema.owls_state().get(&owl_hash).is_some() {
-                let idx = schema.owl_orders(&owl_hash);
-                let orders: Vec<Order> = idx.iter()
+            schema.owls_state().get(owl_id).and({
+                let idx = schema.owl_orders(owl_id);
+                let orders = idx.iter()
                     .map(|h| schema.orders().get(&h))
                     .collect::<Option<Vec<Order>>>()
-                    .unwrap();
-                self.ok_response(&serde_json::to_value(&orders).unwrap())
-            } else {
-                self.not_found_response(&serde_json::to_value("Owl not found").unwrap())
-            }
+                    .or(Some(vec![]));
+                orders
+            })
         }
 
         /// Информация об ордерах выставленных юзером
-        fn get_users_orders(&self, req: &mut Request) -> IronResult<Response> {
-            let users_key = CryptoOwlsApi::find_pub_key(req).map_err(|e| {
-                CryptoOwlsApi::bad_request(e, "\"Invalid request param: `pub_key`\"")
-            })?;
-
+        fn get_users_orders(&self, users_key: &PublicKey) -> Option<Vec<Order>> {
             let snapshot = self.blockchain.snapshot();
             let schema = schema::CryptoOwlsSchema::new(snapshot);
 
-            if schema.users().get(&users_key).is_some() {
-                let idx = schema.user_orders(&users_key);
-
-                let orders: Vec<Order> = idx.iter()
+            schema.users().get(users_key).and( {
+                let idx = schema.user_orders(users_key);
+                let orders = idx.iter()
                     .map(|h| schema.orders().get(&h))
                     .collect::<Option<Vec<Order>>>()
-                    .unwrap();
-                self.ok_response(&serde_json::to_value(&orders).unwrap())
-            } else {
-                self.not_found_response(&serde_json::to_value("User not found").unwrap())
-            }
+                    .or(Some(vec![]));
+                orders
+            })
         }
 
         /// Общий код для постинга транзакций
