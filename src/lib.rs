@@ -555,7 +555,7 @@ mod api {
     }
 
     impl CryptoOwlsApi {
-        // /// Вычленение хэша совы из url
+        /// Вычленение хэша совы из url
         fn find_owl_hash(req: &mut Request) -> Result<Hash, FromHexError> {
             let ref owl_hash = req.extensions
                 .get::<Router>()
@@ -738,15 +738,17 @@ pub mod service {
 
     use CRYPTOOWLS_SERVICE_ID;
 
-    pub struct CryptoOwlsService;
+    struct CryptoOwlsService;
 
     impl CryptoOwlsService {
-        pub fn new() -> Self {
+        fn new() -> Self {
             CryptoOwlsService {}
         }
     }
 
-    impl ServiceFactory for CryptoOwlsService {
+    pub struct CryptoOwlsServiceFactory;
+
+    impl ServiceFactory for CryptoOwlsServiceFactory {
         fn make_service(&mut self, _: &Context) -> Box<Service> {
             Box::new(CryptoOwlsService::new())
         }

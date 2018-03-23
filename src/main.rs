@@ -8,7 +8,7 @@ use exonum::helpers;
 use exonum::helpers::fabric::NodeBuilder;
 use exonum_time::TimeServiceFactory;
 use exonum_configuration::ServiceFactory as ConfigurationServiceFactory;
-use cryptoowls::service::CryptoOwlsService;
+use cryptoowls::service::CryptoOwlsServiceFactory;
 
 fn main() {
     exonum::crypto::init();
@@ -16,6 +16,6 @@ fn main() {
     let node = NodeBuilder::new()
         .with_service(Box::new(ConfigurationServiceFactory))
         .with_service(Box::new(TimeServiceFactory))
-        .with_service(Box::new(CryptoOwlsService::new()));
+        .with_service(Box::new(CryptoOwlsServiceFactory));
     node.run();
 }
