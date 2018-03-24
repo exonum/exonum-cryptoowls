@@ -66,7 +66,33 @@ cargo run -- run --node-config node_3_cfg.toml --db-path example/db3 --public-ap
 cargo run -- run --node-config node_4_cfg.toml --db-path example/db4 --public-api-address 0.0.0.0:8203
 ```
 
-## Лицензия 
+Install frontend dependencies:
+
+```sh
+cd frontend
+
+npm install
+```
+
+Build:
+
+```sh
+npm run build
+```
+
+Serve application:
+
+```sh
+npm start -- --port=3000 --api-root=http://127.0.0.1:8200
+```
+
+`--port` port for Node.js application.
+
+`--api-root` root URL of pubic API address of blockchain node.
+
+Done! Find application at [http://127.0.0.1:3000](http://127.0.0.1:3000).
+
+## Лицензия
 
 Демоприложение Криптосовы лицензированно под лицензией Apache (Version 2.0).
 Смотрите файл [LICENSE](LICENSE) для деталей.
