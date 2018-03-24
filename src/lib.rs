@@ -156,7 +156,7 @@ mod data_layout {
 }
 
 // схема данных для базы
-mod schema {
+pub mod schema {
     use data_layout::{CryptoOwl, CryptoOwlState, Order, User};
     use exonum::storage::{Fork, ListIndex, ProofMapIndex, Snapshot, ValueSetIndex};
     use exonum::blockchain::gen_prefix;
@@ -245,8 +245,10 @@ mod schema {
         ) {
             for owl in owls {
                 self.user_owls_mut(owner_key).insert(owl.hash());
-                self.owls_state_mut()
-                    .put(&owl.hash(), CryptoOwlState::new(owl, owner_key, ts));
+                self.owls_state_mut().put(
+                    &owl.hash(),
+                    CryptoOwlState::new(owl, owner_key, ts),
+                );
             }
         }
 
@@ -254,8 +256,8 @@ mod schema {
             if let Some(order) = self.orders().get(order_id) {
                 let buyer = self.users().get(order.public_key()).unwrap();
                 if order.status() == "pending" {
-                    if buyer.balance() >= order.price()
-                        && self.user_owls(acceptor_key).contains(order.owl_id())
+                    if buyer.balance() >= order.price() &&
+                        self.user_owls(acceptor_key).contains(order.owl_id())
                     {
                         let new_order = Order::new(
                             order.public_key(),
@@ -424,9 +426,11 @@ pub mod transactions {
             let key = user.public_key();
 
             if let Some(parents) = parents {
-                if user.balance() >= BREEDING_PRICE && parents.iter().all(|ref p| {
-                    ts.duration_since(p.last_breeding()).unwrap().as_secs() >= BREEDING_TIMEOUT
-                }) {
+                if user.balance() >= BREEDING_PRICE &&
+                    parents.iter().all(|ref p| {
+                        ts.duration_since(p.last_breeding()).unwrap().as_secs() >= BREEDING_TIMEOUT
+                    })
+                {
                     let (mother, father) = (parents[0].owl(), parents[1].owl());
 
                     let son = mother.breed(&father, self.name(), &state_hash);
@@ -457,8 +461,14 @@ pub mod transactions {
             let mut schema = schema::CryptoOwlsSchema::new(fork);
             let key = self.public_key();
             let user = schema.users().get(key).unwrap();
-
-            if ts.duration_since(user.last_fillup()).unwrap().as_secs() >= ISSUE_TIMEOUT {
+            // в показательных целях для сравнения используем время,
+            // предоставленное пользователем
+            if self.current_time()
+                .duration_since(user.last_fillup())
+                .unwrap()
+                .as_secs() >= ISSUE_TIMEOUT
+            {
+                // но сохраняем настоящее
                 let user = User::new(&key, user.name(), user.balance() + ISSUE_AMMOUNT, ts);
                 schema.users_mut().put(&key, user);
             }
@@ -506,9 +516,10 @@ pub mod transactions {
                     owl_state.last_breeding(),
                 );
 
-                schema
-                    .user_owls_mut(self.public_key())
-                    .remove(accepted_order.owl_id());
+                schema.user_owls_mut(self.public_key()).remove(
+                    accepted_order
+                        .owl_id(),
+                );
             }
             Ok(())
         }
@@ -656,25 +667,29 @@ mod api {
     impl CryptoOwlsApi {
         /// Вычленение хэша совы из url
         fn find_owl_hash(req: &mut Request) -> Result<Hash, ApiError> {
-            let owl_hash = req.extensions
-                .get::<Router>()
-                .unwrap()
-                .find("owl_hash")
-                .ok_or_else(|| ApiError::BadRequest("Owl hash missing".to_string()))?;
+            let owl_hash =
+                req.extensions
+                    .get::<Router>()
+                    .unwrap()
+                    .find("owl_hash")
+                    .ok_or_else(|| ApiError::BadRequest("Owl hash missing".to_string()))?;
 
-            Hash::from_hex(owl_hash)
-                .map_err(|_| ApiError::BadRequest("Owl hash malformed".to_string()))
+            Hash::from_hex(owl_hash).map_err(|_| {
+                ApiError::BadRequest("Owl hash malformed".to_string())
+            })
         }
 
         /// Вычленение публичного ключа из url
         fn find_pub_key(req: &mut Request) -> Result<PublicKey, ApiError> {
-            let ref pub_key = req.extensions
-                .get::<Router>()
-                .unwrap()
-                .find("pub_key")
-                .ok_or_else(|| ApiError::BadRequest("Public key missing".to_string()))?;
-            PublicKey::from_hex(pub_key)
-                .map_err(|_| ApiError::BadRequest("Public key malformed".to_string()))
+            let ref pub_key =
+                req.extensions
+                    .get::<Router>()
+                    .unwrap()
+                    .find("pub_key")
+                    .ok_or_else(|| ApiError::BadRequest("Public key missing".to_string()))?;
+            PublicKey::from_hex(pub_key).map_err(|_| {
+                ApiError::BadRequest("Public key malformed".to_string())
+            })
         }
 
         /// Информация о пользователе
@@ -765,7 +780,9 @@ mod api {
                     let transaction: Box<Transaction> = Box::new(transaction);
                     let tx_hash = transaction.hash();
                     self.channel.send(transaction).map_err(ApiError::from)?;
-                    self.ok_response(&json!({ "tx_hash": tx_hash }))
+                    self.ok_response(&json!({
+                        "tx_hash": tx_hash
+                    }))
                 }
                 Ok(None) => Err(ApiError::BadRequest("Empty request body".into()))?,
                 Err(e) => Err(ApiError::InternalError(Box::new(e)))?,
@@ -792,10 +809,10 @@ pub mod service {
 
     use CRYPTOOWLS_SERVICE_ID;
 
-    struct CryptoOwlsService;
+    pub struct CryptoOwlsService;
 
     impl CryptoOwlsService {
-        fn new() -> Self {
+        pub fn new() -> Self {
             CryptoOwlsService {}
         }
     }
