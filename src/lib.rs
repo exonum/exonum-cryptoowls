@@ -487,8 +487,9 @@ pub mod transactions {
             let mut schema = schema::CryptoOwlsSchema::new(fork);
             let key = self.public_key();
             let user = schema.users().get(&key).unwrap();
-            if schema.owls_state().get(self.owl_id()).is_some() {
-                if self.price() <= user.balance() {
+
+            if let Some(owl) = schema.owls_state().get(self.owl_id()) {
+                if owl.owner() != key && self.price() <= user.balance() {
                     let order = Order::new(&key, self.owl_id(), "pending", self.price());
                     let order_hash = order.hash();
                     schema.orders_mut().put(&order.hash(), order);
