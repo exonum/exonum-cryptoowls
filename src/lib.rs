@@ -428,7 +428,8 @@ pub mod transactions {
             if let Some(parents) = parents {
                 if user.balance() >= BREEDING_PRICE &&
                     parents.iter().all(|ref p| {
-                        ts.duration_since(p.last_breeding()).unwrap().as_secs() >= BREEDING_TIMEOUT
+                        ts.duration_since(p.last_breeding()).unwrap().as_secs() >=
+                            BREEDING_TIMEOUT && p.owner() == key
                     })
                 {
                     let (mother, father) = (parents[0].owl(), parents[1].owl());
