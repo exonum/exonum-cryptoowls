@@ -252,9 +252,24 @@ pub mod schema {
             }
         }
 
+        pub fn set_user_balance(
+            &mut self,
+            public_key: &PublicKey,
+            balance: u64,
+            last_fillup: Option<SystemTime>,
+        ) {
+            if let Some(user) = self.users().get(public_key) {
+                let last_fillup = last_fillup.unwrap_or(user.last_fillup());
+                let new_user = User::new(public_key, user.name(), balance, last_fillup);
+                self.users_mut().put(public_key, new_user)
+            }
+        }
+
         pub fn accept_order(&mut self, acceptor_key: &PublicKey, order_id: &Hash) -> Option<Order> {
             if let Some(order) = self.orders().get(order_id) {
                 let buyer = self.users().get(order.public_key()).unwrap();
+                let seller = self.users().get(acceptor_key).unwrap();
+
                 if order.status() == "pending" {
                     if buyer.balance() >= order.price() &&
                         self.user_owls(acceptor_key).contains(order.owl_id())
@@ -265,7 +280,20 @@ pub mod schema {
                             "accepted",
                             order.price(),
                         );
+
                         self.orders_mut().put(order_id, new_order.clone());
+
+                        self.set_user_balance(
+                            seller.public_key(),
+                            seller.balance() + order.price(),
+                            None,
+                        );
+                        self.set_user_balance(
+                            buyer.public_key(),
+                            buyer.balance() - order.price(),
+                            None,
+                        );
+
 
                         // после аксепта выбранного ордера все остальные ордера
                         // на данную сову становятся недействительными
@@ -470,8 +498,7 @@ pub mod transactions {
                 .as_secs() >= ISSUE_TIMEOUT
             {
                 // но сохраняем настоящее
-                let user = User::new(&key, user.name(), user.balance() + ISSUE_AMMOUNT, ts);
-                schema.users_mut().put(&key, user);
+                schema.set_user_balance(&key, user.balance() + ISSUE_AMMOUNT, Some(ts));
             }
 
             Ok(())
@@ -522,6 +549,7 @@ pub mod transactions {
                     accepted_order
                         .owl_id(),
                 );
+
             }
             Ok(())
         }
