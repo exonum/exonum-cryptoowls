@@ -92,7 +92,7 @@ fn test_issue() {
     }
 
     {
-        // move us in to future
+        // move us into the future
         time_machine.add_time(Duration::new(200, 0));
         testkit.create_blocks_until(Height(8));
 
@@ -145,7 +145,7 @@ fn test_breeding() {
     let user_owls_count = user_owls_idx.iter().count();
     assert_eq!(user_owls_count, 2);
 
-    // move time to future
+    // some time should pass
     time_machine.add_time(Duration::new(200, 0));
     testkit.create_blocks_until(Height(8));
 
