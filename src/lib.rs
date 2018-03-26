@@ -346,6 +346,7 @@ pub mod transactions {
     transactions! {
         pub Transactions {
             const SERVICE_ID = CRYPTOOWLS_SERVICE_ID;
+
             /// Транзакция создания пользователя
             struct CreateUser {
                 /// Публичный идентификатор пользователя
@@ -353,6 +354,7 @@ pub mod transactions {
                 /// Имя
                 name: &str,
             }
+
             /// Транзакция создания совы. Если идентификаторы отца и матери это нули,
             /// то выводится базовая сова
             struct MakeOwl {
@@ -367,6 +369,7 @@ pub mod transactions {
                 /// Необходимо для того, чтоб создавать транзакции с одинаковыми полями.
                 seed: SystemTime,
             }
+
             /// Транзакция запроса новых средств
             struct Issue {
                 /// Публичный идентификатор пользователя
@@ -374,6 +377,7 @@ pub mod transactions {
                 /// Необходимо для того, чтоб создавать транзакции с одинаковыми полями.
                 seed: SystemTime,
             }
+
             /// Транзакция размещения нового ордера
             struct CreateOrder
             {
@@ -386,6 +390,7 @@ pub mod transactions {
                 /// Текущее время пользователя
                 current_time: SystemTime,
             }
+
             /// Одобрение ордера на покупку
             struct AcceptOrder
             {
@@ -549,7 +554,6 @@ pub mod transactions {
 /// Модуль с реализацией api
 mod api {
     use serde_json;
-    use serde::Deserialize;
 
     use bodyparser;
     use iron::prelude::*;
@@ -564,7 +568,7 @@ mod api {
 
     use schema;
     use data_layout::{CryptoOwlState, Order, User};
-    use transactions::{AcceptOrder, CreateOrder, CreateUser, Issue};
+    use transactions::Transactions;
 
     #[derive(Clone)]
     pub struct CryptoOwlsApi {
@@ -636,18 +640,9 @@ mod api {
                 }
             };
 
-            let self_ = self.clone();
-            let post_user = move |req: &mut Request| self_.post_transaction::<CreateUser>(req);
 
             let self_ = self.clone();
-            let post_order = move |req: &mut Request| self_.post_transaction::<CreateOrder>(req);
-
-            let self_ = self.clone();
-            let post_issue = move |req: &mut Request| self_.post_transaction::<Issue>(req);
-
-            let self_ = self.clone();
-            let post_acceptance =
-                move |req: &mut Request| self_.post_transaction::<AcceptOrder>(req);
+            let transaction = move |req: &mut Request| self_.post_transaction(req);
 
             // View-only хэндлеры
             router.get("/v1/users", get_users, "get_users");
@@ -671,10 +666,7 @@ mod api {
             );
 
             // Транзакции.
-            router.post("/v1/users", post_user, "post_user");
-            router.post("/v1/users/issue", post_issue, "post_issue");
-            router.post("/v1/orders", post_order, "post_order");
-            router.post("/v1/orders/accept", post_acceptance, "post_acceptance");
+            router.post("/v1/transaction", transaction, "post_transaction");
         }
     }
 
@@ -758,21 +750,19 @@ mod api {
         }
 
         /// Общий код для постинга транзакций
-        fn post_transaction<T>(&self, req: &mut Request) -> IronResult<Response>
-        where
-            T: Transaction + Clone + for<'de> Deserialize<'de>,
-        {
-            match req.get::<bodyparser::Struct<T>>() {
+        fn post_transaction(&self, req: &mut Request) -> IronResult<Response> {
+            match req.get::<bodyparser::Struct<Transactions>>() {
                 Ok(Some(transaction)) => {
-                    let transaction: Box<Transaction> = Box::new(transaction);
+                    let transaction: Box<Transaction> = transaction.into();
                     let tx_hash = transaction.hash();
                     self.channel.send(transaction).map_err(ApiError::from)?;
-                    self.ok_response(&json!({ "tx_hash": tx_hash }))
+                    let json = json!({ "tx_hash": tx_hash });
+                    self.ok_response(&serde_json::to_value(&json).unwrap())
                 }
                 Ok(None) => Err(ApiError::BadRequest("Empty request body".into()))?,
-                Err(e) => Err(ApiError::InternalError(Box::new(e)))?,
+                Err(e) => Err(ApiError::BadRequest(e.to_string()))?,
             }
-        }
+         }
     }
 }
 
