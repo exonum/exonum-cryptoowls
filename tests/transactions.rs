@@ -53,9 +53,7 @@ fn test_create_user() {
 
     let (pubkey, key) = crypto::gen_keypair();
 
-    testkit.create_block_with_transactions(txvec![
-        CreateUser::new(&pubkey, "Alice", &key),
-    ]);
+    testkit.create_block_with_transactions(txvec![CreateUser::new(&pubkey, "Alice", &key),]);
     let snapshot = testkit.snapshot();
     let schema = CryptoOwlsSchema::new(&snapshot);
     let user = schema.users().get(&pubkey).expect("No user persisted");
@@ -80,31 +78,28 @@ fn test_create_user() {
 
 #[test]
 fn test_issue() {
-    let (mut testkit, _) = init_testkit();
+    let (mut testkit, time_machine) = init_testkit();
     let (pubkey, key) = crypto::gen_keypair();
-    testkit.create_block_with_transactions(txvec![
-        CreateUser::new(&pubkey, "Scott", &key),
-    ]);
+    testkit.create_block_with_transactions(txvec![CreateUser::new(&pubkey, "Scott", &key),]);
 
     {
         // невозможно сразу же пополнить себе баланс
-        testkit.create_block_with_transactions(
-            txvec![Issue::new(&pubkey, SystemTime::now(), &key)],
-        );
+        testkit
+            .create_block_with_transactions(txvec![Issue::new(&pubkey, SystemTime::now(), &key)]);
 
         let snapshot = testkit.snapshot();
         let schema = CryptoOwlsSchema::new(&snapshot);
         let user = schema.users().get(&pubkey).expect("No user persisted");
         assert_eq!(user.balance(), 100);
     }
+
     {
-        // но систему легко обмануть
+        // отправимся в будущее
+        time_machine.add_time(Duration::new(200, 0));
+        testkit.create_blocks_until(Height(8));
+
         testkit.create_block_with_transactions(txvec![
-            Issue::new(
-                &pubkey,
-                SystemTime::now() + Duration::new(100, 0),
-                &key
-            ),
+            Issue::new(&pubkey, SystemTime::now() + Duration::new(100, 0), &key),
         ]);
 
         let snapshot = testkit.snapshot();
@@ -122,9 +117,7 @@ fn test_breeding() {
 
     let (pubkey, key) = crypto::gen_keypair();
 
-    testkit.create_block_with_transactions(txvec![
-        CreateUser::new(&pubkey, "Alice", &key),
-    ]);
+    testkit.create_block_with_transactions(txvec![CreateUser::new(&pubkey, "Alice", &key),]);
 
     let snapshot = testkit.snapshot();
     let schema = CryptoOwlsSchema::new(&snapshot);
@@ -141,7 +134,8 @@ fn test_breeding() {
             "Abel",
             &user_owls[0],
             &user_owls[1],
-            &key
+            SystemTime::now(),
+            &key,
         ),
     ]);
 
@@ -159,12 +153,13 @@ fn test_breeding() {
 
     // теперь подросли
     testkit.create_block_with_transactions(txvec![
-       MakeOwl::new(
+        MakeOwl::new(
             &pubkey,
-            "Cain",
+            "Abel",
             &user_owls[0],
             &user_owls[1],
-            &key
+            SystemTime::now(),
+            &key,
         ),
     ]);
 
@@ -183,7 +178,7 @@ fn test_breeding() {
         if let Some(old_owl_state) = owl_states.get(&hash) {
             assert!(old_owl_state.last_breeding() < owl_state.last_breeding());
         } else {
-            assert_eq!(owl_state.owl().name(), "Cain");
+            assert_eq!(owl_state.owl().name(), "Abel");
             // dna должен быть отличным от родителей
             assert_ne!(owl_state.owl().dna(), 0u32);
             assert_eq!(owl_state.owner(), &pubkey);
@@ -217,7 +212,6 @@ fn test_sell_owl() {
     {
         testkit.create_block_with_transactions(txvec![
             CreateOrder::new(&pubkey, &alice_owl, 0, SystemTime::now(), &key),
-
         ]);
 
         let snapshot = testkit.snapshot();
@@ -231,7 +225,6 @@ fn test_sell_owl() {
 
         assert_eq!(user_orders_cnt, 0);
         assert_eq!(owl_orders_cnt, 0);
-
     }
 
     {
@@ -240,7 +233,6 @@ fn test_sell_owl() {
             CreateOrder::new(&pubkey_2, &alice_owl, 90, SystemTime::now(), &key_2),
             CreateOrder::new(&pubkey_2, &alice_owl, 60, SystemTime::now(), &key_2),
             CreateOrder::new(&pubkey_2, &bob_owl, 90, SystemTime::now(), &key_2),
-
         ]);
 
         let snapshot = testkit.snapshot();
@@ -302,9 +294,7 @@ fn test_sell_owl() {
         assert_eq!(bob.balance(), 190);
 
         //Алиса пытается продать свою сову Джейн
-        let mut jane_orders_iter = jane_orders
-            .iter()
-            .filter(|&x| x != &bob_owl_orders[0]);
+        let mut jane_orders_iter = jane_orders.iter().filter(|&x| x != &bob_owl_orders[0]);
 
         let jane_order_id = jane_orders_iter.next().unwrap();
         let jane_order_id_2 = jane_orders_iter.next().unwrap();
@@ -335,14 +325,12 @@ fn test_sell_owl() {
         let alice_owls_cnt = alice_owls.iter().count();
         assert_eq!(alice_owls_cnt, 2);
 
-
         //Алиса пытается продать свою сову Бобу
         let bob_order_id = bob_orders[0];
 
         testkit.create_block_with_transactions(txvec![
             AcceptOrder::new(&pubkey, &bob_order_id, &key),
         ]);
-
 
         let snapshot = testkit.snapshot();
         let schema = CryptoOwlsSchema::new(&snapshot);
@@ -364,7 +352,5 @@ fn test_sell_owl() {
         let alice_owls = schema.user_owls(&pubkey);
         let alice_owls_cnt = alice_owls.iter().count();
         assert_eq!(alice_owls_cnt, 1);
-
     }
-
 }
