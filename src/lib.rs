@@ -558,7 +558,6 @@ mod api {
 
     use exonum::api::{Api, ApiError};
     use exonum::crypto::{Hash, PublicKey};
-    use exonum::encoding::serialize::FromHex;
 
     use exonum::node::{ApiSender, TransactionSend};
     use exonum::blockchain::{Blockchain, Transaction};
@@ -577,8 +576,7 @@ mod api {
         fn wire(&self, router: &mut Router) {
             let self_ = self.clone();
             let get_user = move |req: &mut Request| {
-                let public_key = CryptoOwlsApi::find_pub_key(req)?;
-
+                let public_key: PublicKey = self_.url_fragment(req, "pub_key")?;
                 if let Some(user) = self_.get_user(&public_key) {
                     self_.ok_response(&serde_json::to_value(user).unwrap())
                 } else {
@@ -594,8 +592,7 @@ mod api {
 
             let self_ = self.clone();
             let get_users_orders = move |req: &mut Request| {
-                let public_key = CryptoOwlsApi::find_pub_key(req)?;
-
+                let public_key: PublicKey = self_.url_fragment(req, "pub_key")?;
                 if let Some(orders) = self_.get_users_orders(&public_key) {
                     self_.ok_response(&serde_json::to_value(orders).unwrap())
                 } else {
@@ -605,8 +602,7 @@ mod api {
 
             let self_ = self.clone();
             let get_owl = move |req: &mut Request| {
-                let owl_hash = CryptoOwlsApi::find_owl_hash(req)?;
-
+                let owl_hash = self_.url_fragment(req, "owl_hash")?;
                 if let Some(owl) = self_.get_owl(&owl_hash) {
                     self_.ok_response(&serde_json::to_value(owl).unwrap())
                 } else {
@@ -622,8 +618,7 @@ mod api {
 
             let self_ = self.clone();
             let get_owls_orders = move |req: &mut Request| {
-                let owl_hash = CryptoOwlsApi::find_owl_hash(req)?;
-
+                let owl_hash = self_.url_fragment(req, "owl_hash")?;
                 if let Some(orders) = self_.get_owls_orders(&owl_hash) {
                     self_.ok_response(&serde_json::to_value(orders).unwrap())
                 } else {
@@ -633,8 +628,7 @@ mod api {
 
             let self_ = self.clone();
             let get_user_owls = move |req: &mut Request| {
-                let public_key = CryptoOwlsApi::find_pub_key(req)?;
-
+                let public_key: PublicKey = self_.url_fragment(req, "pub_key")?;
                 if let Some(orders) = self_.get_user_owls(&public_key) {
                     self_.ok_response(&serde_json::to_value(orders).unwrap())
                 } else {
@@ -685,29 +679,6 @@ mod api {
     }
 
     impl CryptoOwlsApi {
-        /// Вычленение хэша совы из url
-        fn find_owl_hash(req: &mut Request) -> Result<Hash, ApiError> {
-            let owl_hash = req.extensions
-                .get::<Router>()
-                .unwrap()
-                .find("owl_hash")
-                .ok_or_else(|| ApiError::BadRequest("Owl hash missing".to_string()))?;
-
-            Hash::from_hex(owl_hash)
-                .map_err(|_| ApiError::BadRequest("Owl hash malformed".to_string()))
-        }
-
-        /// Вычленение публичного ключа из url
-        fn find_pub_key(req: &mut Request) -> Result<PublicKey, ApiError> {
-            let ref pub_key = req.extensions
-                .get::<Router>()
-                .unwrap()
-                .find("pub_key")
-                .ok_or_else(|| ApiError::BadRequest("Public key missing".to_string()))?;
-            PublicKey::from_hex(pub_key)
-                .map_err(|_| ApiError::BadRequest("Public key malformed".to_string()))
-        }
-
         /// Информация о пользователе
         fn get_user(&self, public_key: &PublicKey) -> Option<User> {
             let snapshot = self.blockchain.snapshot();
