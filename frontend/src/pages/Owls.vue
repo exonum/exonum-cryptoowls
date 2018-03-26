@@ -37,7 +37,7 @@
         this.$blockchain.getOwls().then(owls => {
           self.owls = owls
           self.isSpinnerVisible = false
-        }).catch(function(error) {
+        }).catch(error => {
           self.$notify('error', error.toString())
           self.isSpinnerVisible = false
         })

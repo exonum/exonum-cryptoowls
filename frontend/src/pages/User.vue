@@ -45,11 +45,11 @@
           self.$blockchain.getUserOwls(self.publicKey).then(data => {
             self.owls = data
             self.isSpinnerVisible = false
-          }).catch(function(error) {
+          }).catch(error => {
             self.$notify('error', error.toString())
             self.isSpinnerVisible = false
           })
-        }).catch(function(error) {
+        }).catch(error => {
           self.$notify('error', error.toString())
           self.isSpinnerVisible = false
         })

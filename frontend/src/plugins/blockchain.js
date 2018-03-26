@@ -1,5 +1,5 @@
 import * as Exonum from 'exonum-client'
-import * as bigInt from 'big-integer'
+import bigInt from 'big-integer'
 import axios from 'axios'
 
 const NETWORK_ID = 0
@@ -71,8 +71,8 @@ function getSystemTime() {
   const nanos = bigInt(now).minus(secs.multiply(1000)).multiply(1000000)
 
   return {
-    secs: secs.valueOf(),
-    nanos: nanos.toString()
+    secs: secs.toString(),
+    nanos: nanos.valueOf()
   }
 }
 

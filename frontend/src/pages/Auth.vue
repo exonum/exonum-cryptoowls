@@ -32,7 +32,7 @@
       </div>
     </div>
 
-    <modal :visible="isModalVisible" title="Успешная регистрация" action-btn="Log in" @close="closeModal" @submit="proceed">
+    <modal :visible="isModalVisible" title="Успешная регистрация" action-btn="Log In" @close="closeModal" @submit="proceed">
       <div class="alert alert-warning" role="alert">Save the key pair in a safe place. You will need it to log in next time.</div>
       <div class="form-group">
         <label>Public key:</label>
@@ -85,7 +85,9 @@
           secretKey: this.secretKey
         })
 
-        this.$router.push({name: 'dashboard'})
+        this.$nextTick(function() {
+          this.$router.push({name: 'dashboard'})
+        })
       },
 
       register: function() {
@@ -102,7 +104,7 @@
           self.keyPair = keyPair
           self.isSpinnerVisible = false
           self.isModalVisible = true
-        }).catch(function(error) {
+        }).catch(error => {
           self.isSpinnerVisible = false
           self.$notify('error', error.toString())
         })
@@ -117,7 +119,9 @@
 
         this.$storage.set(this.keyPair)
 
-        this.$router.push({name: 'dashboard'})
+        this.$nextTick(function() {
+          this.$router.push({name: 'dashboard'})
+        })
       }
     }
   }

@@ -8,8 +8,11 @@
           <h2>Summary</h2>
           <user-summary v-bind:user="user"></user-summary>
 
+          <button class="btn btn-primary" @click.prevent="issue">Issue</button>
+
           <h2>Owls</h2>
           <owl-list v-bind:owls="owls"></owl-list>
+
         </div>
       </div>
     </div>
@@ -38,22 +41,39 @@
     methods: {
       loadUser: function() {
         const self = this
-        this.$storage.get().then(function(keyPair) {
+        this.$storage.get().then(keyPair => {
           self.isSpinnerVisible = true
           self.$blockchain.getUser(keyPair.publicKey).then(data => {
             self.user = data
             self.$blockchain.getUserOwls(keyPair.publicKey).then(data => {
               self.owls = data
               self.isSpinnerVisible = false
-            }).catch(function(error) {
+            }).catch(error => {
               self.$notify('error', error.toString())
               self.isSpinnerVisible = false
             })
-          }).catch(function(error) {
+          }).catch(error => {
             self.$notify('error', error.toString())
             self.isSpinnerVisible = false
           })
-        }).catch(function(error) {
+        }).catch(error => {
+          self.$notify('error', error.toString())
+          self.logout()
+        })
+      },
+
+      issue: function() {
+        const self = this
+        this.$storage.get().then(keyPair => {
+          self.isSpinnerVisible = true
+          self.$blockchain.issue(keyPair).then(data => {
+            self.$notify('success', 'Funds has been issued')
+            self.isSpinnerVisible = false
+          }).catch(error => {
+            self.$notify('error', error.toString())
+            self.isSpinnerVisible = false
+          })
+        }).catch(error => {
           self.$notify('error', error.toString())
           self.logout()
         })

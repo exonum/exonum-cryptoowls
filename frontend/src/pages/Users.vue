@@ -39,7 +39,7 @@
         this.$blockchain.getUsers().then(users => {
           self.users = users
           self.isSpinnerVisible = false
-        }).catch(function(error) {
+        }).catch(error => {
           self.$notify('error', error.toString())
           self.isSpinnerVisible = false
         })
