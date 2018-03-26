@@ -236,7 +236,7 @@ pub mod schema {
             ListIndex::with_prefix("cryptoowls.owl_orders", gen_prefix(owl_id), self.view)
         }
 
-        // Хэлпер для обновления состояния сов после размножения или создания
+        /// Хэлпер для обновления состояния сов после размножения или создания.
         pub fn refresh_owls(
             &mut self,
             owner_key: &PublicKey,
@@ -250,6 +250,7 @@ pub mod schema {
             }
         }
 
+        /// Хэлпер для изменения баланса пользователя
         pub fn set_user_balance(
             &mut self,
             public_key: &PublicKey,
@@ -263,6 +264,10 @@ pub mod schema {
             }
         }
 
+        /// Хэлпер для аксепта ордера.
+        /// Функция проверит, что на балансе покупателя есть достаточно средств, личность
+        /// продавца и статус ордера, после чего обновит ордер и балансы продавца и покупателя.
+        /// После этого пометит все остальные ордера на сову отклонёнными.
         pub fn accept_order(&mut self, acceptor_key: &PublicKey, order_id: &Hash) -> Option<Order> {
             if let Some(order) = self.orders().get(order_id) {
                 let buyer = self.users().get(order.public_key()).unwrap();
@@ -311,6 +316,8 @@ pub mod schema {
             None
         }
 
+        /// Хэлпер для отклонения ордера, используется только в этом
+        /// модуле, поэтому приватный
         pub fn decline_order(&mut self, order_id: &Hash) {
             if let Some(order) = self.orders().get(order_id) {
                 if order.status() == "pending" {
@@ -449,6 +456,9 @@ pub mod transactions {
             };
 
             let mut schema = schema::CryptoOwlsSchema::new(fork);
+
+            // Найдём обоих родителей.
+            // Если хотя бы одного из них нет мы получим None
             let parents = [self.mother_id(), self.father_id()]
                 .iter()
                 .map(|&i| schema.owls_state().get(&i))
@@ -457,9 +467,13 @@ pub mod transactions {
             let user = schema.users().get(self.public_key()).unwrap();
             let key = user.public_key();
 
+            // Если нам удалось найти родителей
             if let Some(parents) = parents {
+                // то мы проверяем достаточно ли денег для разведения у пользователя
                 if user.balance() >= BREEDING_PRICE && parents.iter().all(|ref p| {
+                    // и для каждой совы - время последнего спаривания
                     ts.duration_since(p.last_breeding()).unwrap().as_secs() >= BREEDING_TIMEOUT
+                        // и являемся ли мы её владельцем
                         && p.owner() == key
                 }) {
                     let (mother, father) = (parents[0].owl(), parents[1].owl());
@@ -512,7 +526,9 @@ pub mod transactions {
             let key = self.public_key();
             let user = schema.users().get(&key).unwrap();
 
+            // код выполнится только если такая сова найдётся
             if let Some(owl) = schema.owls_state().get(self.owl_id()) {
+                // проверим что не мы её владелец и достаточно ли у нас денег для покупки
                 if owl.owner() != key && self.price() <= user.balance() {
                     let order = Order::new(&key, self.owl_id(), "pending", self.price());
                     let order_hash = order.hash();
