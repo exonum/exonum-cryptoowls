@@ -54,7 +54,7 @@ function createTransaction(transaction) {
   })
 }
 
-function postTransaction(data, signature) {
+function postTransaction(transaction, data, signature) {
   return axios.post('/api/services/cryptoowls/v1/transaction', {
     network_id: NETWORK_ID,
     protocol_version: PROTOCOL_VERSION,
@@ -89,13 +89,13 @@ module.exports = {
         const TxCreateWallet = createTransaction(CREATE_USER_TX)
 
         const data = {
-          pub_key: keyPair.publicKey,
+          public_key: keyPair.publicKey,
           name: name
         }
 
         const signature = TxCreateWallet.sign(keyPair.secretKey, data)
 
-        return postTransaction(data, signature).then(() => keyPair)
+        return postTransaction(CREATE_USER_TX, data, signature).then(() => keyPair)
       },
 
       makeOwl: (keyPair, name, father, mother) => {
@@ -110,7 +110,7 @@ module.exports = {
 
         const signature = TxMakeOwl.sign(keyPair.secretKey, data)
 
-        return postTransaction(data, signature)
+        return postTransaction(MAKE_OWL_TX, data, signature)
       },
 
       issue: (keyPair) => {
@@ -123,7 +123,7 @@ module.exports = {
 
         const signature = TxIssue.sign(keyPair.secretKey, data)
 
-        return postTransaction(data, signature)
+        return postTransaction(ISSUE_TX, data, signature)
       },
 
       createOrder: (keyPair, owl, price) => {
@@ -138,7 +138,7 @@ module.exports = {
 
         const signature = TxCreateOrder.sign(keyPair.secretKey, data)
 
-        return postTransaction(data, signature)
+        return postTransaction(CREATE_ORDER_TX, data, signature)
       },
 
       acceptOrder: (keyPair, order) => {
@@ -151,15 +151,15 @@ module.exports = {
 
         const signature = TxAcceptOrder.sign(keyPair.secretKey, data)
 
-        return postTransaction(data, signature)
+        return postTransaction(ACCEPT_ORDER_TX, data, signature)
       },
 
       getUsers: () => {
         return axios.get('/api/services/cryptoowls/v1/users').then(response => response.data)
       },
 
-      getUser: pub_key => {
-        return axios.get(`/api/services/cryptoowls/v1/user/${pub_key}`).then(response => response.data)
+      getUser: publicKey => {
+        return axios.get(`/api/services/cryptoowls/v1/user/${publicKey}`).then(response => response.data)
       },
 
       getOwls: () => {
@@ -167,15 +167,15 @@ module.exports = {
       },
 
       getUserOwls: publicKey => {
-        return axios.get(`/api/services/cryptoowls/v1/user/${pub_key}/owls`).then(response => response.data)
+        return axios.get(`/api/services/cryptoowls/v1/user/${publicKey}/owls`).then(response => response.data)
       },
 
-      getOwl: owl_hash => {
-        return axios.get(`/api/services/cryptoowls/v1/owl/${owl_hash}`).then(response => response.data)
+      getOwl: hash => {
+        return axios.get(`/api/services/cryptoowls/v1/owl/${hash}`).then(response => response.data)
       },
 
-      getOrders: owl_hash => {
-        return axios.get(`/api/services/cryptoowls/v1/owl/${owl_hash}/orders`).then(response => response.data)
+      getOrders: hash => {
+        return axios.get(`/api/services/cryptoowls/v1/owl/${hash}/orders`).then(response => response.data)
       }
     }
   }

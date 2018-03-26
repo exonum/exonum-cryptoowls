@@ -1,12 +1,18 @@
 <template>
   <div>
-    <h1>Dashboard</h1>
+    <div class="container">
+      <div class="row">
+        <div class="col-sm-12">
+          <h1>Dashboard</h1>
 
-    <h2>Summary</h2>
-    <user-summary v-bind:user="user"></user-summary>
+          <h2>Summary</h2>
+          <user-summary v-bind:user="user"></user-summary>
 
-    <h2>Owls</h2>
-    <owl-list v-bind:owls="owls"></owl-list>
+          <h2>Owls</h2>
+          <owl-list v-bind:owls="owls"></owl-list>
+        </div>
+      </div>
+    </div>
 
     <spinner :visible="isSpinnerVisible"/>
   </div>

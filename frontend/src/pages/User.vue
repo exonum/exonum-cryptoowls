@@ -1,12 +1,18 @@
 <template>
   <div>
-    <h1>User {{ publicKey }}</h1>
+    <div class="container">
+      <div class="row">
+        <div class="col-sm-12">
+          <h1>User</h1>
 
-    <h2>Summary</h2>
-    <user-summary v-bind:user="user"></user-summary>
+          <h2>Summary</h2>
+          <user-summary v-bind:user="user"></user-summary>
 
-    <h2>Owls</h2>
-    <owl-list v-bind:owls="owls"></owl-list>
+          <h2>Owls</h2>
+          <owl-list v-bind:owls="owls"></owl-list>
+        </div>
+      </div>
+    </div>
 
     <spinner :visible="isSpinnerVisible"/>
   </div>
@@ -34,9 +40,9 @@
       loadUser: function() {
         const self = this
         this.isSpinnerVisible = true
-        this.$blockchain.getUser(publicKey).then(data => {
+        this.$blockchain.getUser(this.publicKey).then(data => {
           self.user = data
-          self.$blockchain.getUserOwls(publicKey).then(data => {
+          self.$blockchain.getUserOwls(self.publicKey).then(data => {
             self.owls = data
             self.isSpinnerVisible = false
           }).catch(function(error) {

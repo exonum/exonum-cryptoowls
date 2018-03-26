@@ -18,13 +18,14 @@
 ```sh
 git clone https://github.com/exonum/exonum-cryptoowls
 
+cd exonum-cryptoowls
+
+cargo install
 ```
 
 Сгенерируйте шаблоны конфигурации:
 
 ```sh
-cd exonum-cryptoowls
-
 mkdir example
 
 cargo run -- generate-template example/common.toml
@@ -33,13 +34,13 @@ cargo run -- generate-template example/common.toml
 Generate public and secrets keys for each node:
 
 ```sh
-cargo run -- generate-config example/common.toml  example/pub_1.toml example/sec_1.toml --peer-addr 127.0.0.1:6331
+cargo run -- generate-config example/common.toml  example/pub_1.toml example/sec_1.toml --peer-address 127.0.0.1:6331
 
-cargo run -- generate-config example/common.toml  example/pub_2.toml example/sec_2.toml --peer-addr 127.0.0.1:6332
+cargo run -- generate-config example/common.toml  example/pub_2.toml example/sec_2.toml --peer-address 127.0.0.1:6332
 
-cargo run -- generate-config example/common.toml  example/pub_3.toml example/sec_3.toml --peer-addr 127.0.0.1:6333
+cargo run -- generate-config example/common.toml  example/pub_3.toml example/sec_3.toml --peer-address 127.0.0.1:6333
 
-cargo run -- generate-config example/common.toml  example/pub_4.toml example/sec_4.toml --peer-addr 127.0.0.1:6334
+cargo run -- generate-config example/common.toml  example/pub_4.toml example/sec_4.toml --peer-address 127.0.0.1:6334
 ```
 
 Завершите генерацию конфигов:

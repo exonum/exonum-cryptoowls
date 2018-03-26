@@ -1,12 +1,18 @@
 <template>
   <div>
-    <h1>Users</h1>
+    <div class="container">
+      <div class="row">
+        <div class="col-sm-12">
+          <h1>Users</h1>
 
-    <ul>
-      <li v-for="user in users">
-        <router-link :to="{ name: 'user', params: { publicKey: user.public_key } }">{{ user.name }}</router-link>
-      </li>
-    </ul>
+          <ul>
+            <li v-for="user in users">
+              <router-link :to="{ name: 'user', params: { publicKey: user.public_key } }">{{ user.name }}</router-link>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
 
     <spinner :visible="isSpinnerVisible"/>
   </div>

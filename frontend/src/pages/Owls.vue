@@ -1,8 +1,14 @@
 <template>
   <div>
-    <h1>Owls</h1>
+    <div class="container">
+      <div class="row">
+        <div class="col-sm-12">
+          <h1>Owls</h1>
 
-    <owl-list v-bind:owls="owls"></owl-list>
+          <owl-list v-bind:owls="owls"></owl-list>
+        </div>
+      </div>
+    </div>
 
     <spinner :visible="isSpinnerVisible"/>
   </div>
@@ -10,10 +16,12 @@
 
 <script>
   const Spinner = require('../components/Spinner.vue')
+  const OwlList = require('../components/OwlList.vue')
 
   module.exports = {
     components: {
-      Spinner
+      Spinner,
+      OwlList
     },
     data: function() {
       return {

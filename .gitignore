@@ -8,6 +8,7 @@ target
 */target
 *.rs.bk
 Cargo.lock
+example
 
 # IDE files
 .idea
