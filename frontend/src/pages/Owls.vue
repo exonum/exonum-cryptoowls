@@ -3,7 +3,7 @@
     <div class="container">
       <div class="row">
         <div class="col-sm-12">
-          <h1>Owls</h1>
+          <h1>Все совы</h1>
 
           <owl-list v-bind:owls="owls"></owl-list>
         </div>

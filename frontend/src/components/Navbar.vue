@@ -3,12 +3,12 @@
     <div class="container">
       <router-link :to="{ name: 'auth' }" class="navbar-brand">
         <img src="images/cryptoowl.png" width="36" height="36" class="d-inline-block align-middle" alt="">
-        Crypto Owls
+        Криптосовы
       </router-link>
       <div class="collapse navbar-collapse">
         <ul class="navbar-nav">
           <li class="nav-item">
-            <a href="#" class="nav-link" @click="logout">Log Out</a>
+            <a href="#" class="nav-link" @click="logout">Выйти</a>
           </li>
         </ul>
       </div>

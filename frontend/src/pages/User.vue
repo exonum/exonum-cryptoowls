@@ -3,12 +3,12 @@
     <div class="container">
       <div class="row">
         <div class="col-sm-12">
-          <h1>User</h1>
+          <h1>Пользователь</h1>
 
-          <h2>Summary</h2>
+          <h2>Резюме</h2>
           <user-summary v-bind:user="user"></user-summary>
 
-          <h2>Owls</h2>
+          <h2>Совы</h2>
           <owl-list v-bind:owls="owls"></owl-list>
         </div>
       </div>

@@ -3,13 +3,13 @@
     <div class="container">
       <div class="row">
         <div class="col-sm-12">
-          <h1>Owl</h1>
+          <h1>Сова</h1>
 
-          <h2>Summary</h2>
+          <h2>Резюме</h2>
           <p>{{ name }}</p>
           <p>{{ dna }}</p>
 
-          <h2>Orders</h2>
+          <h2>Ставки</h2>
           <ul>
             <li v-for="order in orders">
               <p>{{ order.public_key }}</p>

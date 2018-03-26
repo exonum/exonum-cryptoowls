@@ -3,7 +3,7 @@
     <div class="container">
       <div class="row">
         <div class="col-sm-12">
-          <h1>Users</h1>
+          <h1>Пользователи</h1>
 
           <ul>
             <li v-for="user in users">

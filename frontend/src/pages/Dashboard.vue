@@ -3,14 +3,14 @@
     <div class="container">
       <div class="row">
         <div class="col-sm-12">
-          <h1>Dashboard</h1>
+          <h1>Личный кабинет</h1>
 
-          <h2>Summary</h2>
+          <h2>Резюме</h2>
           <user-summary v-bind:user="user"></user-summary>
 
-          <button class="btn btn-primary" @click.prevent="issue">Issue</button>
+          <button class="btn btn-primary" @click.prevent="issue">Пополнить счёт</button>
 
-          <h2>Owls</h2>
+          <h2>Совы</h2>
           <owl-list v-bind:owls="owls"></owl-list>
 
         </div>
@@ -67,7 +67,7 @@
         this.$storage.get().then(keyPair => {
           self.isSpinnerVisible = true
           self.$blockchain.issue(keyPair).then(data => {
-            self.$notify('success', 'Funds has been issued')
+            self.$notify('success', 'Счёт пополнен')
             self.isSpinnerVisible = false
           }).catch(error => {
             self.$notify('error', error.toString())
