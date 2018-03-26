@@ -24,12 +24,10 @@ use std::collections::{HashMap, HashSet};
 use std::time::{Duration, SystemTime};
 use exonum_time::{MockTimeProvider, TimeService};
 
-// use exonum::blockchain::Transaction;
 use exonum::crypto::{self, CryptoHash};
 use exonum_testkit::{TestKit, TestKitBuilder};
 use exonum::helpers::Height;
 
-// Import datatypes used in tests from the crate where the service is defined.
 use cryptoowls::schema::CryptoOwlsSchema;
 use cryptoowls::service::CryptoOwlsService;
 use cryptoowls::transactions::*;
@@ -83,7 +81,7 @@ fn test_issue() {
     testkit.create_block_with_transactions(txvec![CreateUser::new(&pubkey, "Scott", &key),]);
 
     {
-        // невозможно сразу же пополнить себе баланс
+        // should be impossible to issue right after creation of user
         testkit
             .create_block_with_transactions(txvec![Issue::new(&pubkey, SystemTime::now(), &key)]);
 
@@ -94,7 +92,7 @@ fn test_issue() {
     }
 
     {
-        // отправимся в будущее
+        // move us into the future
         time_machine.add_time(Duration::new(200, 0));
         testkit.create_blocks_until(Height(8));
 
@@ -143,15 +141,15 @@ fn test_breeding() {
     let schema = CryptoOwlsSchema::new(&snapshot);
     let user_owls_idx = schema.user_owls(&pubkey);
 
-    // Совы не могут размножаться сразу после рождения
+    // Can't breed newborns
     let user_owls_count = user_owls_idx.iter().count();
     assert_eq!(user_owls_count, 2);
 
-    // отправимся в будущее
+    // some time should pass
     time_machine.add_time(Duration::new(200, 0));
     testkit.create_blocks_until(Height(8));
 
-    // теперь подросли
+    // So, now they grew up enough to breed
     testkit.create_block_with_transactions(txvec![
         MakeOwl::new(
             &pubkey,
@@ -179,7 +177,7 @@ fn test_breeding() {
             assert!(old_owl_state.last_breeding() < owl_state.last_breeding());
         } else {
             assert_eq!(owl_state.owl().name(), "Abel");
-            // dna должен быть отличным от родителей
+            // dna should not be the same as parents have
             assert_ne!(owl_state.owl().dna(), 0u32);
             assert_eq!(owl_state.owner(), &pubkey);
         }
@@ -208,7 +206,7 @@ fn test_sell_owl() {
     let bob_owls = schema.user_owls(&pubkey_1);
     let bob_owl = bob_owls.iter().map(|x| x.1).next().unwrap();
 
-    // Невозможно поместить ордер на свою сову.
+    // Should be impossible to place order on one's own owl
     {
         testkit.create_block_with_transactions(txvec![
             CreateOrder::new(&pubkey, &alice_owl, 0, SystemTime::now(), &key),
@@ -259,7 +257,7 @@ fn test_sell_owl() {
         assert_eq!(alice_owl_orders.len(), 3);
         assert_eq!(bob_owl_orders.len(), 1);
 
-        // Боб продаёт свою сову Джейн
+        // Bob sells his owl to Alice
         testkit.create_block_with_transactions(txvec![
             AcceptOrder::new(&pubkey_1, &bob_owl_orders[0], &key_1),
         ]);
@@ -293,7 +291,7 @@ fn test_sell_owl() {
         let bob = schema.users().get(&pubkey_1).unwrap();
         assert_eq!(bob.balance(), 190);
 
-        //Алиса пытается продать свою сову Джейн
+        // Alice makes attempt to sell her owl to Jane
         let mut jane_orders_iter = jane_orders.iter().filter(|&x| x != &bob_owl_orders[0]);
 
         let jane_order_id = jane_orders_iter.next().unwrap();
@@ -303,7 +301,7 @@ fn test_sell_owl() {
             AcceptOrder::new(&pubkey, &jane_order_id, &key),
         ]);
 
-        // но у Джейн уже нет столько денег
+        // But unfortunately Jane doesn't have required amount of money now
 
         let snapshot = testkit.snapshot();
         let schema = CryptoOwlsSchema::new(&snapshot);
@@ -312,11 +310,11 @@ fn test_sell_owl() {
         let declined_order = orders.get(&jane_order_id).unwrap();
         assert_eq!(declined_order.status(), "declined");
 
-        // второй ордер от Джейн всё еще пендинг
+        // Check if second Jane's order is still in pending state
         let pending_order = orders.get(&jane_order_id_2).unwrap();
         assert_eq!(pending_order.status(), "pending");
 
-        // количество сов осталось тем же
+        // Jane still has the same amount of owls as before
         let jane_owls = schema.user_owls(&pubkey_2);
         let jane_owls: Vec<_> = jane_owls.iter().map(|x| x.0).collect();
         assert_eq!(jane_owls.len(), 3);
@@ -325,7 +323,7 @@ fn test_sell_owl() {
         let alice_owls_cnt = alice_owls.iter().count();
         assert_eq!(alice_owls_cnt, 2);
 
-        //Алиса пытается продать свою сову Бобу
+        // Now Alice is selling her owl to Bob
         let bob_order_id = bob_orders[0];
 
         testkit.create_block_with_transactions(txvec![
@@ -336,15 +334,16 @@ fn test_sell_owl() {
         let schema = CryptoOwlsSchema::new(&snapshot);
         let orders = schema.orders();
 
-        // второй ордер от Джейн должен задеклайниться
+        // So, second Jane's order should be in declined state now, cause
+        // owl has been just sold to Bob
         let declined_order = orders.get(&jane_order_id_2).unwrap();
         assert_eq!(declined_order.status(), "declined");
 
-        //а ордер от Боба - зааксептиться
+        // Bob's order should be in accepted state
         let accepted_order = orders.get(&bob_order_id).unwrap();
         assert_eq!(accepted_order.status(), "accepted");
 
-        // у Боба опять 2 совы
+        // And he has 2 owls again
         let bob_owls = schema.user_owls(&pubkey_1);
         let bob_owls_cnt = bob_owls.iter().count();
         assert_eq!(bob_owls_cnt, 2);
