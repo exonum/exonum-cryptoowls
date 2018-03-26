@@ -1,26 +1,27 @@
-# Криптосовы Exonum
+# exonum-cryptoowls
 
-Демо Криптосовы, созданное на блокчейне [Exonum](https://github.com/exonum/exonum).
+Cryptoowls demo created with [Exonum blockchain](https://github.com/exonum/exonum).
 
-## Необходимые зависимости
+## Getting started
 
-Убедитесь, что Вы установили следующие зависимости:
+Be sure you installed necessary packages:
 
 * [git](https://git-scm.com/downloads)
-* [Компилятор Rust](https://rustup.rs/)
+* [Rust compiler](https://rustup.rs/)
 
-## Сборка и запуск
+## Run
 
-Пошаговое руководство по запуску демо приложения на 4-х нодах на локальной машине.
+Below you will find a step-by-step guide to starting the cryptoowls demo
+service on 4 nodes on the local machine.
 
-Склонируйте директорию с проектом:
+Clone the project:
 
 ```sh
 git clone https://github.com/exonum/exonum-cryptoowls
 
 ```
 
-Сгенерируйте шаблоны конфигурации:
+Generate template:
 
 ```sh
 cd exonum-cryptoowls
@@ -42,7 +43,7 @@ cargo run -- generate-config example/common.toml  example/pub_3.toml example/sec
 cargo run -- generate-config example/common.toml  example/pub_4.toml example/sec_4.toml --peer-addr 127.0.0.1:6334
 ```
 
-Завершите генерацию конфигов:
+Finalize configs:
 
 ```sh
 cargo run -- finalize --public-api-address 0.0.0.0:8200 --private-api-address 0.0.0.0:8091 example/sec_1.toml node_1_cfg.toml --public-configs example/pub_1.toml example/pub_2.toml example/pub_3.toml example/pub_4.toml
@@ -54,7 +55,7 @@ cargo run -- finalize --public-api-address 0.0.0.0:8202 --private-api-address 0.
 cargo run -- finalize --public-api-address 0.0.0.0:8203 --private-api-address 0.0.0.0:8094 example/sec_4.toml node_4_cfg.toml --public-configs example/pub_1.toml example/pub_2.toml example/pub_3.toml example/pub_4.toml
 ```
 
-Запустите ноды:
+Run nodes:
 
 ```sh
 cargo run -- run --node-config node_1_cfg.toml --db-path example/db1 --public-api-address 0.0.0.0:8200
@@ -66,7 +67,7 @@ cargo run -- run --node-config node_3_cfg.toml --db-path example/db3 --public-ap
 cargo run -- run --node-config node_4_cfg.toml --db-path example/db4 --public-api-address 0.0.0.0:8203
 ```
 
-## Лицензия 
+## License
 
-Демоприложение Криптосовы лицензированно под лицензией Apache (Version 2.0).
-Смотрите файл [LICENSE](LICENSE) для деталей.
+Cryptoowls demo is licensed under the Apache License (Version 2.0).
+See [LICENSE](LICENSE) for details.
