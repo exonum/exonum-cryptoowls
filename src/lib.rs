@@ -155,7 +155,7 @@ mod data_layout {
 
 }
 
-// схема данных для базы
+/// Cхема данных для базы
 pub mod schema {
     use data_layout::{CryptoOwl, CryptoOwlState, Order, User};
     use exonum::storage::{Fork, ListIndex, ProofMapIndex, Snapshot, ValueSetIndex};
@@ -569,8 +569,6 @@ pub mod transactions {
 
 /// Модуль с реализацией api
 mod api {
-    use serde_json;
-
     use bodyparser;
     use iron::prelude::*;
 
@@ -598,25 +596,25 @@ mod api {
             let get_user = move |req: &mut Request| {
                 let public_key: PublicKey = self_.url_fragment(req, "pub_key")?;
                 if let Some(user) = self_.get_user(&public_key) {
-                    self_.ok_response(&serde_json::to_value(user).unwrap())
+                    self_.ok_response(&json!(user))
                 } else {
-                    self_.not_found_response(&serde_json::to_value("User not found").unwrap())
+                    self_.not_found_response(&json!("User not found"))
                 }
             };
 
             let self_ = self.clone();
             let get_users = move |_: &mut Request| {
                 let users = self_.get_users();
-                self_.ok_response(&serde_json::to_value(&users).unwrap())
+                self_.ok_response(&json!(&users))
             };
 
             let self_ = self.clone();
             let get_users_orders = move |req: &mut Request| {
                 let public_key: PublicKey = self_.url_fragment(req, "pub_key")?;
                 if let Some(orders) = self_.get_users_orders(&public_key) {
-                    self_.ok_response(&serde_json::to_value(orders).unwrap())
+                    self_.ok_response(&json!(orders))
                 } else {
-                    self_.not_found_response(&serde_json::to_value("User not found").unwrap())
+                    self_.not_found_response(&json!("User not found"))
                 }
             };
 
@@ -624,25 +622,25 @@ mod api {
             let get_owl = move |req: &mut Request| {
                 let owl_hash = self_.url_fragment(req, "owl_hash")?;
                 if let Some(owl) = self_.get_owl(&owl_hash) {
-                    self_.ok_response(&serde_json::to_value(owl).unwrap())
+                    self_.ok_response(&json!(owl))
                 } else {
-                    self_.not_found_response(&serde_json::to_value("Owl not found").unwrap())
+                    self_.not_found_response(&json!("Owl not found"))
                 }
             };
 
             let self_ = self.clone();
             let get_owls = move |_: &mut Request| {
                 let owls = self_.get_owls();
-                self_.ok_response(&serde_json::to_value(&owls).unwrap())
+                self_.ok_response(&json!(&owls))
             };
 
             let self_ = self.clone();
             let get_owls_orders = move |req: &mut Request| {
                 let owl_hash = self_.url_fragment(req, "owl_hash")?;
                 if let Some(orders) = self_.get_owls_orders(&owl_hash) {
-                    self_.ok_response(&serde_json::to_value(orders).unwrap())
+                    self_.ok_response(&json!(orders))
                 } else {
-                    self_.not_found_response(&serde_json::to_value("Owl not found").unwrap())
+                    self_.not_found_response(&json!("Owl not found"))
                 }
             };
 
@@ -650,9 +648,9 @@ mod api {
             let get_user_owls = move |req: &mut Request| {
                 let public_key: PublicKey = self_.url_fragment(req, "pub_key")?;
                 if let Some(orders) = self_.get_user_owls(&public_key) {
-                    self_.ok_response(&serde_json::to_value(orders).unwrap())
+                    self_.ok_response(&json!(orders))
                 } else {
-                    self_.not_found_response(&serde_json::to_value("User not found").unwrap())
+                    self_.not_found_response(&json!("User not found"))
                 }
             };
 
@@ -773,7 +771,7 @@ mod api {
                     let tx_hash = transaction.hash();
                     self.channel.send(transaction).map_err(ApiError::from)?;
                     let json = json!({ "tx_hash": tx_hash });
-                    self.ok_response(&serde_json::to_value(&json).unwrap())
+                    self.ok_response(&json)
                 }
                 Ok(None) => Err(ApiError::BadRequest("Empty request body".into()))?,
                 Err(e) => Err(ApiError::BadRequest(e.to_string()))?,
