@@ -13,6 +13,10 @@
 // limitations under the License.
 
 #[macro_use]
+extern crate enum_primitive_derive;
+extern crate num_traits;
+
+#[macro_use]
 extern crate exonum;
 #[macro_use]
 extern crate serde_json;
@@ -341,9 +345,11 @@ pub mod schema {
 /// Модуль с описанием транзакций для демки.
 pub mod transactions {
     use exonum::crypto::{CryptoHash, Hash, PublicKey};
-    use exonum::blockchain::{ExecutionResult, Schema, Transaction};
+    use exonum::blockchain::{ExecutionError, ExecutionResult, Schema, Transaction};
     use exonum::storage::Fork;
     use exonum::messages::Message;
+
+    use num_traits::ToPrimitive;
 
     use schema;
     use data_layout::{CryptoOwlState, Order, User};
@@ -483,28 +489,35 @@ pub mod transactions {
             let user = schema.users().get(self.public_key()).unwrap();
             let key = user.public_key();
 
-            // Если нам удалось найти родителей
+            // Если нам удалось найти родителей идём дальше
+            // если нет - игнорируем транзакцию
             if let Some(parents) = parents {
-                // то мы проверяем достаточно ли денег для разведения у пользователя
-                if user.balance() >= BREEDING_PRICE && parents.iter().all(|ref p| {
-                    // и для каждой совы - время последнего спаривания
-                    ts.duration_since(p.last_breeding()).unwrap().as_secs() >= BREEDING_TIMEOUT
-                        // и являемся ли мы её владельцем
-                        && p.owner() == key
-                }) {
-                    let (mother, father) = (parents[0].owl(), parents[1].owl());
-
-                    let son = schema.make_uniq_owl(
-                        (father.dna(), mother.dna()),
-                        self.name(),
-                        &state_hash,
-                    );
-                    let owls_to_update = vec![son, mother, father];
-                    schema.refresh_owls(&key, owls_to_update, ts);
-
-                    let user = User::new(&key, user.name(), user.balance() - BREEDING_PRICE, ts);
-                    schema.users_mut().put(&key, user);
+                // Проверяем наши права на сов
+                if parents.iter().any(|ref p| p.owner() != key) {
+                    return Err(ExecutionError::from(ErrorKind::AccessViolation));
                 }
+
+                // Достаточно ли средств для разведения?
+                if user.balance() < BREEDING_PRICE {
+                    return Err(ExecutionError::from(ErrorKind::InsufficientFunds));
+                }
+
+                // Проверяем время последнего спаривания для каждой совы
+                if parents.iter().any(|ref p| {
+                    ts.duration_since(p.last_breeding()).unwrap().as_secs() < BREEDING_TIMEOUT
+                }) {
+                    return Err(ExecutionError::from(ErrorKind::EarlyBreeding));
+                }
+
+                // Все условия выполнены, можем размножаться
+                let (mother, father) = (parents[0].owl(), parents[1].owl());
+                let son =
+                    schema.make_uniq_owl((father.dna(), mother.dna()), self.name(), &state_hash);
+                let owls_to_update = vec![son, mother, father];
+                schema.refresh_owls(&key, owls_to_update, ts);
+
+                let user = User::new(&key, user.name(), user.balance() - BREEDING_PRICE, ts);
+                schema.users_mut().put(&key, user);
             }
 
             Ok(())
@@ -526,12 +539,13 @@ pub mod transactions {
             let key = self.public_key();
             let user = schema.users().get(key).unwrap();
 
-            //Молча отбрасываем транзакцию, если таймаут пополнения не истёк
             if ts.duration_since(user.last_fillup()).unwrap().as_secs() >= ISSUE_TIMEOUT {
                 schema.set_user_balance(&key, user.balance() + ISSUE_AMMOUNT, Some(ts));
+                Ok(())
+            } else {
+                //таймаут пополнения не истёк
+                Err(ExecutionError::from(ErrorKind::EarlyIssue))
             }
-
-            Ok(())
         }
     }
 
@@ -584,6 +598,28 @@ pub mod transactions {
             Ok(())
         }
     }
+
+    #[derive(Primitive)]
+    pub enum ErrorKind {
+        EarlyBreeding = 1,
+        EarlyIssue = 2,
+        InsufficientFunds = 3,
+        AccessViolation = 4,
+    }
+
+    impl ErrorKind {
+        /// Converts error to the raw code
+        pub fn as_code(self) -> u8 {
+            self.to_u8().unwrap()
+        }
+    }
+
+    impl From<ErrorKind> for ExecutionError {
+        fn from(e: ErrorKind) -> ExecutionError {
+            ExecutionError::new(e.as_code())
+        }
+    }
+
 }
 
 /// Модуль с реализацией api
