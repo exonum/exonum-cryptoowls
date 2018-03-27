@@ -48,12 +48,6 @@ mod data_layout {
     use std::time::SystemTime;
     use exonum::crypto::{Hash, PublicKey};
 
-    use byteorder::{BigEndian, ReadBytesExt};
-
-    use std::io::Cursor;
-    use rand::{IsaacRng, Rng, SeedableRng};
-    use rand::distributions::{Sample, Weighted, WeightedChoice};
-
     encoding_struct! {
         /// Интересующая нас криптосова, ее уникальный идентифицатор вычисляется как хеш
         /// от этой структуры данных.
@@ -104,55 +98,6 @@ mod data_layout {
             price: u64,
         }
     }
-
-    impl CryptoOwl {
-        pub fn breed(&self, other: &CryptoOwl, name: &str, hash_seed: &Hash) -> CryptoOwl {
-            // мы можем получить хэш только как [u8:32], чтоб получить что-то,
-            // что можно использовать для сидирования генератора случайных чисел,
-            // нужно собрать из каждых 4-х u8 один u32
-
-            let hash_seed: &[u8] = hash_seed.as_ref();
-            let mut seed = [0u32; 4];
-            let mut cursor = Cursor::new(hash_seed);
-            for i in 0..4 {
-                seed[i] = cursor.read_u32::<BigEndian>().unwrap();
-            }
-            let mut rng = IsaacRng::from_seed(&seed);
-            let mut son_dna = 0u32;
-
-            for i in 0..32 {
-                // проходим по всем `генам` и выставляем их в соответствии с генами родителей
-                let mask = 2u32.pow(i);
-                let (fg, mg) = (self.dna() & mask, other.dna() & mask);
-                if fg == mg {
-                    // Если биты у родителей совпадают, то с вероятностью
-                    // 8/10 бит ребенка будет таким же
-                    let mut possible_genes = vec![
-                        Weighted {
-                            weight: 8,
-                            item: fg,
-                        },
-                        Weighted {
-                            weight: 2,
-                            item: fg ^ mask,
-                        },
-                    ];
-
-                    let mut choices = WeightedChoice::new(&mut possible_genes);
-                    son_dna |= choices.sample(&mut rng);
-                } else {
-                    // Если биты различаются, то результирующий бит будет
-                    // выбираться с вероятностью 1/2.
-                    if rng.gen() {
-                        son_dna |= mask;
-                    }
-                }
-            }
-
-            CryptoOwl::new(name, son_dna)
-        }
-    }
-
 }
 
 /// Cхема данных для базы
@@ -163,6 +108,11 @@ pub mod schema {
     use exonum::crypto::{CryptoHash, Hash, PublicKey};
 
     use std::time::SystemTime;
+
+    use byteorder::{BigEndian, ReadBytesExt};
+    use std::io::Cursor;
+    use rand::{IsaacRng, Rng, SeedableRng};
+    use rand::distributions::{Sample, Weighted, WeightedChoice};
 
     pub struct CryptoOwlsSchema<T> {
         view: T,
@@ -207,6 +157,59 @@ pub mod schema {
                 self.orders().root_hash(),
                 self.owls_state().root_hash(),
             ]
+        }
+
+        // вспомогательный метод для генерации уникальной совы
+        pub fn make_uniq_owl(&self, genes: (u32, u32), name: &str, hash_seed: &Hash) -> CryptoOwl {
+            // мы можем получить хэш только как [u8:32], чтоб получить что-то,
+            // что можно использовать для сидирования генератора случайных чисел,
+            // нужно собрать из каждых 4-х u8 один u32
+
+            let hash_seed: &[u8] = hash_seed.as_ref();
+            let mut seed = [0u32; 4];
+            let mut cursor = Cursor::new(hash_seed);
+            for i in 0..4 {
+                seed[i] = cursor.read_u32::<BigEndian>().unwrap();
+            }
+            let mut rng = IsaacRng::from_seed(&seed);
+
+            // Избегаем коллизий. В случае, если сова с таким хэшем уже есть - пробуем ещё
+            loop {
+                let mut son_dna = 0u32;
+                for i in 0..32 {
+                    // проходим по всем `генам` и выставляем их в соответствии с генами родителей
+                    let mask = 2u32.pow(i);
+                    let (fg, mg) = (genes.0 & mask, genes.1 & mask);
+                    if fg == mg {
+                        // Если биты у родителей совпадают, то с вероятностью
+                        // 8/10 бит ребенка будет таким же
+                        let mut possible_genes = vec![
+                            Weighted {
+                                weight: 8,
+                                item: fg,
+                            },
+                            Weighted {
+                                weight: 2,
+                                item: fg ^ mask,
+                            },
+                        ];
+
+                        let mut choices = WeightedChoice::new(&mut possible_genes);
+                        son_dna |= choices.sample(&mut rng);
+                    } else {
+                        // Если биты различаются, то результирующий бит будет
+                        // выбираться с вероятностью 1/2.
+                        if rng.gen() {
+                            son_dna |= mask;
+                        }
+                    }
+                }
+
+                let newborn = CryptoOwl::new(name, son_dna);
+                if self.owls_state().get(&newborn.hash()).is_none() {
+                    break newborn;
+                }
+            }
         }
     }
 
@@ -316,7 +319,7 @@ pub mod schema {
             None
         }
 
-        /// Хэлпер для отклонения ордера, используется только в этом
+        /// Вспомогательный метод для отклонения ордера, используется только в этом
         /// модуле, поэтому приватный
         pub fn decline_order(&mut self, order_id: &Hash) {
             if let Some(order) = self.orders().get(order_id) {
@@ -343,7 +346,7 @@ pub mod transactions {
     use exonum::messages::Message;
 
     use schema;
-    use data_layout::{CryptoOwl, CryptoOwlState, Order, User};
+    use data_layout::{CryptoOwlState, Order, User};
     use exonum_time::TimeSchema;
 
     use std::time::SystemTime;
@@ -420,6 +423,11 @@ pub mod transactions {
                 time_schema.time().get().unwrap()
             };
 
+            let state_hash = {
+                let info_schema = Schema::new(&fork);
+                info_schema.state_hash_aggregator().root_hash()
+            };
+
             let key = self.public_key();
             let mut schema = schema::CryptoOwlsSchema::new(fork);
 
@@ -428,10 +436,18 @@ pub mod transactions {
                 let user = User::new(&key, self.name(), ISSUE_AMMOUNT, ts);
                 schema.users_mut().put(key, user);
 
-                // Новый пользователь получает `в подарок` 2 примитивных совы с геномом 0u32.
+                // Новый пользователь получает `в подарок` 2 примитивных совы со случайным геномом.
                 let starter_pack = vec![
-                    CryptoOwl::new(&format!("Adam ({})", key.to_hex()), 0u32),
-                    CryptoOwl::new(&format!("Eve ({})", key.to_hex()), 0u32),
+                    schema.make_uniq_owl(
+                        (1u32, 0u32),
+                        &format!("{}'s Adam", self.name()),
+                        &state_hash,
+                    ),
+                    schema.make_uniq_owl(
+                        (1u32, 0u32),
+                        &format!("{}'s Eve", self.name()),
+                        &state_hash,
+                    ),
                 ];
                 schema.refresh_owls(key, starter_pack, ts);
             }
@@ -478,8 +494,11 @@ pub mod transactions {
                 }) {
                     let (mother, father) = (parents[0].owl(), parents[1].owl());
 
-                    let son = mother.breed(&father, self.name(), &state_hash);
-
+                    let son = schema.make_uniq_owl(
+                        (father.dna(), mother.dna()),
+                        self.name(),
+                        &state_hash,
+                    );
                     let owls_to_update = vec![son, mother, father];
                     schema.refresh_owls(&key, owls_to_update, ts);
 
@@ -654,7 +673,6 @@ mod api {
                 }
             };
 
-
             let self_ = self.clone();
             let transaction = move |req: &mut Request| self_.post_transaction(req);
 
@@ -776,7 +794,7 @@ mod api {
                 Ok(None) => Err(ApiError::BadRequest("Empty request body".into()))?,
                 Err(e) => Err(ApiError::BadRequest(e.to_string()))?,
             }
-         }
+        }
     }
 }
 
