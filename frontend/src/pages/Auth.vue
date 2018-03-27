@@ -1,6 +1,6 @@
 <template>
   <div>
-    <div class="container">
+    <div class="container mt-5">
       <div class="row justify-content-sm-center">
         <div class="col-md-6 col-md-offset-3">
           <h1 class="mt-5 mb-4">Авторизация</h1>

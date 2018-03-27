@@ -1,20 +1,45 @@
 <template>
   <div>
-    <div class="container">
+    <div class="container mt-5">
       <div class="row">
         <div class="col-sm-12">
           <h1>Сова</h1>
 
-          <h2>Резюме</h2>
-          <p>{{ name }}</p>
-          <p>{{ dna }}</p>
+          <h2 class="mt-5">Профиль</h2>
+          <ul class="list-group mt-3">
+            <li class="list-group-item">
+              <div class="row">
+                <div class="col-sm-3"><strong>Кличка:</strong></div>
+                <div class="col-sm-9">{{ name }}</div>
+              </div>
+            </li>
+            <li class="list-group-item">
+              <div class="row">
+                <div class="col-sm-3"><strong>ДНК:</strong></div>
+                <div class="col-sm-9">
+                  <code>{{ dna }}</code>
+                </div>
+              </div>
+            </li>
+          </ul>
 
-          <h2>Ставки</h2>
-          <ul>
-            <li v-for="order in orders">
-              <p>{{ order.public_key }}</p>
-              <p>{{ order.status }}</p>
-              <p>{{ order.price }}</p>
+          <h2 class="mt-5">Ставки</h2>
+          <ul class="list-group mt-3">
+            <li class="list-group-item font-weight-bold">
+              <div class="row">
+                <div class="col-sm-4">Публичный ключ</div>
+                <div class="col-sm-4">Статус</div>
+                <div class="col-sm-4">Цена</div>
+              </div>
+            </li>
+            <li v-for="order in orders" class="list-group-item">
+              <div class="row">
+                <div class="col-sm-4">
+                  <code>{{ order.public_key }}</code>
+                </div>
+                <div class="col-sm-4">{{ order.status }}</div>
+                <div class="col-sm-4">{{ order.price }}</div>
+              </div>
             </li>
           </ul>
         </div>

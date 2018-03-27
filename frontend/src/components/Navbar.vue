@@ -8,6 +8,14 @@
       <div class="collapse navbar-collapse">
         <ul class="navbar-nav">
           <li class="nav-item">
+            <router-link :to="{ name: 'users' }" class="nav-link">Пользователи</router-link>
+          </li>
+          <li class="nav-item">
+            <router-link :to="{ name: 'owls' }" class="nav-link">Совы</router-link>
+          </li>
+        </ul>
+        <ul class="navbar-nav ml-auto">
+          <li class="nav-item">
             <a href="#" class="nav-link" @click="logout">Выйти</a>
           </li>
         </ul>

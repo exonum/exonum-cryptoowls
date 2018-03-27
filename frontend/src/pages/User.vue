@@ -1,15 +1,15 @@
 <template>
   <div>
-    <div class="container">
+    <div class="container mt-5">
       <div class="row">
         <div class="col-sm-12">
           <h1>Пользователь</h1>
 
-          <h2>Резюме</h2>
-          <user-summary v-bind:user="user"></user-summary>
+          <h2 class="mt-5">Профиль</h2>
+          <user-summary v-bind:user="user" class="mt-3"/>
 
-          <h2>Совы</h2>
-          <owl-list v-bind:owls="owls"></owl-list>
+          <h2 class="mt-5">Совы</h2>
+          <owl-list v-bind:owls="owls" class="mt-3"/>
         </div>
       </div>
     </div>

@@ -1,17 +1,17 @@
 <template>
   <div>
-    <div class="container">
+    <div class="container mt-5">
       <div class="row">
         <div class="col-sm-12">
           <h1>Личный кабинет</h1>
 
-          <h2>Резюме</h2>
-          <user-summary v-bind:user="user"></user-summary>
+          <h2 class="mt-5">Мой профиль</h2>
+          <user-summary v-bind:user="user" class="mt-3"/>
 
-          <button class="btn btn-primary" @click.prevent="issue">Пополнить счёт</button>
+          <button class="btn btn-primary mt-3" @click.prevent="issue">Пополнить счёт</button>
 
-          <h2>Совы</h2>
-          <owl-list v-bind:owls="owls"></owl-list>
+          <h2 class="mt-5">Мои совы</h2>
+          <owl-list v-bind:owls="owls" class="mt-3"/>
 
         </div>
       </div>

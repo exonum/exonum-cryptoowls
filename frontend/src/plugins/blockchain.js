@@ -76,10 +76,6 @@ function getSystemTime() {
   }
 }
 
-function getData(url) {
-  return axios.get(url).then(response => response.data)
-}
-
 module.exports = {
   install(Vue) {
     Vue.prototype.$blockchain = {
