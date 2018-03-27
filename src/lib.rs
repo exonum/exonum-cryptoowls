@@ -253,8 +253,10 @@ pub mod schema {
         ) {
             for owl in owls {
                 self.user_owls_mut(owner_key).insert(owl.hash());
-                self.owls_state_mut()
-                    .put(&owl.hash(), CryptoOwlState::new(owl, owner_key, ts));
+                self.owls_state_mut().put(
+                    &owl.hash(),
+                    CryptoOwlState::new(owl, owner_key, ts),
+                );
             }
         }
 
@@ -282,8 +284,8 @@ pub mod schema {
                 let seller = self.users().get(acceptor_key).unwrap();
 
                 if order.status() == "pending" {
-                    if buyer.balance() >= order.price()
-                        && self.user_owls(acceptor_key).contains(order.owl_id())
+                    if buyer.balance() >= order.price() &&
+                        self.user_owls(acceptor_key).contains(order.owl_id())
                     {
                         let new_order = Order::new(
                             order.public_key(),
@@ -447,12 +449,12 @@ pub mod transactions {
                     schema.make_uniq_owl(
                         (1u32, 0u32),
                         &format!("{}'s Adam", self.name()),
-                        &state_hash,
+                        &state_hash
                     ),
                     schema.make_uniq_owl(
                         (1u32, 0u32),
                         &format!("{}'s Eve", self.name()),
-                        &state_hash,
+                        &state_hash
                     ),
                 ];
                 schema.refresh_owls(key, starter_pack, ts);
@@ -505,7 +507,8 @@ pub mod transactions {
                 // Проверяем время последнего спаривания для каждой совы
                 if parents.iter().any(|ref p| {
                     ts.duration_since(p.last_breeding()).unwrap().as_secs() < BREEDING_TIMEOUT
-                }) {
+                })
+                {
                     return Err(ErrorKind::EarlyBreeding.into());
                 }
 
@@ -591,9 +594,10 @@ pub mod transactions {
                     owl_state.last_breeding(),
                 );
 
-                schema
-                    .user_owls_mut(self.public_key())
-                    .remove(accepted_order.owl_id());
+                schema.user_owls_mut(self.public_key()).remove(
+                    accepted_order
+                        .owl_id(),
+                );
             }
             Ok(())
         }
@@ -601,10 +605,14 @@ pub mod transactions {
 
     #[derive(Display, Primitive)]
     pub enum ErrorKind {
-        #[display(fmt = "Too early for breeding.")] EarlyBreeding = 1,
-        #[display(fmt = "Too early for balance refill.")] EarlyIssue = 2,
-        #[display(fmt = "Insufficient funds.")] InsufficientFunds = 3,
-        #[display(fmt = "Not your property.")] AccessViolation = 4,
+        #[display(fmt = "Too early for breeding.")]
+        EarlyBreeding = 1,
+        #[display(fmt = "Too early for balance refill.")]
+        EarlyIssue = 2,
+        #[display(fmt = "Insufficient funds.")]
+        InsufficientFunds = 3,
+        #[display(fmt = "Not your property.")]
+        AccessViolation = 4,
     }
 
     impl ErrorKind {
@@ -825,7 +833,9 @@ mod api {
                     let transaction: Box<Transaction> = transaction.into();
                     let tx_hash = transaction.hash();
                     self.channel.send(transaction).map_err(ApiError::from)?;
-                    let json = json!({ "tx_hash": tx_hash });
+                    let json = json!({
+                        "tx_hash": tx_hash
+                    });
                     self.ok_response(&json)
                 }
                 Ok(None) => Err(ApiError::BadRequest("Empty request body".into()))?,

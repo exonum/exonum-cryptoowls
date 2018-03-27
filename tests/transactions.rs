@@ -82,8 +82,9 @@ fn test_issue() {
 
     {
         // should be impossible to issue right after creation of user
-        testkit
-            .create_block_with_transactions(txvec![Issue::new(&pubkey, SystemTime::now(), &key)]);
+        testkit.create_block_with_transactions(
+            txvec![Issue::new(&pubkey, SystemTime::now(), &key)],
+        );
 
         let snapshot = testkit.snapshot();
         let schema = CryptoOwlsSchema::new(&snapshot);

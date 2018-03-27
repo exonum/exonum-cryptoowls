@@ -15,7 +15,11 @@ fn main() {
     let (public_key, secret_key) = crypto::gen_keypair();
     // need possibility to read keys from command line
 
-    println!("Keys are {:#?} {:#?}", public_key.to_hex(), secret_key.to_hex());
+    println!(
+        "Keys are {:#?} {:#?}",
+        public_key.to_hex(),
+        secret_key.to_hex()
+    );
     let tx = owls::transactions::CreateUser::new(&public_key, "Me", &secret_key);
     println!(
         "{}",
