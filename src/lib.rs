@@ -13,9 +13,9 @@
 // limitations under the License.
 
 #[macro_use]
+extern crate display_derive;
+#[macro_use]
 extern crate enum_primitive_derive;
-extern crate num_traits;
-
 #[macro_use]
 extern crate exonum;
 #[macro_use]
@@ -25,6 +25,7 @@ extern crate bodyparser;
 extern crate byteorder;
 extern crate exonum_time;
 extern crate iron;
+extern crate num_traits;
 extern crate rand;
 extern crate router;
 extern crate serde;
@@ -348,7 +349,6 @@ pub mod transactions {
     use exonum::blockchain::{ExecutionError, ExecutionResult, Schema, Transaction};
     use exonum::storage::Fork;
     use exonum::messages::Message;
-
     use num_traits::ToPrimitive;
 
     use schema;
@@ -494,19 +494,19 @@ pub mod transactions {
             if let Some(parents) = parents {
                 // Проверяем наши права на сов
                 if parents.iter().any(|ref p| p.owner() != key) {
-                    return Err(ExecutionError::from(ErrorKind::AccessViolation));
+                    return Err(ErrorKind::AccessViolation.into());
                 }
 
                 // Достаточно ли средств для разведения?
                 if user.balance() < BREEDING_PRICE {
-                    return Err(ExecutionError::from(ErrorKind::InsufficientFunds));
+                    return Err(ErrorKind::InsufficientFunds.into());
                 }
 
                 // Проверяем время последнего спаривания для каждой совы
                 if parents.iter().any(|ref p| {
                     ts.duration_since(p.last_breeding()).unwrap().as_secs() < BREEDING_TIMEOUT
                 }) {
-                    return Err(ExecutionError::from(ErrorKind::EarlyBreeding));
+                    return Err(ErrorKind::EarlyBreeding.into());
                 }
 
                 // Все условия выполнены, можем размножаться
@@ -544,7 +544,7 @@ pub mod transactions {
                 Ok(())
             } else {
                 //таймаут пополнения не истёк
-                Err(ExecutionError::from(ErrorKind::EarlyIssue))
+                Err(ErrorKind::EarlyIssue.into())
             }
         }
     }
@@ -599,12 +599,12 @@ pub mod transactions {
         }
     }
 
-    #[derive(Primitive)]
+    #[derive(Display, Primitive)]
     pub enum ErrorKind {
-        EarlyBreeding = 1,
-        EarlyIssue = 2,
-        InsufficientFunds = 3,
-        AccessViolation = 4,
+        #[display(fmt = "Too early for breeding.")] EarlyBreeding = 1,
+        #[display(fmt = "Too early for balance refill.")] EarlyIssue = 2,
+        #[display(fmt = "Insufficient funds.")] InsufficientFunds = 3,
+        #[display(fmt = "Not your property.")] AccessViolation = 4,
     }
 
     impl ErrorKind {
@@ -616,7 +616,8 @@ pub mod transactions {
 
     impl From<ErrorKind> for ExecutionError {
         fn from(e: ErrorKind) -> ExecutionError {
-            ExecutionError::new(e.as_code())
+            let err_txt = format!("{}", e);
+            ExecutionError::with_description(e.as_code(), err_txt)
         }
     }
 
