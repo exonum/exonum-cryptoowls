@@ -1,7 +1,9 @@
 <template>
   <div class="card-columns">
     <div class="card" v-for="owl in owls">
-      <owl-icon v-bind:dna="owl.owl.dna" class="card-img-top"/>
+      <router-link :to="{ name: 'owl', params: { hash: $blockchain.owlHash(owl.owl) } }" class="break-word">
+        <owl-icon v-bind:dna="owl.owl.dna" class="card-img-top"/>
+      </router-link>
       <div class="card-body">
         <h5 class="card-title">
           Кличка: <router-link :to="{ name: 'owl', params: { hash: $blockchain.owlHash(owl.owl) } }" class="break-word">{{ owl.owl.name }}</router-link>
