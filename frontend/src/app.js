@@ -1,18 +1,22 @@
 import Vue from 'vue'
+import App from './App.vue'
 import router from './router'
-import Storage from './plugins/storage'
 import Validate from './plugins/validate'
 import Notify from './plugins/notify'
 import Blockchain from './plugins/blockchain'
-import App from './App.vue'
+import SvgJs from './plugins/svg'
+import moment from './plugins/moment'
+import store from './store'
 
-Vue.use(Storage)
 Vue.use(Validate)
 Vue.use(Notify)
 Vue.use(Blockchain)
+Vue.use(SvgJs)
+Vue.use(moment)
 
 new Vue({
   el: '#app',
   router,
+  store,
   render: (createElement) => createElement(App)
 })

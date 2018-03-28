@@ -1,17 +1,17 @@
 <template>
   <div>
-    <div class="container">
+    <div class="container mt-5">
       <div class="row">
         <div class="col-sm-12">
           <h1>Личный кабинет</h1>
 
-          <h2>Резюме</h2>
-          <user-summary v-bind:user="user"></user-summary>
+          <h2 class="mt-5">Мой профиль</h2>
+          <user-summary v-bind:user="user" class="mt-3"/>
 
-          <button class="btn btn-primary" @click.prevent="issue">Пополнить счёт</button>
+          <button class="btn btn-primary mt-3" @click.prevent="issue">Пополнить счёт</button>
 
-          <h2>Совы</h2>
-          <owl-list v-bind:owls="owls"></owl-list>
+          <h2 class="mt-5">Мои совы</h2>
+          <owl-list v-bind:owls="owls" class="mt-3"/>
 
         </div>
       </div>
@@ -34,54 +34,52 @@
     },
     data: function() {
       return {
-        user: Object,
-        owls: Array
+        user: [],
+        owls: [],
+        isSpinnerVisible: false
       }
     },
     methods: {
       loadUser: function() {
         const self = this
-        this.$storage.get().then(keyPair => {
-          self.isSpinnerVisible = true
-          self.$blockchain.getUser(keyPair.publicKey).then(data => {
-            self.user = data
-            self.$blockchain.getUserOwls(keyPair.publicKey).then(data => {
-              self.owls = data
-              self.isSpinnerVisible = false
-            }).catch(error => {
-              self.$notify('error', error.toString())
-              self.isSpinnerVisible = false
-            })
+        const keyPair = this.$store.state.keyPair
+
+        if (keyPair === null) {
+          this.$store.commit('logout')
+          this.$router.push({name: 'auth'})
+          return
+        }
+
+        this.isSpinnerVisible = true
+
+        this.$blockchain.getUser(keyPair.publicKey).then(data => {
+          self.user = data
+          self.$blockchain.getUserOwls(keyPair.publicKey).then(data => {
+            self.owls = data
+            self.isSpinnerVisible = false
           }).catch(error => {
             self.$notify('error', error.toString())
             self.isSpinnerVisible = false
           })
         }).catch(error => {
           self.$notify('error', error.toString())
-          self.logout()
+          self.isSpinnerVisible = false
         })
       },
 
       issue: function() {
         const self = this
-        this.$storage.get().then(keyPair => {
-          self.isSpinnerVisible = true
-          self.$blockchain.issue(keyPair).then(data => {
-            self.$notify('success', 'Счёт пополнен')
-            self.isSpinnerVisible = false
-          }).catch(error => {
-            self.$notify('error', error.toString())
-            self.isSpinnerVisible = false
-          })
+        const keyPair = this.$store.state.keyPair
+
+        this.isSpinnerVisible = true
+
+        this.$blockchain.issue(keyPair).then(data => {
+          self.$notify('success', 'Счёт пополнен')
+          self.isSpinnerVisible = false
         }).catch(error => {
           self.$notify('error', error.toString())
-          self.logout()
+          self.isSpinnerVisible = false
         })
-      },
-
-      logout: function() {
-        this.$storage.remove()
-        this.$router.push({name: 'auth'})
       }
     },
     mounted: function() {

@@ -36,7 +36,7 @@
     box-shadow: none;
   }
 
-  code {
+  code, .break-word {
     word-break: break-all;
     word-wrap: break-word;
   }

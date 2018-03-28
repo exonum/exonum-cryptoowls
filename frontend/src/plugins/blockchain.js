@@ -12,6 +12,11 @@ const SystemTime = Exonum.newType({
     { name: 'nanos', type: Exonum.Uint32 }
   ]
 })
+const DNA = Exonum.newType({
+  fields: [
+    { name: 'dna', type: Exonum.Uint32 }
+  ]
+})
 
 const CREATE_USER_TX = [
   {name: 'public_key', type: Exonum.PublicKey},
@@ -74,10 +79,6 @@ function getSystemTime() {
     secs: secs.toString(),
     nanos: nanos.valueOf()
   }
-}
-
-function getData(url) {
-  return axios.get(url).then(response => response.data)
 }
 
 module.exports = {
@@ -176,6 +177,36 @@ module.exports = {
 
       getOrders: hash => {
         return axios.get(`/api/services/cryptoowls/v1/owl/${hash}/orders`).then(response => response.data)
+      },
+
+      getBlocks: latest => {
+        let suffix = !isNaN(latest) ? '&latest=' + latest : ''
+
+        return axios.get(`/api/explorer/v1/blocks?count=10${suffix}`).then(response => response.data.blocks)
+      },
+
+      getBlock: height => {
+        return axios.get(`/api/explorer/v1/blocks/${height}`).then(response => response.data)
+      },
+
+      getTransaction: hash => {
+        return axios.get(`/api/explorer/v1/transactions/${hash}`).then(response => response.data)
+      },
+
+      splitDNA: dna => {
+        const buffer = DNA.serialize({dna: dna})
+        const appearanceHex = Exonum.uint8ArrayToHexadecimal(new Uint8Array(buffer.slice(3)))
+        const appearanceBinary = Exonum.hexadecimalToBinaryString(appearanceHex)
+
+        return {
+          color: Exonum.uint8ArrayToHexadecimal(new Uint8Array(buffer.slice(0, 3))),
+          appearance: {
+            eyes: parseInt(appearanceBinary.slice(0, 2), 2),
+            wings: parseInt(appearanceBinary.slice(2, 4), 2),
+            chest: parseInt(appearanceBinary.slice(4, 6), 2),
+            tail: parseInt(appearanceBinary.slice(6, 8), 2)
+          }
+        }
       }
     }
   }
