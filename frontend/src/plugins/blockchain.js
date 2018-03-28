@@ -2,6 +2,8 @@ import * as Exonum from 'exonum-client'
 import bigInt from 'big-integer'
 import axios from 'axios'
 
+const ATTEMPTS = 10
+const ATTEMPT_TIMEOUT = 500
 const NETWORK_ID = 0
 const PROTOCOL_VERSION = 0
 const SERVICE_ID = 521
@@ -74,7 +76,7 @@ function postTransaction(transaction, data, signature) {
     message_id: getMessageIdByTransaction(transaction),
     body: data,
     signature: signature
-  })
+  }).then(response => waitForAcceptance(response.data.tx_hash))
 }
 
 function getSystemTime() {
@@ -86,6 +88,26 @@ function getSystemTime() {
     secs: secs.toString(),
     nanos: nanos.valueOf()
   }
+}
+
+function waitForAcceptance(hash) {
+  let attempt = ATTEMPTS
+
+  return (function makeAttempt() {
+    return axios.get(`/api/explorer/v1/transactions/${hash}`).then(response => {
+      if (response.data.type === 'committed') {
+        return response.data
+      } else {
+        if (--attempt > 0) {
+          return new Promise((resolve) => {
+            setTimeout(resolve, ATTEMPT_TIMEOUT)
+          }).then(makeAttempt)
+        } else {
+          throw new Error('Transaction has not been found')
+        }
+      }
+    })
+  })()
 }
 
 module.exports = {

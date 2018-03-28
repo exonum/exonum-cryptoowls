@@ -76,6 +76,7 @@
         this.$blockchain.issue(keyPair).then(data => {
           self.$notify('success', 'Счёт пополнен')
           self.isSpinnerVisible = false
+          self.loadUser()
         }).catch(error => {
           self.$notify('error', error.toString())
           self.isSpinnerVisible = false
