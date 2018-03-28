@@ -3,28 +3,26 @@
     <div class="container mt-5">
       <div class="row">
         <div class="col-sm-12">
-          <h1>Все пользователи</h1>
+          <h1>Последние блоки</h1>
 
           <ul class="list-group mt-3">
             <li class="list-group-item font-weight-bold">
               <div class="row">
-                <div class="col-sm-3">Имя</div>
-                <div class="col-sm-3">Публичный ключ</div>
-                <div class="col-sm-3">На счету</div>
-                <div class="col-sm-3">Последнее пополение</div>
+                <div class="col-sm-6">Высота</div>
+                <div class="col-sm-6">Количество транзакций</div>
               </div>
             </li>
-            <li v-for="user in users" class="list-group-item">
+            <li v-for="block in blocks" class="list-group-item">
               <div class="row">
-                <div class="col-sm-3">
-                  <router-link :to="{ name: 'user', params: { publicKey: user.public_key } }" class="break-word">{{ user.name }}</router-link>
+                <div class="col-sm-6">
+                  <router-link :to="{ name: 'block', params: { height: block.height } }">{{ block.height }}</router-link>
                 </div>
-                <div class="col-sm-3"><code>{{ user.public_key }}</code></div>
-                <div class="col-sm-3">{{ user.balance }}</div>
-                <div class="col-sm-3">{{ user.last_fillup }}</div>
+                <div class="col-sm-6">{{ block.tx_count }}</div>
               </div>
             </li>
           </ul>
+
+          <button class="btn btn-primary mt-3" @click.prevent="loadMore">Предыдущие блоки</button>
         </div>
       </div>
     </div>
@@ -40,30 +38,34 @@
     components: {
       Spinner
     },
-    data: function() {
+    data() {
       return {
-        users: [],
-        isSpinnerVisible: false
+        isSpinnerVisible: false,
+        blocks: []
       }
     },
     methods: {
-      loadUsers: function() {
+      loadBlocks: function(latest) {
         const self = this
 
         this.isSpinnerVisible = true
 
-        this.$blockchain.getUsers().then(users => {
-          self.users = users
+        this.$blockchain.getBlocks(latest).then(blocks => {
+          self.blocks = self.blocks.concat(blocks)
           self.isSpinnerVisible = false
         }).catch(error => {
           self.$notify('error', error.toString())
           self.isSpinnerVisible = false
         })
+      },
+
+      loadMore: function() {
+        this.loadBlocks(this.blocks[this.blocks.length - 1].height)
       }
     },
     mounted: function() {
       this.$nextTick(function() {
-        this.loadUsers()
+        this.loadBlocks()
       })
     }
   }

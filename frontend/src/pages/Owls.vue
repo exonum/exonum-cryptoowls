@@ -25,7 +25,8 @@
     },
     data: function() {
       return {
-        owls: Array
+        owls: [],
+        isSpinnerVisible: false
       }
     },
     methods: {

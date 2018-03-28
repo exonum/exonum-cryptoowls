@@ -32,8 +32,9 @@
     props: ['publicKey'],
     data: function() {
       return {
-        user: Object,
-        owls: Array
+        user: [],
+        owls: [],
+        isSpinnerVisible: false
       }
     },
     methods: {

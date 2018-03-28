@@ -13,6 +13,9 @@
           <li class="nav-item">
             <router-link :to="{ name: 'owls' }" class="nav-link">Совы</router-link>
           </li>
+          <li class="nav-item">
+            <router-link :to="{ name: 'blockchain' }" class="nav-link">Блокчейн</router-link>
+          </li>
         </ul>
         <ul v-if="isAuthorized" class="navbar-nav ml-auto">
           <li class="nav-item">

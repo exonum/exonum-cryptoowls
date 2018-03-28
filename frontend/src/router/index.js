@@ -6,6 +6,9 @@ import UsersPage from '../pages/Users.vue'
 import UserPage from '../pages/User.vue'
 import OwlsPage from '../pages/Owls.vue'
 import OwlPage from '../pages/Owl.vue'
+import BlockchainPage from '../pages/Blockchain.vue'
+import BlockPage from '../pages/Block.vue'
+import TransactionPage from '../pages/Transaction.vue'
 
 Vue.use(Router)
 
@@ -41,6 +44,23 @@ export default new Router({
       path: '/owl/:dna',
       name: 'owl',
       component: OwlPage,
+      props: true
+    },
+    {
+      path: '/blockchain',
+      name: 'blockchain',
+      component: BlockchainPage
+    },
+    {
+      path: '/block/:height',
+      name: 'block',
+      component: BlockPage,
+      props: true
+    },
+    {
+      path: '/transaction/:hash',
+      name: 'transaction',
+      component: TransactionPage,
       props: true
     }
   ]

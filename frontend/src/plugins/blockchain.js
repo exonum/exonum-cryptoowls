@@ -172,6 +172,20 @@ module.exports = {
 
       getOrders: hash => {
         return axios.get(`/api/services/cryptoowls/v1/owl/${hash}/orders`).then(response => response.data)
+      },
+
+      getBlocks: latest => {
+        let suffix = !isNaN(latest) ? '&latest=' + latest : ''
+
+        return axios.get(`/api/explorer/v1/blocks?count=10${suffix}`).then(response => response.data.blocks)
+      },
+
+      getBlock: height => {
+        return axios.get(`/api/explorer/v1/blocks/${height}`).then(response => response.data)
+      },
+
+      getTransaction: hash => {
+        return axios.get(`/api/system/v1/transactions/${hash}`).then(response => response.data)
       }
     }
   }

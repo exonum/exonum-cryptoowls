@@ -58,6 +58,11 @@
       Spinner
     },
     props: ['dna'],
+    data: function() {
+      return {
+        isSpinnerVisible: false
+      }
+    },
     methods: {
       loadOwl: function() {
         const self = this

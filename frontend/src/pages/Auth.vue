@@ -63,9 +63,9 @@
     },
     data: function() {
       return {
+        keyPair: {},
         isModalVisible: false,
-        isSpinnerVisible: false,
-        keyPair: {}
+        isSpinnerVisible: false
       }
     },
     methods: {
