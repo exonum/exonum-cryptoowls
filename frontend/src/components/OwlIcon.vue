@@ -373,7 +373,7 @@
 
 <script>
   module.exports = {
-    name: 'owl',
+    name: 'owl-icon',
     props: ['dna'],
     methods: {
       draw: function() {

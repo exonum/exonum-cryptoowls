@@ -17,6 +17,12 @@ const DNA = Exonum.newType({
     { name: 'dna', type: Exonum.Uint32 }
   ]
 })
+const Owl = Exonum.newType({
+  fields: [
+    { name: 'name', type: Exonum.String },
+    { name: 'dna', type: Exonum.Uint32 }
+  ]
+})
 
 const CREATE_USER_TX = [
   { name: 'public_key', type: Exonum.PublicKey },
@@ -209,7 +215,9 @@ module.exports = {
             tail: parseInt(appearanceBinary.slice(6, 8), 2)
           }
         }
-      }
+      },
+
+      owlHash: owl => Owl.hash(owl)
     }
   }
 }
