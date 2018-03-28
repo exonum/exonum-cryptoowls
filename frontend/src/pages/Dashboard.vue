@@ -175,6 +175,21 @@
           self.$notify('error', error.toString())
           self.isSpinnerVisible = false
         })
+      },
+
+      acceptOrder: function(order) {
+        const self = this
+
+        this.isSpinnerVisible = true
+
+        self.$blockchain.acceptOrder(this.$store.state.keyPair, this.$blockchain.getOrderHash(order)).then(data => {
+          self.$notify('success', 'Сова продана')
+          self.isSpinnerVisible = false
+          self.loadUser()
+        }).catch(error => {
+          self.$notify('error', error.toString())
+          self.isSpinnerVisible = false
+        })
       }
     },
     mounted: function() {
