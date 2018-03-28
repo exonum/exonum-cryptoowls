@@ -27,7 +27,7 @@ const Owl = Exonum.newType({
 })
 const Order = Exonum.newType({
   fields: [
-    { name: 'public_key', type: Exonum.String },
+    { name: 'public_key', type: Exonum.PublicKey },
     { name: 'owl_id', type: Exonum.Hash },
     { name: 'status', type: Exonum.String },
     { name: 'price', type: Exonum.Uint64 }

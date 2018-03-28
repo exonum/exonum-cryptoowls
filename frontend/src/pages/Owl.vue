@@ -48,7 +48,6 @@
                     <div class="col-sm-3">Пользователь</div>
                     <div class="col-sm-3">Статус</div>
                     <div class="col-sm-3">Цена</div>
-                    <div class="col-sm-3">Действие</div>
                   </div>
                 </li>
                 <li v-for="order in orders" class="list-group-item">
@@ -60,7 +59,7 @@
                     </div>
                     <div class="col-sm-3">{{ order.status }}</div>
                     <div class="col-sm-3">{{ order.price }}</div>
-                    <div class="col-sm-3">
+                    <div v-if="order.status === 'pending'" class="col-sm-3">
                       <button type="submit" class="btn btn-primary" @click.prevent="acceptOrder(order)">Продать</button>
                     </div>
                   </div>
