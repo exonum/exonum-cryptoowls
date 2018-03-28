@@ -46,14 +46,13 @@
                 <div class="col-sm-3">Пользователь</div>
                 <div class="col-sm-2">Статус</div>
                 <div class="col-sm-2">Цена</div>
-                <div class="col-sm-2">Действие</div>
               </div>
             </li>
             <li v-for="order in orders" class="list-group-item">
               <div class="row">
                 <div class="col-sm-3">
                   <code>
-                    <router-link :to="{ name: 'owl', params: { hash: order.owl_id } }" class="break-word">{{ order.owl_id }}</router-link>
+                      <router-link :to="{ name: 'owl', params: { hash: order.owl_id } }" class="break-word">{{ order.owl_id }}</router-link>
                   </code>
                 </div>
                 <div class="col-sm-3">
@@ -63,7 +62,7 @@
                 </div>
                 <div class="col-sm-2">{{ order.status }}</div>
                 <div class="col-sm-2">{{ order.price }}</div>
-                <div class="col-sm-2">
+                <div v-if="order.status === 'pending'" class="col-sm-2">
                   <button type="submit" class="btn btn-primary" @click.prevent="acceptOrder(order)">Продать</button>
                 </div>
               </div>

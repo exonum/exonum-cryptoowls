@@ -48,17 +48,18 @@
                     <div class="col-sm-3">Пользователь</div>
                     <div class="col-sm-3">Статус</div>
                     <div class="col-sm-3">Цена</div>
-                    <div class="col-sm-3">Действие</div>
                   </div>
                 </li>
                 <li v-for="order in orders" class="list-group-item">
                   <div class="row">
                     <div class="col-sm-3">
-                      <code>{{ order.public_key }}</code>
+                      <code>
+                        <router-link :to="{ name: 'user', params: { publicKey: order.public_key } }" class="break-word">{{ order.public_key }}</router-link>
+                      </code>
                     </div>
                     <div class="col-sm-3">{{ order.status }}</div>
                     <div class="col-sm-3">{{ order.price }}</div>
-                    <div class="col-sm-3">
+                    <div v-if="order.status === 'pending'" class="col-sm-3">
                       <button type="submit" class="btn btn-primary" @click.prevent="acceptOrder(order)">Продать</button>
                     </div>
                   </div>
@@ -75,7 +76,9 @@
                 <li v-for="order in orders" class="list-group-item">
                   <div class="row">
                     <div class="col-sm-4">
-                      <code>{{ order.public_key }}</code>
+                      <code>
+                        <router-link :to="{ name: 'user', params: { publicKey: order.public_key } }" class="break-word">{{ order.public_key }}</router-link>
+                      </code>
                     </div>
                     <div class="col-sm-4">{{ order.status }}</div>
                     <div class="col-sm-4">{{ order.price }}</div>
