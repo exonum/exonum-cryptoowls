@@ -5,14 +5,38 @@
         <div class="col-sm-12">
           <h1>Личный кабинет</h1>
 
-          <h2 class="mt-5">Мой профиль</h2>
-          <user-summary v-bind:user="user" class="mt-3"/>
-
-          <button class="btn btn-primary mt-3" @click.prevent="issue">Пополнить счёт</button>
+          <div class="row mt-5">
+            <div class="col-sm-6">
+              <h2>Мой профиль</h2>
+              <user-summary v-bind:user="user" class="mt-3"/>
+              <button class="btn btn-lg btn-block btn-primary mt-3" @click.prevent="issue">Пополнить счёт</button>
+            </div>
+            <div class="col-sm-6">
+              <h2>Инкубатор</h2>
+              <form class="mt-3" @submit.prevent="makeOwl">
+                <div class="form-group">
+                  <label class="control-label">Кличка:</label>
+                  <input v-model="name" class="form-control" type="text">
+                </div>
+                <div class="form-group">
+                  <label class="control-label">Отец:</label>
+                  <select v-model="father" class="form-control">
+                    <option v-for="owl in owls" class="form-control" :value="$blockchain.getOwlHash(owl.owl)">{{ owl.owl.name }}</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="control-label">Мать:</label>
+                  <select v-model="mother" class="form-control">
+                    <option v-for="owl in owls" class="form-control" :value="$blockchain.getOwlHash(owl.owl)">{{ owl.owl.name }}</option>
+                  </select>
+                </div>
+                <button type="submit" class="btn btn-lg btn-block btn-primary">Скретить</button>
+              </form>
+            </div>
+          </div>
 
           <h2 class="mt-5">Мои совы</h2>
           <owl-list v-bind:owls="owls"/>
-
         </div>
       </div>
     </div>
@@ -42,9 +66,8 @@
     methods: {
       loadUser: function() {
         const self = this
-        const keyPair = this.$store.state.keyPair
 
-        if (keyPair === null) {
+        if (this.$store.state.keyPair === null) {
           this.$store.commit('logout')
           this.$router.push({name: 'auth'})
           return
@@ -52,15 +75,24 @@
 
         this.isSpinnerVisible = true
 
-        this.$blockchain.getUser(keyPair.publicKey).then(data => {
+        this.$blockchain.getUser(this.$store.state.keyPair.publicKey).then(data => {
           self.user = data
-          self.$blockchain.getUserOwls(keyPair.publicKey).then(data => {
-            self.owls = data
-            self.isSpinnerVisible = false
-          }).catch(error => {
-            self.$notify('error', error.toString())
-            self.isSpinnerVisible = false
-          })
+          this.isSpinnerVisible = false
+          self.loadOwls()
+        }).catch(error => {
+          self.$notify('error', error.toString())
+          self.isSpinnerVisible = false
+        })
+      },
+
+      loadOwls: function() {
+        const self = this
+
+        this.isSpinnerVisible = true
+
+        this.$blockchain.getUserOwls(self.$store.state.keyPair.publicKey).then(data => {
+          self.owls = data
+          self.isSpinnerVisible = false
         }).catch(error => {
           self.$notify('error', error.toString())
           self.isSpinnerVisible = false
@@ -69,12 +101,26 @@
 
       issue: function() {
         const self = this
-        const keyPair = this.$store.state.keyPair
 
         this.isSpinnerVisible = true
 
-        this.$blockchain.issue(keyPair).then(data => {
+        this.$blockchain.issue(this.$store.state.keyPair).then(data => {
           self.$notify('success', 'Счёт пополнен')
+          self.isSpinnerVisible = false
+          self.loadUser()
+        }).catch(error => {
+          self.$notify('error', error.toString())
+          self.isSpinnerVisible = false
+        })
+      },
+
+      makeOwl: function() {
+        const self = this
+
+        this.isSpinnerVisible = true
+
+        this.$blockchain.makeOwl(this.$store.state.keyPair, this.name, this.mother, this.father).then(data => {
+          self.$notify('success', 'Инкубация прошла успешно')
           self.isSpinnerVisible = false
           self.loadUser()
         }).catch(error => {

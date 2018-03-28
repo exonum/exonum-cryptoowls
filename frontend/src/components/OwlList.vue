@@ -2,12 +2,12 @@
   <div class="row">
     <div class="col-sm-6 col-md-4 col-lg-3" v-for="owl in owls">
       <div class="card mt-3">
-        <router-link :to="{ name: 'owl', params: { hash: $blockchain.owlHash(owl.owl) } }" class="break-word">
+        <router-link :to="{ name: 'owl', params: { hash: $blockchain.getOwlHash(owl.owl) } }" class="break-word">
           <owl-icon v-bind:dna="owl.owl.dna" class="card-img-top"/>
         </router-link>
         <div class="card-body">
           <h5 class="card-title">
-            Кличка: <router-link :to="{ name: 'owl', params: { hash: $blockchain.owlHash(owl.owl) } }" class="break-word">{{ owl.owl.name }}</router-link>
+            Кличка: <router-link :to="{ name: 'owl', params: { hash: $blockchain.getOwlHash(owl.owl) } }" class="break-word">{{ owl.owl.name }}</router-link>
           </h5>
           <p class="card-text">ДНК: <code>{{ owl.owl.dna }}</code></p>
           <p class="card-text">Хозяин: <code><router-link :to="{ name: 'user', params: { publicKey: owl.owner } }" class="break-word">{{ owl.owner }}</router-link></code></p>

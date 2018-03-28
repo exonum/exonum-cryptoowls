@@ -239,7 +239,7 @@ module.exports = {
         }
       },
 
-      owlHash: owl => Owl.hash(owl)
+      getOwlHash: owl => Owl.hash(owl)
     }
   }
 }
