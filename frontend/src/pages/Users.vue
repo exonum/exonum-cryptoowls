@@ -14,7 +14,7 @@
                 <div class="col-sm-3">Последнее пополение</div>
               </div>
             </li>
-            <li v-for="user in users" class="list-group-item">
+            <li v-for="user in users" class="list-group-item" :key="user.public_key">
               <div class="row">
                 <div class="col-sm-3">
                   <router-link :to="{ name: 'user', params: { publicKey: user.public_key } }" class="break-word">{{ user.name }}</router-link>
