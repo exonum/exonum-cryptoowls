@@ -377,14 +377,14 @@
     props: ['dna'],
     methods: {
       draw: function() {
+        const code = this.$blockchain.splitDNA(this.dna)
         const draw = this.$svg(this.$refs.owl)
 
-        draw.select('.st3').fill('#f06')
-
-        draw.select('#tail_3').attr('display', 'inline')
-        draw.select('#chest_3').attr('display', 'inline')
-        draw.select('#wings_3').attr('display', 'inline')
-        draw.select('#eyes_3').attr('display', 'inline')
+        draw.select('.st3').fill('#' + code.color)
+        draw.select('#tail_' + code.appearance.tail).attr('display', 'inline')
+        draw.select('#chest_' + code.appearance.chest).attr('display', 'inline')
+        draw.select('#wings_' + code.appearance.wings).attr('display', 'inline')
+        draw.select('#eyes_' + code.appearance.eyes).attr('display', 'inline')
       }
     },
     mounted: function() {

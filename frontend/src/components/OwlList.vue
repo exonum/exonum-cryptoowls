@@ -1,5 +1,5 @@
 <template>
-  <div class="card-group">
+  <div class="card-columns">
     <div class="card" v-for="owl in owls">
       <owl v-bind:dna="owl.owl.dna" class="card-img-top"/>
       <div class="card-body">
