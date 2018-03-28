@@ -21,7 +21,7 @@
                 </div>
                 <div class="col-sm-3"><code>{{ user.public_key }}</code></div>
                 <div class="col-sm-3">{{ user.balance }}</div>
-                <div class="col-sm-3">{{ user.last_fillup }}</div>
+                <div class="col-sm-3">{{ $moment(user.last_fillup) }}</div>
               </div>
             </li>
           </ul>

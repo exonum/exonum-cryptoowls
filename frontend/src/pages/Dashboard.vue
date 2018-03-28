@@ -11,7 +11,7 @@
           <button class="btn btn-primary mt-3" @click.prevent="issue">Пополнить счёт</button>
 
           <h2 class="mt-5">Мои совы</h2>
-          <owl-list v-bind:owls="owls" class="mt-3"/>
+          <owl-list v-bind:owls="owls"/>
 
         </div>
       </div>

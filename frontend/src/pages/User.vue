@@ -9,7 +9,7 @@
           <user-summary v-bind:user="user" class="mt-3"/>
 
           <h2 class="mt-5">Совы</h2>
-          <owl-list v-bind:owls="owls" class="mt-3"/>
+          <owl-list v-bind:owls="owls"/>
         </div>
       </div>
     </div>

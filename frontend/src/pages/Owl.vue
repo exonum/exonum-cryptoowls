@@ -36,7 +36,7 @@
                 <li class="list-group-item">
                   <div class="row">
                     <div class="col-sm-3"><strong>Последнее разведение:</strong></div>
-                    <div class="col-sm-9">{{ $moment(parseInt(lastBreeding.secs) * 1000).format('DD.MM.YYYY, HH:mm:ss') }}</div>
+                    <div class="col-sm-9">{{ $moment(lastBreeding) }}</div>
                   </div>
                 </li>
               </ul>
