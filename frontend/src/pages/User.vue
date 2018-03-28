@@ -10,6 +10,34 @@
 
           <h2 class="mt-5">Совы</h2>
           <owl-list v-bind:owls="owls"/>
+
+          <h2 class="mt-5">Предложения</h2>
+          <ul class="list-group mt-3">
+            <li class="list-group-item font-weight-bold">
+              <div class="row">
+                <div class="col-sm-3">Сова</div>
+                <div class="col-sm-3">Пользователь</div>
+                <div class="col-sm-3">Статус</div>
+                <div class="col-sm-3">Цена</div>
+              </div>
+            </li>
+            <li v-for="order in orders" class="list-group-item">
+              <div class="row">
+                <div class="col-sm-3">
+                  <code>
+                    <router-link :to="{ name: 'owl', params: { hash: order.owl_id } }" class="break-word">{{ order.owl_id }}</router-link>
+                  </code>
+                </div>
+                <div class="col-sm-3">
+                  <code>
+                    <router-link :to="{ name: 'user', params: { publicKey: order.public_key } }" class="break-word">{{ order.public_key }}</router-link>
+                  </code>
+                </div>
+                <div class="col-sm-3">{{ order.status }}</div>
+                <div class="col-sm-3">{{ order.price }}</div>
+              </div>
+            </li>
+          </ul>
         </div>
       </div>
     </div>
@@ -34,6 +62,7 @@
       return {
         user: [],
         owls: [],
+        orders: [],
         isSpinnerVisible: false
       }
     },
@@ -46,10 +75,25 @@
           self.$blockchain.getUserOwls(self.publicKey).then(data => {
             self.owls = data
             self.isSpinnerVisible = false
+            self.loadOrders()
           }).catch(error => {
             self.$notify('error', error.toString())
             self.isSpinnerVisible = false
           })
+        }).catch(error => {
+          self.$notify('error', error.toString())
+          self.isSpinnerVisible = false
+        })
+      },
+
+      loadOrders: function() {
+        const self = this
+
+        this.isSpinnerVisible = true
+
+        this.$blockchain.getUserOrders(this.publicKey).then(data => {
+          self.orders = data
+          self.isSpinnerVisible = false
         }).catch(error => {
           self.$notify('error', error.toString())
           self.isSpinnerVisible = false

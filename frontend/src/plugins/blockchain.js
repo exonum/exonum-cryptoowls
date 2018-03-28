@@ -201,6 +201,10 @@ module.exports = {
         return axios.get(`/api/services/cryptoowls/v1/user/${publicKey}`).then(response => response.data)
       },
 
+      getUserOrders: publicKey => {
+        return axios.get(`/api/services/cryptoowls/v1/user/${publicKey}/orders`).then(response => response.data)
+      },
+
       getOwls: () => {
         return axios.get('/api/services/cryptoowls/v1/owls').then(response => response.data)
       },
