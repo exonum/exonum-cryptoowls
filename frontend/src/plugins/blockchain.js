@@ -17,30 +17,37 @@ const DNA = Exonum.newType({
     { name: 'dna', type: Exonum.Uint32 }
   ]
 })
+const Owl = Exonum.newType({
+  fields: [
+    { name: 'name', type: Exonum.String },
+    { name: 'dna', type: Exonum.Uint32 }
+  ]
+})
 
 const CREATE_USER_TX = [
-  {name: 'public_key', type: Exonum.PublicKey},
-  {name: 'name', type: Exonum.String}
+  { name: 'public_key', type: Exonum.PublicKey },
+  { name: 'name', type: Exonum.String }
 ]
 const MAKE_OWL_TX = [
-  {name: 'public_key', type: Exonum.PublicKey},
-  {name: 'name', type: Exonum.String},
-  {name: 'father_id', type: Exonum.Hash},
-  {name: 'mother_id', type: Exonum.Hash}
+  { name: 'public_key', type: Exonum.PublicKey },
+  { name: 'name', type: Exonum.String },
+  { name: 'father_id', type: Exonum.Hash },
+  { name: 'mother_id', type: Exonum.Hash },
+  { name: 'seed', type: SystemTime }
 ]
 const ISSUE_TX = [
-  {name: 'public_key', type: Exonum.PublicKey},
-  {name: 'current_time', type: SystemTime}
+  { name: 'public_key', type: Exonum.PublicKey },
+  { name: 'seed', type: SystemTime }
 ]
 const CREATE_ORDER_TX = [
-  {name: 'public_key', type: Exonum.PublicKey},
-  {name: 'owl_id', type: Exonum.Hash},
-  {name: 'price', type: Exonum.Uint64},
-  {name: 'current_time', type: SystemTime}
+  { name: 'public_key', type: Exonum.PublicKey },
+  { name: 'owl_id', type: Exonum.Hash },
+  { name: 'price', type: Exonum.Uint64 },
+  { name: 'seed', type: SystemTime }
 ]
 const ACCEPT_ORDER_TX = [
-  {name: 'public_key', type: Exonum.PublicKey},
-  {name: 'order_id', type: Exonum.Hash}
+  {name: 'public_key', type: Exonum.PublicKey },
+  {name: 'order_id', type: Exonum.Hash }
 ]
 
 const TRANSACTIONS = [CREATE_USER_TX, MAKE_OWL_TX, ISSUE_TX, CREATE_ORDER_TX, ACCEPT_ORDER_TX]
@@ -106,7 +113,8 @@ module.exports = {
           public_key: keyPair.publicKey,
           name: name,
           father_id: father,
-          mother_id: mother
+          mother_id: mother,
+          seed: getSystemTime()
         }
 
         const signature = TxMakeOwl.sign(keyPair.secretKey, data)
@@ -119,7 +127,7 @@ module.exports = {
 
         const data = {
           public_key: keyPair.publicKey,
-          current_time: getSystemTime()
+          seed: getSystemTime()
         }
 
         const signature = TxIssue.sign(keyPair.secretKey, data)
@@ -134,7 +142,7 @@ module.exports = {
           public_key: keyPair.publicKey,
           owl_id: owl,
           price: price,
-          current_time: getSystemTime()
+          seed: getSystemTime()
         }
 
         const signature = TxCreateOrder.sign(keyPair.secretKey, data)
@@ -207,7 +215,9 @@ module.exports = {
             tail: parseInt(appearanceBinary.slice(6, 8), 2)
           }
         }
-      }
+      },
+
+      owlHash: owl => Owl.hash(owl)
     }
   }
 }

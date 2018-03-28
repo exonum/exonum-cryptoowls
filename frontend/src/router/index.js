@@ -41,7 +41,7 @@ export default new Router({
       component: OwlsPage
     },
     {
-      path: '/owl/:dna',
+      path: '/owl/:hash',
       name: 'owl',
       component: OwlPage,
       props: true
