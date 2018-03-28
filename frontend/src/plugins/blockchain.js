@@ -25,6 +25,14 @@ const Owl = Exonum.newType({
     { name: 'dna', type: Exonum.Uint32 }
   ]
 })
+const Order = Exonum.newType({
+  fields: [
+    { name: 'public_key', type: Exonum.String },
+    { name: 'owl_id', type: Exonum.Hash },
+    { name: 'status', type: Exonum.String },
+    { name: 'price', type: Exonum.Uint64 }
+  ]
+})
 
 const CREATE_USER_TX = [
   { name: 'public_key', type: Exonum.PublicKey },
@@ -239,7 +247,9 @@ module.exports = {
         }
       },
 
-      getOwlHash: owl => Owl.hash(owl)
+      getOwlHash: owl => Owl.hash(owl),
+
+      getOrderHash: order => Order.hash(order)
     }
   }
 }
