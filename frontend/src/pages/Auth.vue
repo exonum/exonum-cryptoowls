@@ -70,14 +70,6 @@
     },
     methods: {
       login: function() {
-        if (!this.$validateHex(this.publicKey)) {
-          return this.$notify('error', 'Некорректный публичный кюч')
-        }
-
-        if (!this.$validateHex(this.secretKey, 64)) {
-          return this.$notify('error', 'Некорректный секретный ключ')
-        }
-
         this.isSpinnerVisible = true
 
         this.$store.commit('login', {
@@ -92,10 +84,6 @@
 
       register: function() {
         const self = this
-
-        if (!this.name) {
-          return this.$notify('error', 'Имя не может быть пустым')
-        }
 
         this.isSpinnerVisible = true
 

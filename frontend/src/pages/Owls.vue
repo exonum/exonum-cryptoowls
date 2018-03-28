@@ -5,7 +5,7 @@
         <div class="col-sm-12">
           <h1>Все совы</h1>
 
-          <owl-list v-bind:owls="owls" class="mt-3"/>
+          <owl-list v-bind:owls="owls"/>
         </div>
       </div>
     </div>

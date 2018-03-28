@@ -14,14 +14,14 @@
                 <div class="col-sm-3">Последнее пополение</div>
               </div>
             </li>
-            <li v-for="user in users" class="list-group-item">
+            <li v-for="user in users" class="list-group-item" :key="user.public_key">
               <div class="row">
                 <div class="col-sm-3">
                   <router-link :to="{ name: 'user', params: { publicKey: user.public_key } }" class="break-word">{{ user.name }}</router-link>
                 </div>
                 <div class="col-sm-3"><code>{{ user.public_key }}</code></div>
                 <div class="col-sm-3">{{ user.balance }}</div>
-                <div class="col-sm-3">{{ user.last_fillup }}</div>
+                <div class="col-sm-3">{{ $moment(user.last_fillup) }}</div>
               </div>
             </li>
           </ul>
