@@ -64,6 +64,8 @@ fn test_create_user() {
 
     assert_eq!(user_owls.len(), 2);
 
+    assert_ne!(owl_states[0].owl().dna(), owl_states[1].owl().dna());
+
     for state in owl_states {
         assert!(user_owls.contains(&state.owl().hash()));
         assert_eq!(*state.owner(), pubkey);

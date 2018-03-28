@@ -452,7 +452,7 @@ pub mod transactions {
                         &state_hash
                     ),
                     schema.make_uniq_owl(
-                        (1u32, 0u32),
+                        (42u32, 1000u32),
                         &format!("{}'s Eve", self.name()),
                         &state_hash
                     ),
