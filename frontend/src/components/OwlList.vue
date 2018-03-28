@@ -12,7 +12,7 @@
         </code></p>
       </div>
       <div class="card-footer">
-        <small class="text-muted">Последнее разведение: {{ owl.last_breeding }}</small>
+        <small class="text-muted">Последнее разведение: {{ $moment(parseInt(owl.last_breeding.secs) * 1000).format('DD.MM.YYYY, HH:mm:ss') }}</small>
       </div>
     </div>
   </div>
