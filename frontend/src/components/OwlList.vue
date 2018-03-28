@@ -1,35 +1,31 @@
 <template>
-  <ul class="list-group">
-    <li class="list-group-item font-weight-bold">
-      <div class="row">
-        <div class="col-sm-3">Кличка</div>
-        <div class="col-sm-3">ДНК</div>
-        <div class="col-sm-3">Хозяин</div>
-        <div class="col-sm-3">Последнее разведение</div>
-      </div>
-    </li>
-    <li v-for="owl in owls" class="list-group-item">
-      <div class="row">
-        <div class="col-sm-3">
+  <div class="card-group">
+    <div class="card" v-for="owl in owls">
+      <owl v-bind:dna="owl.owl.dna" class="card-img-top"/>
+      <div class="card-body">
+        <h5 class="card-title">
           <router-link :to="{ name: 'owl', params: { dna: owl.owl.dna } }" class="break-word">{{ owl.owl.name }}</router-link>
-        </div>
-        <div class="col-sm-3">
-          <code>{{ owl.owl.dna }}</code>
-        </div>
-        <div class="col-sm-3">
-          <code>
-            <router-link :to="{ name: 'user', params: { publicKey: owl.owner } }" class="break-word">{{ owl.owner }}</router-link>
-          </code>
-        </div>
-        <div class="col-sm-3">{{ owl.last_breeding }}</div>
+        </h5>
+        <p class="card-text">ДНК: <code>{{ owl.owl.dna }}</code></p>
+        <p class="card-text">Хозяин: <code>
+          <router-link :to="{ name: 'user', params: { publicKey: owl.owner } }" class="break-word">{{ owl.owner }}</router-link>
+        </code></p>
       </div>
-    </li>
-  </ul>
+      <div class="card-footer">
+        <small class="text-muted">Последнее разведение: {{ owl.last_breeding }}</small>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script>
+  const Owl = require('./Owl.vue')
+
   module.exports = {
     name: 'owl-list',
+    components: {
+      Owl
+    },
     props: ['owls']
   }
 </script>
