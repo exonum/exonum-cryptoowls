@@ -5,12 +5,13 @@
         <div class="col-sm-12">
           <h1>Транзакция</h1>
 
-          <h2 class="mt-5">Транзакции</h2>
-          <ul class="list-group">
+          <ul class="list-group mt-5">
             <li class="list-group-item">
               <div class="row">
                 <div class="col-sm-3"><strong>Хеш:</strong></div>
-                <div class="col-sm-9">{{ hash }}</div>
+                <div class="col-sm-9">
+                  <code>{{ hash }}</code>
+                </div>
               </div>
             </li>
             <li class="list-group-item">
@@ -26,6 +27,14 @@
                 <div class="col-sm-3"><strong>Тип:</strong></div>
                 <div class="col-sm-9">
                   <code>{{ type }}</code>
+                </div>
+              </div>
+            </li>
+            <li class="list-group-item">
+              <div class="row">
+                <div class="col-sm-3"><strong>Статус:</strong></div>
+                <div class="col-sm-9">
+                  <code>{{ status.type }}</code>
                 </div>
               </div>
             </li>
@@ -56,7 +65,9 @@
             <li class="list-group-item">
               <div class="row">
                 <div class="col-sm-3"><strong>Подпись:</strong></div>
-                <div class="col-sm-9">{{ transaction.signature }}</div>
+                <div class="col-sm-9">
+                  <code>{{ transaction.signature }}</code>
+                </div>
               </div>
             </li>
             <li class="list-group-item">
@@ -90,6 +101,7 @@
       return {
         transaction: {},
         location: {},
+        status: {},
         type: ''
       }
     },
@@ -97,10 +109,11 @@
       loadTransaction: function() {
         const self = this
 
-        this.$blockchain.getTransaction(this.hash).then(response => {
-          self.transaction = response.data.content
-          self.location = response.data.location
-          self.type = response.data.type
+        this.$blockchain.getTransaction(this.hash).then(data => {
+          self.transaction = data.content
+          self.location = data.location
+          self.status = data.status
+          self.type = data.type
           self.isSpinnerVisible = false
         }).catch(error => {
           self.$notify('error', error.toString())

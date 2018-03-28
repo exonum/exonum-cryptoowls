@@ -5,7 +5,7 @@
         <div class="col-sm-12">
           <h1>Последние блоки</h1>
 
-          <ul class="list-group mt-3">
+          <ul class="list-group mt-5">
             <li class="list-group-item font-weight-bold">
               <div class="row">
                 <div class="col-sm-6">Высота</div>
@@ -60,7 +60,7 @@
       },
 
       loadMore: function() {
-        this.loadBlocks(this.blocks[this.blocks.length - 1].height)
+        this.loadBlocks(this.blocks[this.blocks.length - 1].height - 1)
       }
     },
     mounted: function() {

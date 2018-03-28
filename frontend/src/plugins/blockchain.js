@@ -190,7 +190,7 @@ module.exports = {
       },
 
       getTransaction: hash => {
-        return axios.get(`/api/system/v1/transactions/${hash}`).then(response => response.data)
+        return axios.get(`/api/explorer/v1/transactions/${hash}`).then(response => response.data)
       },
 
       splitDNA: dna => {
