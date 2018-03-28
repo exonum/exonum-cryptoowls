@@ -719,7 +719,18 @@ mod api {
             };
 
             let self_ = self.clone();
-            let transaction = move |req: &mut Request| self_.post_transaction(req);
+            let transaction =
+                move |req: &mut Request| match req.get::<bodyparser::Struct<Transactions>>() {
+                    Ok(Some(transaction)) => {
+                        let tx_hash = self_.post_transaction(transaction).map_err(ApiError::from)?;
+                        let json = json!({
+                            "tx_hash": tx_hash
+                        });
+                        self_.ok_response(&json)
+                    }
+                    Ok(None) => Err(ApiError::BadRequest("Empty request body".into()))?,
+                    Err(e) => Err(ApiError::BadRequest(e.to_string()))?,
+                };
 
             // View-only хэндлеры
             router.get("/v1/users", get_users, "get_users");
@@ -826,25 +837,16 @@ mod api {
             })
         }
 
-        /// Общий код для постинга транзакций
-        fn post_transaction(&self, req: &mut Request) -> IronResult<Response> {
-            match req.get::<bodyparser::Struct<Transactions>>() {
-                Ok(Some(transaction)) => {
-                    let transaction: Box<Transaction> = transaction.into();
-                    let tx_hash = transaction.hash();
-                    self.channel.send(transaction).map_err(ApiError::from)?;
-                    let json = json!({
-                        "tx_hash": tx_hash
-                    });
-                    self.ok_response(&json)
-                }
-                Ok(None) => Err(ApiError::BadRequest("Empty request body".into()))?,
-                Err(e) => Err(ApiError::BadRequest(e.to_string()))?,
-            }
+        fn post_transaction(&self, transaction: Transactions) -> Result<Hash, ApiError> {
+            let transaction: Box<Transaction> = transaction.into();
+            let tx_hash = transaction.hash();
+            self.channel.send(transaction)?;
+            Ok(tx_hash)
         }
     }
 }
 
+/// Собираем всё вместе.
 pub mod service {
     use iron::Handler;
     use router::Router;
