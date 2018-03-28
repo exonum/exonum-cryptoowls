@@ -33,7 +33,7 @@
     </div>
 
     <modal :visible="isModalVisible" title="Успешная регистрация" action-btn="Войти" @close="closeModal" @submit="proceed">
-      <div class="alert alert-warning" role="alert">Сохраните пару ключей в безопасном месте. Они понадобятся для следующего входа.</div>
+      <div class="alert alert-warning" role="alert">Сохраните пару ключей в безопасном месте. Ключи понадобятся для следующего входа.</div>
       <div class="form-group">
         <label>Публичный ключ:</label>
         <div><code>{{ keyPair.publicKey }}</code></div>
@@ -80,7 +80,7 @@
 
         this.isSpinnerVisible = true
 
-        this.$storage.set({
+        this.$store.commit('login', {
           publicKey: this.publicKey,
           secretKey: this.secretKey
         })
@@ -117,7 +117,7 @@
       proceed: function() {
         this.isModalVisible = false
 
-        this.$storage.set(this.keyPair)
+        this.$store.commit('login', this.keyPair)
 
         this.$nextTick(function() {
           this.$router.push({name: 'dashboard'})

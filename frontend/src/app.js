@@ -1,12 +1,11 @@
 import Vue from 'vue'
+import App from './App.vue'
 import router from './router'
-import Storage from './plugins/storage'
 import Validate from './plugins/validate'
 import Notify from './plugins/notify'
 import Blockchain from './plugins/blockchain'
-import App from './App.vue'
+import store from './store'
 
-Vue.use(Storage)
 Vue.use(Validate)
 Vue.use(Notify)
 Vue.use(Blockchain)
@@ -14,5 +13,6 @@ Vue.use(Blockchain)
 new Vue({
   el: '#app',
   router,
+  store,
   render: (createElement) => createElement(App)
 })

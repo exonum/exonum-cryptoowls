@@ -41,47 +41,44 @@
     methods: {
       loadUser: function() {
         const self = this
-        this.$storage.get().then(keyPair => {
-          self.isSpinnerVisible = true
-          self.$blockchain.getUser(keyPair.publicKey).then(data => {
-            self.user = data
-            self.$blockchain.getUserOwls(keyPair.publicKey).then(data => {
-              self.owls = data
-              self.isSpinnerVisible = false
-            }).catch(error => {
-              self.$notify('error', error.toString())
-              self.isSpinnerVisible = false
-            })
+        const keyPair = this.$store.state.keyPair
+
+        if (keyPair === null) {
+          this.$store.commit('logout')
+          this.$router.push({name: 'auth'})
+          return
+        }
+
+        this.isSpinnerVisible = true
+
+        this.$blockchain.getUser(keyPair.publicKey).then(data => {
+          self.user = data
+          self.$blockchain.getUserOwls(keyPair.publicKey).then(data => {
+            self.owls = data
+            self.isSpinnerVisible = false
           }).catch(error => {
             self.$notify('error', error.toString())
             self.isSpinnerVisible = false
           })
         }).catch(error => {
           self.$notify('error', error.toString())
-          self.logout()
+          self.isSpinnerVisible = false
         })
       },
 
       issue: function() {
         const self = this
-        this.$storage.get().then(keyPair => {
-          self.isSpinnerVisible = true
-          self.$blockchain.issue(keyPair).then(data => {
-            self.$notify('success', 'Счёт пополнен')
-            self.isSpinnerVisible = false
-          }).catch(error => {
-            self.$notify('error', error.toString())
-            self.isSpinnerVisible = false
-          })
+        const keyPair = this.$store.state.keyPair
+
+        this.isSpinnerVisible = true
+
+        this.$blockchain.issue(keyPair).then(data => {
+          self.$notify('success', 'Счёт пополнен')
+          self.isSpinnerVisible = false
         }).catch(error => {
           self.$notify('error', error.toString())
-          self.logout()
+          self.isSpinnerVisible = false
         })
-      },
-
-      logout: function() {
-        this.$storage.remove()
-        this.$router.push({name: 'auth'})
       }
     },
     mounted: function() {
