@@ -499,6 +499,12 @@ pub mod transactions {
                     return Err(ErrorKind::AccessViolation.into());
                 }
 
+                let (mother, father) = (parents[0].owl(), parents[1].owl());
+                // Для скрещевания необходимы 2 родителя
+                if mother == father {
+                    return Err(ErrorKind::SelfBreeding.into());
+                }
+
                 // Достаточно ли средств для разведения?
                 if user.balance() < BREEDING_PRICE {
                     return Err(ErrorKind::InsufficientFunds.into());
@@ -513,7 +519,6 @@ pub mod transactions {
                 }
 
                 // Все условия выполнены, можем размножаться
-                let (mother, father) = (parents[0].owl(), parents[1].owl());
                 let son =
                     schema.make_uniq_owl((father.dna(), mother.dna()), self.name(), &state_hash);
                 let owls_to_update = vec![son, mother, father];
@@ -613,6 +618,8 @@ pub mod transactions {
         InsufficientFunds = 3,
         #[display(fmt = "Not your property.")]
         AccessViolation = 4,
+        #[display(fmt = "Perversion.")]
+        SelfBreeding = 5,
     }
 
     impl ErrorKind {
