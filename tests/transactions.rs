@@ -185,7 +185,33 @@ fn test_breeding() {
             assert_eq!(owl_state.owner(), &pubkey);
         }
     }
+
+    // some time should pass
+    time_machine.add_time(Duration::new(200, 0));
+    testkit.create_blocks_until(Height(16));
+
+    // Shouldn't be able to make owl from one parent
+    testkit.create_block_with_transactions(txvec![
+        MakeOwl::new(
+            &pubkey,
+            "Bastard",
+            &user_owls[0],
+            &user_owls[0],
+            SystemTime::now(),
+            &key,
+        ),
+    ]);
+
+    let snapshot = testkit.snapshot();
+    let schema = CryptoOwlsSchema::new(&snapshot);
+    let user_owls_idx = schema.user_owls(&pubkey);
+    let user_owls_count = user_owls_idx.iter().count();
+    // same as before
+    assert_eq!(user_owls_count, 3);
+
 }
+
+
 
 #[test]
 fn test_sell_owl() {
