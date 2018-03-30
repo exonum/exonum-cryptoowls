@@ -16,17 +16,17 @@
               <form class="mt-3" @submit.prevent="makeOwl">
                 <div class="form-group">
                   <label class="control-label">Кличка:</label>
-                  <input v-model="name" class="form-control" type="text">
+                  <input v-model="name" type="text" class="form-control" placeholder="Введите кличку" maxlength="260" required>
                 </div>
                 <div class="form-group">
                   <label class="control-label">Отец:</label>
-                  <select v-model="father" class="form-control">
+                  <select v-model="father" class="form-control" required>
                     <option v-for="owl in owls" class="form-control" :value="$blockchain.getOwlHash(owl.owl)">{{ owl.owl.name }}</option>
                   </select>
                 </div>
                 <div class="form-group">
                   <label class="control-label">Мать:</label>
-                  <select v-model="mother" class="form-control">
+                  <select v-model="mother" class="form-control" required>
                     <option v-for="owl in owls" class="form-control" :value="$blockchain.getOwlHash(owl.owl)">{{ owl.owl.name }}</option>
                   </select>
                 </div>

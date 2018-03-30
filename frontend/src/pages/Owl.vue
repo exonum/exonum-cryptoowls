@@ -91,7 +91,7 @@
                 <form class="mt-3" @submit.prevent="createOrder">
                   <div class="form-group">
                     <label class="control-label">Сумма:</label>
-                    <input v-model="price" class="form-control" type="text">
+                    <input v-model="price" type="number" class="form-control" placeholder="Введите цену" min="0" required>
                   </div>
                   <button type="submit" class="btn btn-lg btn-block btn-primary">Предложить цену</button>
                 </form>
