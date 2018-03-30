@@ -32,7 +32,7 @@ extern crate serde;
 
 /// Некоторый уникальный идентификатор сервиса.
 pub const CRYPTOOWLS_SERVICE_ID: u16 = 521;
-/// Уникальное имя сервиса, которое будет использоваться в апи и конфигурации.
+/// Уникальное имя сервиса, которое будет использоваться в API и конфигурации.
 pub const CRYPTOOWLS_SERVICE_NAME: &str = "cryptoowls";
 
 /// Сумма пополнения баланса
@@ -107,17 +107,18 @@ mod data_layout {
 
 /// Cхема данных для базы
 pub mod schema {
-    use data_layout::{CryptoOwl, CryptoOwlState, Order, User};
+    use byteorder::{BigEndian, ReadBytesExt};
+    use rand::{IsaacRng, Rng, SeedableRng};
+    use rand::distributions::{Sample, Weighted, WeightedChoice};
+
     use exonum::storage::{Fork, ListIndex, ProofMapIndex, Snapshot, ValueSetIndex};
     use exonum::blockchain::gen_prefix;
     use exonum::crypto::{CryptoHash, Hash, PublicKey};
 
     use std::time::SystemTime;
-
-    use byteorder::{BigEndian, ReadBytesExt};
     use std::io::Cursor;
-    use rand::{IsaacRng, Rng, SeedableRng};
-    use rand::distributions::{Sample, Weighted, WeightedChoice};
+
+    use data_layout::{CryptoOwl, CryptoOwlState, Order, User};
 
     pub struct CryptoOwlsSchema<T> {
         view: T,
@@ -166,9 +167,9 @@ pub mod schema {
 
         // вспомогательный метод для генерации уникальной совы
         pub fn make_uniq_owl(&self, genes: (u32, u32), name: &str, hash_seed: &Hash) -> CryptoOwl {
-            // мы можем получить хэш только как [u8:32], чтоб получить что-то,
-            // что можно использовать для сидирования генератора случайных чисел,
-            // нужно собрать из каждых 4-х u8 один u32
+            // хэш - это байтовый массив [u8; 32], а для сидирования генератора случайных чисел
+            // требуется массив 32-битных чисел &[u32]. Поэтому мы используем `std::io::Cursor` и
+            // собираем из каждых 4 байт новый u32.
 
             let hash_seed: &[u8] = hash_seed.as_ref();
             let mut seed = [0u32; 4];
@@ -210,6 +211,8 @@ pub mod schema {
                     }
                 }
 
+                // Создаем новую сову с заданным именем и ДНК, если она уникальна - выходим из цикла,
+                // а если нет - пробуем еще раз.
                 let newborn = CryptoOwl::new(name, son_dna);
                 if self.owls_state().get(&newborn.hash()).is_none() {
                     break newborn;
