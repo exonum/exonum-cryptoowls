@@ -11,7 +11,7 @@
           <h2 class="mt-5">Совы</h2>
           <owl-list v-bind:owls="owls"/>
 
-          <h2 class="mt-5">Предложения</h2>
+          <h2 class="mt-5">Предложения, сделанные пользователем</h2>
           <ul class="list-group mt-3">
             <li class="list-group-item font-weight-bold">
               <div class="row">

@@ -38,7 +38,7 @@
           <h2 class="mt-5">Мои совы</h2>
           <owl-list v-bind:owls="owls"/>
 
-          <h2 class="mt-5">Предложения мне</h2>
+          <h2 class="mt-5">Предложения, сделанные мною</h2>
           <ul class="list-group mt-3">
             <li class="list-group-item font-weight-bold">
               <div class="row">
@@ -89,7 +89,7 @@
     },
     data: function() {
       return {
-        user: [],
+        user: {},
         owls: [],
         orders: [],
         isSpinnerVisible: false
@@ -152,7 +152,7 @@
         this.isSpinnerVisible = true
 
         this.$blockchain.issue(this.$store.state.keyPair).then(data => {
-          self.$notify('success', 'Счёт пополнен')
+          self.$notify('success', 'Транзакция принята')
           self.isSpinnerVisible = false
           self.loadUser()
         }).catch(error => {
@@ -167,7 +167,7 @@
         this.isSpinnerVisible = true
 
         this.$blockchain.makeOwl(this.$store.state.keyPair, this.name, this.mother, this.father).then(data => {
-          self.$notify('success', 'Инкубация прошла успешно')
+          self.$notify('success', 'Транзакция принята')
           self.isSpinnerVisible = false
           self.loadUser()
         }).catch(error => {
@@ -182,7 +182,7 @@
         this.isSpinnerVisible = true
 
         self.$blockchain.acceptOrder(this.$store.state.keyPair, this.$blockchain.getOrderHash(order)).then(data => {
-          self.$notify('success', 'Сова продана')
+          self.$notify('success', 'Транзакция принята')
           self.isSpinnerVisible = false
           self.loadUser()
         }).catch(error => {

@@ -2,11 +2,17 @@ import * as Exonum from 'exonum-client'
 import bigInt from 'big-integer'
 import axios from 'axios'
 
-const ATTEMPTS = 10
-const ATTEMPT_TIMEOUT = 500
 const NETWORK_ID = 0
 const PROTOCOL_VERSION = 0
 const SERVICE_ID = 521
+const CREATE_USER_TX_ID = 0
+const MAKE_OWL_TX_ID = 1
+const ISSUE_TX_ID = 2
+const CREATE_ORDER_TX_ID = 3
+const ACCEPT_ORDER_TX_ID = 4
+
+const ATTEMPTS = 10
+const ATTEMPT_TIMEOUT = 500
 
 const SystemTime = Exonum.newType({
   fields: [
@@ -33,59 +39,6 @@ const Order = Exonum.newType({
     { name: 'price', type: Exonum.Uint64 }
   ]
 })
-
-const CREATE_USER_TX = [
-  { name: 'public_key', type: Exonum.PublicKey },
-  { name: 'name', type: Exonum.String }
-]
-const MAKE_OWL_TX = [
-  { name: 'public_key', type: Exonum.PublicKey },
-  { name: 'name', type: Exonum.String },
-  { name: 'father_id', type: Exonum.Hash },
-  { name: 'mother_id', type: Exonum.Hash },
-  { name: 'seed', type: SystemTime }
-]
-const ISSUE_TX = [
-  { name: 'public_key', type: Exonum.PublicKey },
-  { name: 'seed', type: SystemTime }
-]
-const CREATE_ORDER_TX = [
-  { name: 'public_key', type: Exonum.PublicKey },
-  { name: 'owl_id', type: Exonum.Hash },
-  { name: 'price', type: Exonum.Uint64 },
-  { name: 'seed', type: SystemTime }
-]
-const ACCEPT_ORDER_TX = [
-  {name: 'public_key', type: Exonum.PublicKey },
-  {name: 'order_id', type: Exonum.Hash }
-]
-
-const TRANSACTIONS = [CREATE_USER_TX, MAKE_OWL_TX, ISSUE_TX, CREATE_ORDER_TX, ACCEPT_ORDER_TX]
-
-function getMessageIdByTransaction(transaction) {
-  return TRANSACTIONS.findIndex(element => element === transaction)
-}
-
-function createTransaction(transaction) {
-  return Exonum.newMessage({
-    network_id: NETWORK_ID,
-    protocol_version: PROTOCOL_VERSION,
-    service_id: SERVICE_ID,
-    message_id: getMessageIdByTransaction(transaction),
-    fields: transaction
-  })
-}
-
-function postTransaction(transaction, data, signature) {
-  return axios.post('/api/services/cryptoowls/v1/transaction', {
-    network_id: NETWORK_ID,
-    protocol_version: PROTOCOL_VERSION,
-    service_id: SERVICE_ID,
-    message_id: getMessageIdByTransaction(transaction),
-    body: data,
-    signature: signature
-  }).then(response => waitForAcceptance(response.data.tx_hash))
-}
 
 function getSystemTime() {
   const now = Date.now()
@@ -122,23 +75,58 @@ module.exports = {
   install(Vue) {
     Vue.prototype.$blockchain = {
       createUser: name => {
+        // Генерируем новую пару ключей
         const keyPair = Exonum.keyPair()
 
-        const TxCreateWallet = createTransaction(CREATE_USER_TX)
+        // Описываем транзакцию создания нового пользователя
+        const TxCreateWallet = Exonum.newMessage({
+          network_id: NETWORK_ID,
+          protocol_version: PROTOCOL_VERSION,
+          service_id: SERVICE_ID,
+          message_id: CREATE_USER_TX_ID,
+          fields: [
+            { name: 'public_key', type: Exonum.PublicKey },
+            { name: 'name', type: Exonum.String }
+          ]
+        })
 
+        // Данные транзакции
         const data = {
           public_key: keyPair.publicKey,
           name: name
         }
 
+        // Подписываем транзакцию секретным ключем пользователя
         const signature = TxCreateWallet.sign(keyPair.secretKey, data)
 
-        return postTransaction(CREATE_USER_TX, data, signature).then(() => keyPair)
+        // Отправляем транзакцию в блокчейн
+        return axios.post('/api/services/cryptoowls/v1/transaction', {
+          network_id: NETWORK_ID,
+          protocol_version: PROTOCOL_VERSION,
+          service_id: SERVICE_ID,
+          message_id: CREATE_USER_TX_ID,
+          body: data,
+          signature: signature
+        }).then(response => waitForAcceptance(response.data.tx_hash)).then(() => keyPair)
       },
 
       makeOwl: (keyPair, name, father, mother) => {
-        const TxMakeOwl = createTransaction(MAKE_OWL_TX)
+        // Описываем транзакцию создания новой совы
+        const TxMakeOwl = Exonum.newMessage({
+          network_id: NETWORK_ID,
+          protocol_version: PROTOCOL_VERSION,
+          service_id: SERVICE_ID,
+          message_id: MAKE_OWL_TX_ID,
+          fields: [
+            { name: 'public_key', type: Exonum.PublicKey },
+            { name: 'name', type: Exonum.String },
+            { name: 'father_id', type: Exonum.Hash },
+            { name: 'mother_id', type: Exonum.Hash },
+            { name: 'seed', type: SystemTime }
+          ]
+        })
 
+        // Данные транзакции
         const data = {
           public_key: keyPair.publicKey,
           name: name,
@@ -147,27 +135,69 @@ module.exports = {
           seed: getSystemTime()
         }
 
+        // Подписываем транзакцию секретным ключем пользователя
         const signature = TxMakeOwl.sign(keyPair.secretKey, data)
 
-        return postTransaction(MAKE_OWL_TX, data, signature)
+        // Отправляем транзакцию в блокчейн
+        return axios.post('/api/services/cryptoowls/v1/transaction', {
+          network_id: NETWORK_ID,
+          protocol_version: PROTOCOL_VERSION,
+          service_id: SERVICE_ID,
+          message_id: MAKE_OWL_TX_ID,
+          body: data,
+          signature: signature
+        }).then(response => waitForAcceptance(response.data.tx_hash))
       },
 
       issue: (keyPair) => {
-        const TxIssue = createTransaction(ISSUE_TX)
+        // Описываем транзакцию запроса новых средств
+        const TxIssue = Exonum.newMessage({
+          network_id: NETWORK_ID,
+          protocol_version: PROTOCOL_VERSION,
+          service_id: SERVICE_ID,
+          message_id: ISSUE_TX_ID,
+          fields: [
+            { name: 'public_key', type: Exonum.PublicKey },
+            { name: 'seed', type: SystemTime }
+          ]
+        })
 
+        // Данные транзакции
         const data = {
           public_key: keyPair.publicKey,
           seed: getSystemTime()
         }
 
+        // Подписываем транзакцию секретным ключем пользователя
         const signature = TxIssue.sign(keyPair.secretKey, data)
 
-        return postTransaction(ISSUE_TX, data, signature)
+        // Отправляем транзакцию в блокчейн
+        return axios.post('/api/services/cryptoowls/v1/transaction', {
+          network_id: NETWORK_ID,
+          protocol_version: PROTOCOL_VERSION,
+          service_id: SERVICE_ID,
+          message_id: ISSUE_TX_ID,
+          body: data,
+          signature: signature
+        }).then(response => waitForAcceptance(response.data.tx_hash))
       },
 
       createOrder: (keyPair, owl, price) => {
-        const TxCreateOrder = createTransaction(CREATE_ORDER_TX)
+        // Описываем транзакцию размещения нового предложения
+        const TxCreateOrder = Exonum.newMessage({
+          network_id: NETWORK_ID,
+          protocol_version: PROTOCOL_VERSION,
+          service_id: SERVICE_ID,
+          message_id: CREATE_ORDER_TX_ID,
+          fields: [
+            { name: 'public_key', type: Exonum.PublicKey },
+            { name: 'owl_id', type: Exonum.Hash },
+            { name: 'price', type: Exonum.Uint64 },
+            { name: 'seed', type: SystemTime }
+          ]
+        })
 
+        // Данные транзакции
         const data = {
           public_key: keyPair.publicKey,
           owl_id: owl,
@@ -175,22 +205,51 @@ module.exports = {
           seed: getSystemTime()
         }
 
+        // Подписываем транзакцию секретным ключем пользователя
         const signature = TxCreateOrder.sign(keyPair.secretKey, data)
 
-        return postTransaction(CREATE_ORDER_TX, data, signature)
+        // Отправляем транзакцию в блокчейн
+        return axios.post('/api/services/cryptoowls/v1/transaction', {
+          network_id: NETWORK_ID,
+          protocol_version: PROTOCOL_VERSION,
+          service_id: SERVICE_ID,
+          message_id: CREATE_ORDER_TX_ID,
+          body: data,
+          signature: signature
+        }).then(response => waitForAcceptance(response.data.tx_hash))
       },
 
       acceptOrder: (keyPair, order) => {
-        const TxAcceptOrder = createTransaction(ACCEPT_ORDER_TX)
+        // Описываем транзакцию принятия предложения на покупку
+        const TxAcceptOrder = Exonum.newMessage({
+          network_id: NETWORK_ID,
+          protocol_version: PROTOCOL_VERSION,
+          service_id: SERVICE_ID,
+          message_id: ACCEPT_ORDER_TX_ID,
+          fields: [
+            {name: 'public_key', type: Exonum.PublicKey },
+            {name: 'order_id', type: Exonum.Hash }
+          ]
+        })
 
+        // Данные транзакции
         const data = {
           public_key: keyPair.publicKey,
           order_id: order
         }
 
+        // Подписываем транзакцию секретным ключем пользователя
         const signature = TxAcceptOrder.sign(keyPair.secretKey, data)
 
-        return postTransaction(ACCEPT_ORDER_TX, data, signature)
+        // Отправляем транзакцию в блокчейн
+        return axios.post('/api/services/cryptoowls/v1/transaction', {
+          network_id: NETWORK_ID,
+          protocol_version: PROTOCOL_VERSION,
+          service_id: SERVICE_ID,
+          message_id: ACCEPT_ORDER_TX_ID,
+          body: data,
+          signature: signature
+        }).then(response => waitForAcceptance(response.data.tx_hash))
       },
 
       getUsers: () => {
@@ -235,8 +294,19 @@ module.exports = {
         return axios.get(`/api/explorer/v1/transactions/${hash}`).then(response => response.data)
       },
 
+      /**
+       * Конвертирует ДНК в массив байт.
+       * Длинна этого массива составит 4 элемента, т.к. ДНК явлется Uint32 числом.
+       * Первые элемента массива будут RGB цветом совы.
+       * Четверный элемент конвертируем в бинарное представление и разбиваем на 4 равные части.
+       * @param dna
+       * @returns {{color: *, appearance: {eyes: number, wings: number, chest: number, tail: number}}}
+       */
       splitDNA: dna => {
+        // Конвертирует ДНК в массив байт
         const buffer = DNA.serialize({dna: dna})
+
+        // Конвертируем массив байт в бинарное представление (череж промежуточное hex представление)
         const appearanceHex = Exonum.uint8ArrayToHexadecimal(new Uint8Array(buffer.slice(3)))
         const appearanceBinary = Exonum.hexadecimalToBinaryString(appearanceHex)
 

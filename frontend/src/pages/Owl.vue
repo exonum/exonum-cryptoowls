@@ -169,7 +169,7 @@
         this.isSpinnerVisible = true
 
         self.$blockchain.createOrder(this.$store.state.keyPair, this.$blockchain.getOwlHash(this.owl), this.price).then(data => {
-          self.$notify('success', 'Ставка сделана')
+          self.$notify('success', 'Транзакция принята')
           self.isSpinnerVisible = false
           self.loadOwl()
         }).catch(error => {
@@ -184,7 +184,7 @@
         this.isSpinnerVisible = true
 
         self.$blockchain.acceptOrder(this.$store.state.keyPair, this.$blockchain.getOrderHash(order)).then(data => {
-          self.$notify('success', 'Сова продана')
+          self.$notify('success', 'Транзакция принята')
           self.isSpinnerVisible = false
           self.loadOwl()
         }).catch(error => {

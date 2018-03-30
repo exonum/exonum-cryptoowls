@@ -91,9 +91,9 @@ mod data_layout {
     }
 
     encoding_struct! {
-        /// Ордер на покупку совы
+        /// Предложение на покупку совы
         struct Order {
-            /// Тот, кто создал ордер
+            /// Тот, кто сделал предложение
             public_key: &PublicKey,
             /// Идентификатор совы
             owl_id: &Hash,
@@ -139,7 +139,7 @@ pub mod schema {
         pub fn owls_state(&self) -> ProofMapIndex<&T, Hash, CryptoOwlState> {
             ProofMapIndex::new("cryptoowls.owls_state", &self.view)
         }
-        /// Таблица для хранения ордеров на покупку совы
+        /// Таблица для хранения предложений на покупку совы
         pub fn orders(&self) -> ProofMapIndex<&T, Hash, Order> {
             ProofMapIndex::new("cryptoowls.orders", &self.view)
         }
@@ -147,11 +147,11 @@ pub mod schema {
         pub fn user_owls(&self, public_key: &PublicKey) -> ValueSetIndex<&T, Hash> {
             ValueSetIndex::with_prefix("cryptoowls.user_owls", gen_prefix(public_key), &self.view)
         }
-        /// Вспомогательная таблица для связывания пользователя и выставленных им ордеров на покупку
+        /// Вспомогательная таблица для связывания пользователя и сделанных им предложений на покупку чужих сов
         pub fn user_orders(&self, public_key: &PublicKey) -> ListIndex<&T, Hash> {
             ListIndex::with_prefix("cryptoowls.user_orders", gen_prefix(public_key), &self.view)
         }
-        /// Вспомогательная таблица для связывания совы и выставленных ордеров на её покупку
+        /// Вспомогательная таблица для связывания совы и предложений на её покупку
         pub fn owl_orders(&self, owl_id: &Hash) -> ListIndex<&T, Hash> {
             ListIndex::with_prefix("cryptoowls.owl_orders", gen_prefix(owl_id), &self.view)
         }
@@ -274,10 +274,10 @@ pub mod schema {
             }
         }
 
-        /// Вспомогательный метод для подтверждения ордера.
+        /// Вспомогательный метод для принятия предложения.
         /// Функция проверит, что на балансе покупателя есть достаточно средств, личность
-        /// продавца и статус ордера, после чего обновит ордер и балансы продавца и покупателя.
-        /// После этого пометит все остальные ордера на сову отклонёнными.
+        /// продавца и статус предложения, после чего обновит предложение и балансы продавца и покупателя.
+        /// После этого пометит все остальные предложения на сову отклонёнными.
         pub fn accept_order(&mut self, acceptor_key: &PublicKey, order_id: &Hash) -> Option<Order> {
             if let Some(order) = self.orders().get(order_id) {
                 let buyer = self.users().get(order.public_key()).unwrap();
@@ -307,7 +307,7 @@ pub mod schema {
                             None,
                         );
 
-                        // после подтверждения выбранного ордера все остальные ордера
+                        // после подтверждения выбранного предложения все остальные предложения
                         // на данную сову становятся недействительными
                         let order_ids: Vec<Hash> = {
                             let idx = self.owl_orders(order.owl_id());
@@ -326,7 +326,7 @@ pub mod schema {
             None
         }
 
-        /// Вспомогательный метод для отклонения ордера, используется только в этом
+        /// Вспомогательный метод для отклонения предложения, используется только в этом
         /// модуле, поэтому приватный
         pub fn decline_order(&mut self, order_id: &Hash) {
             if let Some(order) = self.orders().get(order_id) {
@@ -396,7 +396,7 @@ pub mod transactions {
                 seed: SystemTime,
             }
 
-            /// Транзакция размещения нового ордера
+            /// Транзакция размещения нового предложения
             struct CreateOrder
             {
                 /// Публичный идентификатор пользователя
@@ -409,12 +409,12 @@ pub mod transactions {
                 seed: SystemTime,
             }
 
-            /// Одобрение ордера на покупку
+            /// Принятие предложения на покупку
             struct AcceptOrder
             {
                 /// Публичный идентификатор пользователя
                 public_key: &PublicKey,
-                /// Идентификатор ордера
+                /// Идентификатор предложения
                 order_id: &Hash,
             }
         }
@@ -814,7 +814,7 @@ mod api {
             })
         }
 
-        /// Информация об ордерах на cову
+        /// Информация об всех предложениях на cову
         fn get_owls_orders(&self, owl_id: &Hash) -> Option<Vec<Order>> {
             let snapshot = self.blockchain.snapshot();
             let schema = schema::CryptoOwlsSchema::new(snapshot);
@@ -829,7 +829,7 @@ mod api {
             })
         }
 
-        /// Информация об ордерах выставленных юзером
+        /// Информация об предложениях выставленных юзером
         fn get_users_orders(&self, users_key: &PublicKey) -> Option<Vec<Order>> {
             let snapshot = self.blockchain.snapshot();
             let schema = schema::CryptoOwlsSchema::new(snapshot);
