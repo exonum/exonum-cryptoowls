@@ -183,7 +183,7 @@ module.exports = {
       },
 
       createOrder: (keyPair, owl, price) => {
-        // Описываем транзакцию размещения нового ордера
+        // Описываем транзакцию размещения нового предложения
         const TxCreateOrder = Exonum.newMessage({
           network_id: NETWORK_ID,
           protocol_version: PROTOCOL_VERSION,
@@ -220,7 +220,7 @@ module.exports = {
       },
 
       acceptOrder: (keyPair, order) => {
-        // Описываем транзакцию одобрения ордера на покупку
+        // Описываем транзакцию принятия предложения на покупку
         const TxAcceptOrder = Exonum.newMessage({
           network_id: NETWORK_ID,
           protocol_version: PROTOCOL_VERSION,
