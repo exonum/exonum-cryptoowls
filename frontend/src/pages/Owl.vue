@@ -3,21 +3,21 @@
     <div class="container mt-5">
       <div class="row">
         <div class="col-sm-12">
-          <h1>Сова</h1>
+          <h1>Owl</h1>
 
           <div class="row">
             <div class="col-sm-6">
-              <h2 class="mt-5">Профиль</h2>
+              <h2 class="mt-5">Profile</h2>
               <ul class="list-group mt-3">
                 <li class="list-group-item">
                   <div class="row">
-                    <div class="col-sm-3"><strong>Кличка:</strong></div>
+                    <div class="col-sm-3"><strong>Name:</strong></div>
                     <div class="col-sm-9">{{ owl.name }}</div>
                   </div>
                 </li>
                 <li class="list-group-item">
                   <div class="row">
-                    <div class="col-sm-3"><strong>ДНК:</strong></div>
+                    <div class="col-sm-3"><strong>DNA:</strong></div>
                     <div class="col-sm-9">
                       <code>{{ owl.dna }}</code>
                     </div>
@@ -25,7 +25,7 @@
                 </li>
                 <li class="list-group-item">
                   <div class="row">
-                    <div class="col-sm-3"><strong>Хозяин:</strong></div>
+                    <div class="col-sm-3"><strong>Owner:</strong></div>
                     <div class="col-sm-9">
                       <code>
                         <router-link :to="{ name: 'user', params: { publicKey: owner } }" class="break-word">{{ owner }}</router-link>
@@ -35,19 +35,19 @@
                 </li>
                 <li class="list-group-item">
                   <div class="row">
-                    <div class="col-sm-3"><strong>Последнее разведение:</strong></div>
+                    <div class="col-sm-3"><strong>Last breeding:</strong></div>
                     <div class="col-sm-9">{{ $moment(lastBreeding) }}</div>
                   </div>
                 </li>
               </ul>
 
-              <h2 class="mt-5">Ставки</h2>
+              <h2 class="mt-5">Orders</h2>
               <ul v-if="isOwner" class="list-group mt-3">
                 <li class="list-group-item font-weight-bold">
                   <div class="row">
-                    <div class="col-sm-3">Пользователь</div>
-                    <div class="col-sm-3">Статус</div>
-                    <div class="col-sm-3">Цена</div>
+                    <div class="col-sm-3">User</div>
+                    <div class="col-sm-3">Status</div>
+                    <div class="col-sm-3">Price</div>
                   </div>
                 </li>
                 <li v-for="order in orders" class="list-group-item">
@@ -60,7 +60,7 @@
                     <div class="col-sm-3">{{ order.status }}</div>
                     <div class="col-sm-3">{{ order.price }}</div>
                     <div v-if="order.status === 'pending'" class="col-sm-3">
-                      <button type="submit" class="btn btn-primary" @click.prevent="acceptOrder(order)">Продать</button>
+                      <button type="submit" class="btn btn-primary" @click.prevent="acceptOrder(order)">Sell</button>
                     </div>
                   </div>
                 </li>
@@ -68,9 +68,9 @@
               <ul v-else class="list-group mt-3">
                 <li class="list-group-item font-weight-bold">
                   <div class="row">
-                    <div class="col-sm-4">Пользователь</div>
-                    <div class="col-sm-4">Статус</div>
-                    <div class="col-sm-4">Цена</div>
+                    <div class="col-sm-4">User</div>
+                    <div class="col-sm-4">Status</div>
+                    <div class="col-sm-4">Price</div>
                   </div>
                 </li>
                 <li v-for="order in orders" class="list-group-item">
@@ -87,13 +87,13 @@
               </ul>
 
               <div v-if="$store.state.keyPair && !isOwner">
-                <h2 class="mt-5">Моя ставка</h2>
+                <h2 class="mt-5">My order</h2>
                 <form class="mt-3" @submit.prevent="createOrder">
                   <div class="form-group">
-                    <label class="control-label">Сумма:</label>
-                    <input v-model="price" type="number" class="form-control" placeholder="Введите цену" min="0" required>
+                    <label class="control-label">Price:</label>
+                    <input v-model="price" type="number" class="form-control" placeholder="Enter price" min="0" required>
                   </div>
-                  <button type="submit" class="btn btn-lg btn-block btn-primary">Предложить цену</button>
+                  <button type="submit" class="btn btn-lg btn-block btn-primary">Make order</button>
                 </form>
               </div>
             </div>
@@ -169,7 +169,7 @@
         this.isSpinnerVisible = true
 
         self.$blockchain.createOrder(this.$store.state.keyPair, this.$blockchain.getOwlHash(this.owl), this.price).then(data => {
-          self.$notify('success', 'Транзакция принята')
+          self.$notify('success', 'Transaction accepted')
           self.isSpinnerVisible = false
           self.loadOwl()
         }).catch(error => {
@@ -184,7 +184,7 @@
         this.isSpinnerVisible = true
 
         self.$blockchain.acceptOrder(this.$store.state.keyPair, this.$blockchain.getOrderHash(order)).then(data => {
-          self.$notify('success', 'Транзакция принята')
+          self.$notify('success', 'Transaction accepted')
           self.isSpinnerVisible = false
           self.loadOwl()
         }).catch(error => {

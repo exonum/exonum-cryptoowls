@@ -3,13 +3,13 @@
     <div class="container mt-5">
       <div class="row">
         <div class="col-sm-12">
-          <h1>Последние блоки</h1>
+          <h1>Latest blocks</h1>
 
           <ul class="list-group mt-5">
             <li class="list-group-item font-weight-bold">
               <div class="row">
-                <div class="col-sm-6">Высота</div>
-                <div class="col-sm-6">Количество транзакций</div>
+                <div class="col-sm-6">Height</div>
+                <div class="col-sm-6">Transactions count</div>
               </div>
             </li>
             <li v-for="block in blocks" class="list-group-item">
@@ -22,7 +22,7 @@
             </li>
           </ul>
 
-          <button class="btn btn-primary mt-3" @click.prevent="loadMore">Предыдущие блоки</button>
+          <button class="btn btn-primary mt-3" @click.prevent="loadMore">Previous blocks</button>
         </div>
       </div>
     </div>

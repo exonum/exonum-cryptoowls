@@ -75,10 +75,10 @@ module.exports = {
   install(Vue) {
     Vue.prototype.$blockchain = {
       createUser: name => {
-        // Генерируем новую пару ключей
+        // Generate new signing key pair
         const keyPair = Exonum.keyPair()
 
-        // Описываем транзакцию создания нового пользователя
+        // Describe transaction to create new user
         const TxCreateWallet = Exonum.newMessage({
           network_id: NETWORK_ID,
           protocol_version: PROTOCOL_VERSION,
@@ -90,16 +90,16 @@ module.exports = {
           ]
         })
 
-        // Данные транзакции
+        // Transaction data
         const data = {
           public_key: keyPair.publicKey,
           name: name
         }
 
-        // Подписываем транзакцию секретным ключем пользователя
+        // Sign transaction with user's secret key
         const signature = TxCreateWallet.sign(keyPair.secretKey, data)
 
-        // Отправляем транзакцию в блокчейн
+        // Send transaction into blockchain
         return axios.post('/api/services/cryptoowls/v1/transaction', {
           network_id: NETWORK_ID,
           protocol_version: PROTOCOL_VERSION,
@@ -111,7 +111,7 @@ module.exports = {
       },
 
       makeOwl: (keyPair, name, father, mother) => {
-        // Описываем транзакцию создания новой совы
+        // Describe transaction to make new owl
         const TxMakeOwl = Exonum.newMessage({
           network_id: NETWORK_ID,
           protocol_version: PROTOCOL_VERSION,
@@ -126,7 +126,7 @@ module.exports = {
           ]
         })
 
-        // Данные транзакции
+        // Transaction data
         const data = {
           public_key: keyPair.publicKey,
           name: name,
@@ -135,10 +135,10 @@ module.exports = {
           seed: getSystemTime()
         }
 
-        // Подписываем транзакцию секретным ключем пользователя
+        // Sign transaction with user's secret key
         const signature = TxMakeOwl.sign(keyPair.secretKey, data)
 
-        // Отправляем транзакцию в блокчейн
+        // Send transaction into blockchain
         return axios.post('/api/services/cryptoowls/v1/transaction', {
           network_id: NETWORK_ID,
           protocol_version: PROTOCOL_VERSION,
@@ -150,7 +150,7 @@ module.exports = {
       },
 
       issue: (keyPair) => {
-        // Описываем транзакцию запроса новых средств
+        // Describe transaction to issue funds
         const TxIssue = Exonum.newMessage({
           network_id: NETWORK_ID,
           protocol_version: PROTOCOL_VERSION,
@@ -162,16 +162,16 @@ module.exports = {
           ]
         })
 
-        // Данные транзакции
+        // Transaction data
         const data = {
           public_key: keyPair.publicKey,
           seed: getSystemTime()
         }
 
-        // Подписываем транзакцию секретным ключем пользователя
+        // Sign transaction with user's secret key
         const signature = TxIssue.sign(keyPair.secretKey, data)
 
-        // Отправляем транзакцию в блокчейн
+        // Send transaction into blockchain
         return axios.post('/api/services/cryptoowls/v1/transaction', {
           network_id: NETWORK_ID,
           protocol_version: PROTOCOL_VERSION,
@@ -183,7 +183,7 @@ module.exports = {
       },
 
       createOrder: (keyPair, owl, price) => {
-        // Описываем транзакцию размещения нового предложения
+        // Describe transaction to place new order
         const TxCreateOrder = Exonum.newMessage({
           network_id: NETWORK_ID,
           protocol_version: PROTOCOL_VERSION,
@@ -197,7 +197,7 @@ module.exports = {
           ]
         })
 
-        // Данные транзакции
+        // Transaction data
         const data = {
           public_key: keyPair.publicKey,
           owl_id: owl,
@@ -205,10 +205,10 @@ module.exports = {
           seed: getSystemTime()
         }
 
-        // Подписываем транзакцию секретным ключем пользователя
+        // Sign transaction with user's secret key
         const signature = TxCreateOrder.sign(keyPair.secretKey, data)
 
-        // Отправляем транзакцию в блокчейн
+        // Send transaction into blockchain
         return axios.post('/api/services/cryptoowls/v1/transaction', {
           network_id: NETWORK_ID,
           protocol_version: PROTOCOL_VERSION,
@@ -220,7 +220,7 @@ module.exports = {
       },
 
       acceptOrder: (keyPair, order) => {
-        // Описываем транзакцию принятия предложения на покупку
+        // Describe transaction to accept order
         const TxAcceptOrder = Exonum.newMessage({
           network_id: NETWORK_ID,
           protocol_version: PROTOCOL_VERSION,
@@ -232,16 +232,16 @@ module.exports = {
           ]
         })
 
-        // Данные транзакции
+        // Transaction data
         const data = {
           public_key: keyPair.publicKey,
           order_id: order
         }
 
-        // Подписываем транзакцию секретным ключем пользователя
+        // Sign transaction with user's secret key
         const signature = TxAcceptOrder.sign(keyPair.secretKey, data)
 
-        // Отправляем транзакцию в блокчейн
+        // Send transaction into blockchain
         return axios.post('/api/services/cryptoowls/v1/transaction', {
           network_id: NETWORK_ID,
           protocol_version: PROTOCOL_VERSION,
@@ -295,21 +295,23 @@ module.exports = {
       },
 
       /**
-       * Конвертирует ДНК в массив байт.
-       * Длинна этого массива составит 4 элемента, т.к. ДНК явлется Uint32 числом.
-       * Первые элемента массива будут RGB цветом совы.
-       * Четверный элемент конвертируем в бинарное представление и разбиваем на 4 равные части.
+       * Convert DNA, represented as Uint32 number, into byte array of 4 element
+       * Each element is a Uint8 number
+       * First three elements represents owl's color in RGB
+       * Fourth element is converted into binary representation, divided into 4 equal parts
+       * Each part represents one of owl's body parts: eyes, wings, chest, tails
+       * Each body part can be in one of 4 possible variants
        * @param dna
        * @returns {{color: *, appearance: {eyes: number, wings: number, chest: number, tail: number}}}
        */
       splitDNA: dna => {
-        // Конвертирует ДНК в массив байт
+        // Convert DNA into byte array
         const buffer = DNA.serialize({dna: dna})
 
-        // Первые три элемента являются RGB цветом совы
+        // First three elements is an owl color in RGB
         const color = Exonum.uint8ArrayToHexadecimal(new Uint8Array(buffer.slice(0, 3)))
 
-        // Четвертый элемент конвертируем в бинарное представление
+        // Convert fourth element into binary string
         const appearance = Exonum.uint8ArrayToBinaryString(new Uint8Array(buffer.slice(3)))
 
         return {

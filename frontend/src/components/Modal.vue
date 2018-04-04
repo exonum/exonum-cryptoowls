@@ -16,7 +16,7 @@
             </div>
 
             <div class="modal-footer">
-              <button type="button" class="btn btn-secondary" @click="close">Закрыть</button>
+              <button type="button" class="btn btn-secondary" @click="close">Close</button>
               <button type="submit" class="btn btn-primary">{{ actionBtn }}</button>
             </div>
           </form>
