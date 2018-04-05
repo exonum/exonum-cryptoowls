@@ -30,82 +30,82 @@ extern crate rand;
 extern crate router;
 extern crate serde;
 
-/// Некоторый уникальный идентификатор сервиса.
+/// Unique service ID
 pub const CRYPTOOWLS_SERVICE_ID: u16 = 521;
-/// Уникальное имя сервиса, которое будет использоваться в API и конфигурации.
+/// Unique service name which will be used in API and configuration
 pub const CRYPTOOWLS_SERVICE_NAME: &str = "cryptoowls";
 
-/// Сумма пополнения баланса
+/// Sum to be issued each time
 pub const ISSUE_AMMOUNT: u64 = 100;
 
-/// Таймаут (в секундах), после которого разрешено повторное пополнение баланса.
+/// Timeout (seconds) after which user will be able to issue funds again
 pub const ISSUE_TIMEOUT: u64 = 60;
 
-/// Таймаут (в секундах), после которого разрешено повторное размножение.
+/// Timeout (seconds) after which user will be able to use owl in breeding
 pub const BREEDING_TIMEOUT: u64 = 60;
 
-/// Стоимость размножения
+/// Breeding price
 pub const BREEDING_PRICE: u64 = 42;
 
-/// Модуль со структурами данных, которые хранятся в блокчейне
+/// Module with data structures stored in blockchain
 mod data_layout {
 
     use std::time::SystemTime;
     use exonum::crypto::{Hash, PublicKey};
 
     encoding_struct! {
-        /// Интересующая нас криптосова, ее уникальный идентифицатор вычисляется как хеш
-        /// от этой структуры данных.
+        /// Owl
+        /// Unique identifier of the owl is a hash of this data structure
         struct CryptoOwl {
-            /// Имя совы (должно быть уникальным)
+            /// Name (should be unique)
             name: &str,
-            /// Генетический код криптосовы.
+            /// DNA
             dna: u32,
         }
     }
 
     encoding_struct! {
-        /// Текущее состоянии криптосовы
+        /// Current owl state
         struct CryptoOwlState {
-            /// Сама сова
+            /// Owl
             owl: CryptoOwl,
-            /// Владелец.
+            /// Owner
             owner: &PublicKey,
-            /// Время последнего разведения.
+            /// Time of the last breeding
             last_breeding: SystemTime,
         }
     }
 
     encoding_struct! {
-        /// Данные о пользователи и его совах
+        /// User
         struct User {
-            /// Его публичный ключ
+            /// Public key
             public_key: &PublicKey,
-            /// Его имя
+            /// Name
             name: &str,
-            /// Текущий баланс
+            /// Current balance
             balance: u64,
-            /// Время последнего пополнения баланса
+            /// Time of the last issue of funds
             last_fillup: SystemTime,
         }
     }
 
     encoding_struct! {
-        /// Предложение на покупку совы
+        /// Order to buy an owl
         struct Order {
-            /// Тот, кто сделал предложение
+            /// Order author
             public_key: &PublicKey,
-            /// Идентификатор совы
+            /// Owl identifier
             owl_id: &Hash,
-            /// pending - в ожидании, accepted - исполнен, declined - отвергнут.
+            /// pending, accepted or declined
             status: &str,
-            /// Цена на сову
+            /// Price
             price: u64,
         }
     }
 }
 
-/// Cхема данных для базы
+/// Database schema
 pub mod schema {
     use byteorder::{BigEndian, ReadBytesExt};
     use rand::{IsaacRng, Rng, SeedableRng};
@@ -124,7 +124,7 @@ pub mod schema {
         view: T,
     }
 
-    /// Read-only таблицы
+    /// Read-only tables
     impl<T> CryptoOwlsSchema<T>
     where
         T: AsRef<Snapshot>,
@@ -132,27 +132,27 @@ pub mod schema {
         pub fn new(view: T) -> Self {
             CryptoOwlsSchema { view }
         }
-        /// Таблица для хранения пользователей
+        /// Table to store users
         pub fn users(&self) -> ProofMapIndex<&T, PublicKey, User> {
             ProofMapIndex::new("cryptoowls.users", &self.view)
         }
-        /// Таблица для хранения сов и их стейта (см. data_layout::CryptoOwlState)
+        /// Table to store owls and their states (see data_layout::CryptoOwlState)
         pub fn owls_state(&self) -> ProofMapIndex<&T, Hash, CryptoOwlState> {
             ProofMapIndex::new("cryptoowls.owls_state", &self.view)
         }
-        /// Таблица для хранения предложений на покупку совы
+        /// Table to store owl order
         pub fn orders(&self) -> ProofMapIndex<&T, Hash, Order> {
             ProofMapIndex::new("cryptoowls.orders", &self.view)
         }
-        /// Вспомогательная таблица для связывания пользователя и принадлежащих ему сов
+        /// Additional table for linking user and his owls
         pub fn user_owls(&self, public_key: &PublicKey) -> ValueSetIndex<&T, Hash> {
             ValueSetIndex::with_prefix("cryptoowls.user_owls", gen_prefix(public_key), &self.view)
         }
-        /// Вспомогательная таблица для связывания пользователя и сделанных им предложений на покупку чужих сов
+        /// Additional table for linking user and his orders
         pub fn user_orders(&self, public_key: &PublicKey) -> ListIndex<&T, Hash> {
             ListIndex::with_prefix("cryptoowls.user_orders", gen_prefix(public_key), &self.view)
         }
-        /// Вспомогательная таблица для связывания совы и предложений на её покупку
+        /// Additional table for linking owl and her orders
         pub fn owl_orders(&self, owl_id: &Hash) -> ListIndex<&T, Hash> {
             ListIndex::with_prefix("cryptoowls.owl_orders", gen_prefix(owl_id), &self.view)
         }
@@ -165,11 +165,11 @@ pub mod schema {
             ]
         }
 
-        // вспомогательный метод для генерации уникальной совы
+        // Method to generate new unique owl
         pub fn make_uniq_owl(&self, genes: (u32, u32), name: &str, hash_seed: &Hash) -> CryptoOwl {
-            // хэш - это байтовый массив [u8; 32], а для сидирования генератора случайных чисел
-            // требуется массив 32-битных чисел &[u32]. Поэтому мы используем `std::io::Cursor` и
-            // собираем из каждых 4 байт новый u32.
+            // hash is a byte array [u8; 32] but to seed random number generator we need an array
+            // of 32-bit numbers &[u32]. So we use `std::io::Cursor` and build a new u32 number
+            // of each 4 bytes.
 
             let hash_seed: &[u8] = hash_seed.as_ref();
             let mut seed = [0u32; 4];
@@ -179,16 +179,16 @@ pub mod schema {
             }
             let mut rng = IsaacRng::from_seed(&seed);
 
-            // Избегаем коллизий. В случае, если сова с таким хэшем уже есть - пробуем ещё
+            // Avoid collisions. In case the owl with such a hash is already exists - try again.
             loop {
                 let mut son_dna = 0u32;
                 for i in 0..32 {
-                    // проходим по всем `генам` и выставляем их в соответствии с генами родителей
+                    // Step by all `genes` and set them in accordance with parents genes
                     let mask = 2u32.pow(i);
                     let (fg, mg) = (genes.0 & mask, genes.1 & mask);
                     if fg == mg {
-                        // Если биты у родителей совпадают, то с вероятностью
-                        // 8/10 бит ребенка будет таким же
+                        // With a probability of 8/10 the child bits will be euqal to parents bits
+                        // in the case if parents bits are equal.
                         let mut possible_genes = vec![
                             Weighted {
                                 weight: 8,
@@ -203,16 +203,17 @@ pub mod schema {
                         let mut choices = WeightedChoice::new(&mut possible_genes);
                         son_dna |= choices.sample(&mut rng);
                     } else {
-                        // Если биты различаются, то результирующий бит будет
-                        // выбираться с вероятностью 1/2.
+                        // If bits are different, the resulting bit will be selected
+                        // with probability 1/2.
                         if rng.gen() {
                             son_dna |= mask;
                         }
                     }
                 }
 
-                // Создаем новую сову с заданным именем и ДНК, если она уникальна - выходим из цикла,
-                // а если нет - пробуем еще раз.
+                // Create a new owls with given DNA.
+                // Break the loop if the owl is unique.
+                // Otherwise, try again.
                 let newborn = CryptoOwl::new(name, son_dna);
                 if self.owls_state().get(&newborn.hash()).is_none() {
                     break newborn;
@@ -221,7 +222,7 @@ pub mod schema {
         }
     }
 
-    /// Изменяемые близнецы таблиц выше
+    /// Mutable twins of the tables above
     impl<'a> CryptoOwlsSchema<&'a mut Fork> {
         pub fn users_mut(&mut self) -> ProofMapIndex<&mut Fork, PublicKey, User> {
             ProofMapIndex::new("cryptoowls.users", self.view)
@@ -247,7 +248,7 @@ pub mod schema {
             ListIndex::with_prefix("cryptoowls.owl_orders", gen_prefix(owl_id), self.view)
         }
 
-        /// Вспомогательный метод для обновления состояния сов после размножения или создания.
+        /// Helping method to update owl state after breed or create
         pub fn refresh_owls(
             &mut self,
             owner_key: &PublicKey,
@@ -263,7 +264,7 @@ pub mod schema {
             }
         }
 
-        /// Вспомогательный метод для изменения баланса пользователя
+        /// Helping method to change user balance
         pub fn set_user_balance(
             &mut self,
             public_key: &PublicKey,
@@ -277,10 +278,10 @@ pub mod schema {
             }
         }
 
-        /// Вспомогательный метод для принятия предложения.
-        /// Функция проверит, что на балансе покупателя есть достаточно средств, личность
-        /// продавца и статус предложения, после чего обновит предложение и балансы продавца и покупателя.
-        /// После этого пометит все остальные предложения на сову отклонёнными.
+        /// Helping method to accept order
+        /// Function will check that buyer has enough funds, order of status allows to accept order.
+        /// Then function will update order, buyer and seller balances.
+        /// Finally function will mark all other orders as declined.
         pub fn accept_order(&mut self, acceptor_key: &PublicKey, order_id: &Hash) -> Option<Order> {
             if let Some(order) = self.orders().get(order_id) {
                 let buyer = self.users().get(order.public_key()).unwrap();
@@ -310,8 +311,7 @@ pub mod schema {
                             None,
                         );
 
-                        // после подтверждения выбранного предложения все остальные предложения
-                        // на данную сову становятся недействительными
+                        // Decline all other owl orders
                         let order_ids: Vec<Hash> = {
                             let idx = self.owl_orders(order.owl_id());
                             let order_ids = idx.iter().collect();
@@ -329,8 +329,7 @@ pub mod schema {
             None
         }
 
-        /// Вспомогательный метод для отклонения предложения, используется только в этом
-        /// модуле, поэтому приватный
+        /// Helping method to decline order. It is used only inside this module, so it is private.
         pub fn decline_order(&mut self, order_id: &Hash) {
             if let Some(order) = self.orders().get(order_id) {
                 if order.status() == "pending" {
@@ -348,7 +347,7 @@ pub mod schema {
     }
 }
 
-/// Модуль с описанием транзакций для демки.
+/// Module with description of all transactions
 pub mod transactions {
     use exonum::crypto::{CryptoHash, Hash, PublicKey};
     use exonum::blockchain::{ExecutionError, ExecutionResult, Schema, Transaction};
@@ -368,56 +367,56 @@ pub mod transactions {
         pub Transactions {
             const SERVICE_ID = CRYPTOOWLS_SERVICE_ID;
 
-            /// Транзакция создания пользователя
+            /// Transaction to create a new user
             struct CreateUser {
-                /// Публичный идентификатор пользователя
+                /// Public user identifier
                 public_key: &PublicKey,
-                /// Имя
+                /// Name
                 name: &str,
             }
 
-            /// Транзакция создания совы. Если идентификаторы отца и матери это нули,
-            /// то выводится базовая сова
+            /// Transaction to area an owl. A new random owl created if mother and father
+            /// are not defined (have zero identifiers).
             struct MakeOwl {
-                /// Публичный идентификатор пользователя
+                /// Public user identifier
                 public_key: &PublicKey,
-                /// Имя совенка
+                /// Owl name
                 name: &str,
-                /// Идентификатор отца
+                /// Father identifier
                 father_id: &Hash,
-                /// Идентификатор матери
+                /// Mother identifier
                 mother_id: &Hash,
-                /// Необходимо для того, чтоб создавать транзакции с одинаковыми полями.
+                /// Timestamp. Is required to breed owls with the same identifiers.
                 seed: SystemTime,
             }
 
-            /// Транзакция запроса новых средств
+            /// Transaction to issue funds
             struct Issue {
-                /// Публичный идентификатор пользователя
+                /// Public user identifier
                 public_key: &PublicKey,
-                /// Необходимо для того, чтоб создавать транзакции с одинаковыми полями.
+                /// Timestamp. Is required to create transactions owls with the same fields.
                 seed: SystemTime,
             }
 
-            /// Транзакция размещения нового предложения
+            /// Transaction to make a new order
             struct CreateOrder
             {
-                /// Публичный идентификатор пользователя
+                /// Public user identifier
                 public_key: &PublicKey,
-                /// Идентификатор совы
+                /// Owl identifier
                 owl_id: &Hash,
-                /// Желаемая цена
+                /// Price
                 price: u64,
-                /// Необходимо для того, чтоб создавать транзакции с одинаковыми полями.
+                /// Timestamp. Is required to create transactions owls with the same fields.
                 seed: SystemTime,
             }
 
-            /// Принятие предложения на покупку
+            /// Transaction to accept order (and sell owl)
             struct AcceptOrder
             {
-                /// Публичный идентификатор пользователя
+                /// Public user identifier
                 public_key: &PublicKey,
-                /// Идентификатор предложения
+                /// Order identifier
                 order_id: &Hash,
             }
         }
@@ -442,12 +441,12 @@ pub mod transactions {
             let key = self.public_key();
             let mut schema = schema::CryptoOwlsSchema::new(fork);
 
-            // Если пользователь с таким ключём уже существует - игнорируем.
+            // Ignore if the user with the same public identifier is already exists
             if schema.users().get(key).is_none() {
                 let user = User::new(&key, self.name(), ISSUE_AMMOUNT, ts);
                 schema.users_mut().put(key, user);
 
-                // Новый пользователь получает `в подарок` 2 примитивных совы со случайным геномом.
+                // New user get 2 random owls
                 let starter_pack = vec![
                     schema.make_uniq_owl(
                         (1u32, 0u32),
@@ -484,8 +483,8 @@ pub mod transactions {
 
             let mut schema = schema::CryptoOwlsSchema::new(fork);
 
-            // Найдём обоих родителей.
-            // Если хотя бы одного из них нет мы получим None
+            // Find mother and father
+            // If someone is missed will get None response
             let parents = [self.mother_id(), self.father_id()]
                 .iter()
                 .map(|&i| schema.owls_state().get(&i))
@@ -494,26 +493,25 @@ pub mod transactions {
             let user = schema.users().get(self.public_key()).unwrap();
             let key = user.public_key();
 
-            // Если нам удалось найти родителей идём дальше
-            // если нет - игнорируем транзакцию
+            // Ignore transaction if mother of father is not found
             if let Some(parents) = parents {
-                // Проверяем наши права на сов
+                // Check if user is owl owner
                 if parents.iter().any(|ref p| p.owner() != key) {
                     return Err(ErrorKind::AccessViolation.into());
                 }
 
                 let (mother, father) = (parents[0].owl(), parents[1].owl());
-                // Для скрещевания необходимы 2 родителя
+                // Can not use the same owl as mother and father at the same time
                 if mother == father {
                     return Err(ErrorKind::SelfBreeding.into());
                 }
 
-                // Достаточно ли средств для разведения?
+                // User has enough funds for breeding
                 if user.balance() < BREEDING_PRICE {
                     return Err(ErrorKind::InsufficientFunds.into());
                 }
 
-                // Проверяем время последнего спаривания для каждой совы
+                // Check last breeding time for each owl
                 if parents.iter().any(|ref p| {
                     ts.duration_since(p.last_breeding()).unwrap().as_secs() < BREEDING_TIMEOUT
                 })
@@ -521,7 +519,7 @@ pub mod transactions {
                     return Err(ErrorKind::EarlyBreeding.into());
                 }
 
-                // Все условия выполнены, можем размножаться
+                // All conditions are fulfilled, start breeding
                 let son =
                     schema.make_uniq_owl((father.dna(), mother.dna()), self.name(), &state_hash);
                 let owls_to_update = vec![son, mother, father];
@@ -554,7 +552,7 @@ pub mod transactions {
                 schema.set_user_balance(&key, user.balance() + ISSUE_AMMOUNT, Some(ts));
                 Ok(())
             } else {
-                //таймаут пополнения не истёк
+                // Issue timeout is not expired
                 Err(ErrorKind::EarlyIssue.into())
             }
         }
@@ -570,9 +568,9 @@ pub mod transactions {
             let key = self.public_key();
             let user = schema.users().get(&key).unwrap();
 
-            // код выполнится только если такая сова найдётся
+            // Execute code if the owl is found
             if let Some(owl) = schema.owls_state().get(self.owl_id()) {
-                // проверим что не мы её владелец и достаточно ли у нас денег для покупки
+                // Check if buyer is not owl owner and he has enough funds
                 if owl.owner() != key && self.price() <= user.balance() {
                     let order = Order::new(&key, self.owl_id(), "pending", self.price());
                     let order_hash = order.hash();
@@ -641,7 +639,7 @@ pub mod transactions {
 
 }
 
-/// Модуль с реализацией api
+/// Module with API implementation
 mod api {
     use bodyparser;
     use iron::prelude::*;
@@ -742,7 +740,7 @@ mod api {
                     Err(e) => Err(ApiError::BadRequest(e.to_string()))?,
                 };
 
-            // View-only хэндлеры
+            // View-only handlers
             router.get("/v1/users", get_users, "get_users");
             router.get("/v1/user/:pub_key", get_user, "get_user");
 
@@ -763,20 +761,20 @@ mod api {
                 "get_owls_orders",
             );
 
-            // Транзакции.
+            // Transactions
             router.post("/v1/transaction", transaction, "post_transaction");
         }
     }
 
     impl CryptoOwlsApi {
-        /// Информация о пользователе
+        /// User profile
         fn get_user(&self, public_key: &PublicKey) -> Option<User> {
             let snapshot = self.blockchain.snapshot();
             let schema = schema::CryptoOwlsSchema::new(snapshot);
             schema.users().get(public_key)
         }
 
-        /// Полный список пользователей
+        /// All users
         fn get_users(&self) -> Vec<User> {
             let snapshot = self.blockchain.snapshot();
             let schema = schema::CryptoOwlsSchema::new(snapshot);
@@ -785,14 +783,14 @@ mod api {
             users
         }
 
-        /// Информация о cове
+        /// Owl profile
         fn get_owl(&self, owl_id: &Hash) -> Option<CryptoOwlState> {
             let snapshot = self.blockchain.snapshot();
             let schema = schema::CryptoOwlsSchema::new(snapshot);
             schema.owls_state().get(&owl_id)
         }
 
-        /// Полный список сов
+        /// All owls
         fn get_owls(&self) -> Vec<CryptoOwlState> {
             let snapshot = self.blockchain.snapshot();
             let schema = schema::CryptoOwlsSchema::new(snapshot);
@@ -801,14 +799,14 @@ mod api {
             owls
         }
 
-        /// Cписок сов для пользователя
+        /// User owls list
         fn get_user_owls(&self, public_key: &PublicKey) -> Option<Vec<CryptoOwlState>> {
             let snapshot = self.blockchain.snapshot();
             let schema = schema::CryptoOwlsSchema::new(snapshot);
 
             schema.users().get(&public_key).and({
                 let idx = schema.user_owls(&public_key);
-                // Внимание, тип итератора - ValueSetIndexIter<'_, Hash> !!!
+                // Attention, iterator type is ValueSetIndexIter<'_, Hash> !!!
                 let owls = idx.iter()
                     .map(|h| schema.owls_state().get(&h.1))
                     .collect::<Option<Vec<CryptoOwlState>>>()
@@ -817,7 +815,7 @@ mod api {
             })
         }
 
-        /// Информация об всех предложениях на cову
+        /// Owl orders
         fn get_owls_orders(&self, owl_id: &Hash) -> Option<Vec<Order>> {
             let snapshot = self.blockchain.snapshot();
             let schema = schema::CryptoOwlsSchema::new(snapshot);
@@ -832,7 +830,7 @@ mod api {
             })
         }
 
-        /// Информация об предложениях выставленных юзером
+        /// Orders made by user
         fn get_users_orders(&self, users_key: &PublicKey) -> Option<Vec<Order>> {
             let snapshot = self.blockchain.snapshot();
             let schema = schema::CryptoOwlsSchema::new(snapshot);
@@ -856,7 +854,7 @@ mod api {
     }
 }
 
-/// Собираем всё вместе.
+/// Collect everything together
 pub mod service {
     use iron::Handler;
     use router::Router;
@@ -900,19 +898,19 @@ pub mod service {
             CRYPTOOWLS_SERVICE_ID
         }
 
-        // Метод десериализации для транзакций
+        // Method to deserialize transacitons
         fn tx_from_raw(&self, raw: RawTransaction) -> Result<Box<Transaction>, encoding::Error> {
             let tx = Transactions::tx_from_raw(raw)?;
             Ok(tx.into())
         }
 
-        // Хэши таблиц, которые будут включены в общий стейт хэш
+        // Tables hashes to be included into blockchain state hash
         fn state_hash(&self, snapshot: &Snapshot) -> Vec<Hash> {
             let schema = CryptoOwlsSchema::new(snapshot);
             schema.state_hash()
         }
 
-        // Хэндлер для обработки запросов к ноде
+        // Handling requests to a node
         fn public_api_handler(&self, ctx: &ApiContext) -> Option<Box<Handler>> {
             let mut router = Router::new();
             let api = CryptoOwlsApi {

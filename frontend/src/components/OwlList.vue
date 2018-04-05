@@ -9,11 +9,11 @@
           <h5 class="card-title">
             <router-link :to="{ name: 'owl', params: { hash: $blockchain.getOwlHash(owl.owl) } }" class="break-word">{{ owl.owl.name }}</router-link>
           </h5>
-          <p class="card-text">ДНК: <code>{{ owl.owl.dna }}</code></p>
-          <p class="card-text">Хозяин: <code><router-link :to="{ name: 'user', params: { publicKey: owl.owner } }" class="break-word">{{ owl.owner }}</router-link></code></p>
+          <p class="card-text">DNA: <code>{{ owl.owl.dna }}</code></p>
+          <p class="card-text">Owner: <code><router-link :to="{ name: 'user', params: { publicKey: owl.owner } }" class="break-word">{{ owl.owner }}</router-link></code></p>
         </div>
         <div class="card-footer">
-          <small class="text-muted">Последнее разведение: {{ $moment(owl.last_breeding) }}</small>
+          <small class="text-muted">Last breeding: {{ $moment(owl.last_breeding) }}</small>
         </div>
       </div>
     </div>

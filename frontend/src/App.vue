@@ -11,8 +11,8 @@
           <div class="col-sm-12">
             <img src="images/exonum.png" width="41" height="36" class="float-left mt-sm-1 mr-3" alt="">
             <ul class="list-unstyled">
-              <li>Исходный код на <a href="https://github.com/exonum/cryptocurrency-advanced" target="_blank">GitHub</a></li>
-              <li>Работает на <a href="https://exonum.com/doc/" target="_blank">Exonum</a></li>
+              <li>Source code on <a href="https://github.com/exonum/cryptocurrency-advanced" target="_blank">GitHub</a></li>
+              <li>Works on <a href="https://exonum.com/doc/" target="_blank">Exonum</a></li>
             </ul>
           </div>
         </div>

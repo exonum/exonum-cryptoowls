@@ -3,22 +3,22 @@
     <div class="container mt-5">
       <div class="row">
         <div class="col-sm-12">
-          <h1>Пользователь</h1>
+          <h1>User</h1>
 
-          <h2 class="mt-5">Профиль</h2>
+          <h2 class="mt-5">Profile</h2>
           <user-summary v-bind:user="user" class="mt-3"/>
 
-          <h2 class="mt-5">Совы</h2>
+          <h2 class="mt-5">Owls</h2>
           <owl-list v-bind:owls="owls"/>
 
-          <h2 class="mt-5">Предложения, сделанные пользователем</h2>
+          <h2 class="mt-5">User orders</h2>
           <ul class="list-group mt-3">
             <li class="list-group-item font-weight-bold">
               <div class="row">
-                <div class="col-sm-3">Сова</div>
-                <div class="col-sm-3">Пользователь</div>
-                <div class="col-sm-3">Статус</div>
-                <div class="col-sm-3">Цена</div>
+                <div class="col-sm-3">Owl</div>
+                <div class="col-sm-3">User</div>
+                <div class="col-sm-3">Status</div>
+                <div class="col-sm-3">Price</div>
               </div>
             </li>
             <li v-for="order in orders" class="list-group-item">

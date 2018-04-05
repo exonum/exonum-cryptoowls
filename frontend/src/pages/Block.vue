@@ -3,13 +3,13 @@
     <div class="container mt-5">
       <div class="row">
         <div class="col-sm-12">
-          <h1>Блок {{ height }}</h1>
+          <h1>Block {{ height }}</h1>
 
-          <h2 class="mt-5">Транзакции</h2>
+          <h2 class="mt-5">Transactions</h2>
           <ul class="list-group mt-3">
             <li class="list-group-item font-weight-bold">
               <div class="row">
-                <div class="col-sm-12">Хеш</div>
+                <div class="col-sm-12">Hash</div>
               </div>
             </li>
             <li v-for="transaction in transactions" class="list-group-item">

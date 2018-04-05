@@ -3,23 +3,23 @@
     <div class="container">
       <router-link :to="{ name: isAuthorized ? 'dashboard' : 'auth' }" class="navbar-brand">
         <img src="images/cryptoowl.png" width="36" height="36" class="align-middle mr-2" alt="">
-        Криптосовы
+        Cryptoowls
       </router-link>
       <div class="collapse navbar-collapse">
         <ul class="navbar-nav">
           <li class="nav-item">
-            <router-link :to="{ name: 'users' }" class="nav-link">Пользователи</router-link>
+            <router-link :to="{ name: 'users' }" class="nav-link">Users</router-link>
           </li>
           <li class="nav-item">
-            <router-link :to="{ name: 'owls' }" class="nav-link">Совы</router-link>
+            <router-link :to="{ name: 'owls' }" class="nav-link">Owls</router-link>
           </li>
           <li class="nav-item">
-            <router-link :to="{ name: 'blockchain' }" class="nav-link">Блокчейн</router-link>
+            <router-link :to="{ name: 'blockchain' }" class="nav-link">Blockchain</router-link>
           </li>
         </ul>
         <ul v-if="isAuthorized" class="navbar-nav ml-auto">
           <li class="nav-item">
-            <a href="#" class="nav-link" @click="logout">Выйти</a>
+            <a href="#" class="nav-link" @click="logout">Log Out</a>
           </li>
         </ul>
       </div>

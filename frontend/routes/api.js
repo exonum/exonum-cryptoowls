@@ -1,3 +1,5 @@
+// This router is just a simple proxy between application and node's public API
+
 var express = require('express');
 var request = require('request');
 var router = express.Router();
