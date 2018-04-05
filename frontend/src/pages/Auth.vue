@@ -49,10 +49,10 @@
 </template>
 
 <script>
-  const Tab = require('../components/Tab.vue')
-  const Tabs = require('../components/Tabs.vue')
-  const Modal = require('../components/Modal.vue')
-  const Spinner = require('../components/Spinner.vue')
+  import Spinner from '../components/Spinner.vue'
+  import Tab from '../components/Tab.vue'
+  import Tabs from '../components/Tabs.vue'
+  import Modal from '../components/Modal.vue'
 
   module.exports = {
     components: {

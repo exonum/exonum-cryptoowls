@@ -21,7 +21,7 @@
 </template>
 
 <script>
-  const OwlIcon = require('./OwlIcon.vue')
+  import OwlIcon from './OwlIcon.vue'
 
   module.exports = {
     name: 'owl-list',
