@@ -30,7 +30,7 @@ extern crate rand;
 extern crate router;
 extern crate serde;
 
-/// Unique service ID
+/// Unique service identifier
 pub const CRYPTOOWLS_SERVICE_ID: u16 = 521;
 /// Unique service name which will be used in API and configuration
 pub const CRYPTOOWLS_SERVICE_NAME: &str = "cryptoowls";
@@ -38,24 +38,23 @@ pub const CRYPTOOWLS_SERVICE_NAME: &str = "cryptoowls";
 /// Sum to be issued each time
 pub const ISSUE_AMMOUNT: u64 = 100;
 
-/// Timeout (seconds) after which user will be able to issue funds again
+/// Timeout (seconds) before user will be able to issue funds again
 pub const ISSUE_TIMEOUT: u64 = 60;
 
-/// Timeout (seconds) after which user will be able to use owl in breeding
+/// Timeout (seconds) before user will be able to breed owl again
 pub const BREEDING_TIMEOUT: u64 = 60;
 
 /// Breeding price
 pub const BREEDING_PRICE: u64 = 42;
 
-/// Module with data structures stored in blockchain
+/// Data structures stored in blockchain
 mod data_layout {
 
     use std::time::SystemTime;
     use exonum::crypto::{Hash, PublicKey};
 
     encoding_struct! {
-        /// Owl
-        /// Unique identifier of the owl is a hash of this data structure
+        /// CryptoOwl. Unique identifier of the owl is a hash of this data structure.
         struct CryptoOwl {
             /// Name (should be unique)
             name: &str,
@@ -132,31 +131,32 @@ pub mod schema {
         pub fn new(view: T) -> Self {
             CryptoOwlsSchema { view }
         }
-        /// Table to store users
+        /// Users
         pub fn users(&self) -> ProofMapIndex<&T, PublicKey, User> {
             ProofMapIndex::new("cryptoowls.users", &self.view)
         }
-        /// Table to store owls and their states (see data_layout::CryptoOwlState)
+        /// Owls and their states (see data_layout::CryptoOwlState)
         pub fn owls_state(&self) -> ProofMapIndex<&T, Hash, CryptoOwlState> {
             ProofMapIndex::new("cryptoowls.owls_state", &self.view)
         }
-        /// Table to store owl order
+        /// Owl orders
         pub fn orders(&self) -> ProofMapIndex<&T, Hash, Order> {
             ProofMapIndex::new("cryptoowls.orders", &self.view)
         }
-        /// Additional table for linking user and his owls
+        /// Helper table for linking user and his owls
         pub fn user_owls(&self, public_key: &PublicKey) -> ValueSetIndex<&T, Hash> {
             ValueSetIndex::with_prefix("cryptoowls.user_owls", gen_prefix(public_key), &self.view)
         }
-        /// Additional table for linking user and his orders
+        /// Helper table for linking user and his orders
         pub fn user_orders(&self, public_key: &PublicKey) -> ListIndex<&T, Hash> {
             ListIndex::with_prefix("cryptoowls.user_orders", gen_prefix(public_key), &self.view)
         }
-        /// Additional table for linking owl and her orders
+        /// Helper table for linking owl and her orders
         pub fn owl_orders(&self, owl_id: &Hash) -> ListIndex<&T, Hash> {
             ListIndex::with_prefix("cryptoowls.owl_orders", gen_prefix(owl_id), &self.view)
         }
 
+        /// Method to get state hash. Depends on `users`, `owls_state` and `orders` tables.
         pub fn state_hash(&self) -> Vec<Hash> {
             vec![
                 self.users().root_hash(),
@@ -167,9 +167,9 @@ pub mod schema {
 
         // Method to generate new unique owl
         pub fn make_uniq_owl(&self, genes: (u32, u32), name: &str, hash_seed: &Hash) -> CryptoOwl {
-            // hash is a byte array [u8; 32] but to seed random number generator we need an array
-            // of 32-bit numbers &[u32]. So we use `std::io::Cursor` and build a new u32 number
-            // of each 4 bytes.
+            // Hash is a byte array [u8; 32]. To seed random number generator an array
+            // of 32-bit numbers &[u32] is required. So we use `std::io::Cursor` and build
+            // a new u32 number of each 4 bytes.
 
             let hash_seed: &[u8] = hash_seed.as_ref();
             let mut seed = [0u32; 4];
@@ -179,15 +179,16 @@ pub mod schema {
             }
             let mut rng = IsaacRng::from_seed(&seed);
 
-            // Avoid collisions. In case the owl with such a hash is already exists - try again.
+            // Create a unique owl using infinite loop. Call `break` if resulted owl is unique.
             loop {
                 let mut son_dna = 0u32;
+                // Checking every bit in parent DNAs
                 for i in 0..32 {
                     // Step by all `genes` and set them in accordance with parents genes
                     let mask = 2u32.pow(i);
                     let (fg, mg) = (genes.0 & mask, genes.1 & mask);
                     if fg == mg {
-                        // With a probability of 8/10 the child bits will be euqal to parents bits
+                        // With a probability of 8/10 the child bits will be equal to parents bits
                         // in the case if parents bits are equal.
                         let mut possible_genes = vec![
                             Weighted {
@@ -212,7 +213,7 @@ pub mod schema {
                 }
 
                 // Create a new owls with given DNA.
-                // Break the loop if the owl is unique.
+                // Break out of the loop if the resulted owl is unique.
                 // Otherwise, try again.
                 let newborn = CryptoOwl::new(name, son_dna);
                 if self.owls_state().get(&newborn.hash()).is_none() {
@@ -222,7 +223,7 @@ pub mod schema {
         }
     }
 
-    /// Mutable twins of the tables above
+    /// Mutable accessors for all our tables
     impl<'a> CryptoOwlsSchema<&'a mut Fork> {
         pub fn users_mut(&mut self) -> ProofMapIndex<&mut Fork, PublicKey, User> {
             ProofMapIndex::new("cryptoowls.users", self.view)
@@ -248,7 +249,7 @@ pub mod schema {
             ListIndex::with_prefix("cryptoowls.owl_orders", gen_prefix(owl_id), self.view)
         }
 
-        /// Helping method to update owl state after breed or create
+        /// Helper method to update owl state after breed or create
         pub fn refresh_owls(
             &mut self,
             owner_key: &PublicKey,
@@ -264,7 +265,7 @@ pub mod schema {
             }
         }
 
-        /// Helping method to change user balance
+        /// Helper method to change user balance
         pub fn set_user_balance(
             &mut self,
             public_key: &PublicKey,
@@ -278,7 +279,7 @@ pub mod schema {
             }
         }
 
-        /// Helping method to accept order
+        /// Helper method to accept order
         /// Function will check that buyer has enough funds, order of status allows to accept order.
         /// Then function will update order, buyer and seller balances.
         /// Finally function will mark all other orders as declined.
@@ -329,7 +330,7 @@ pub mod schema {
             None
         }
 
-        /// Helping method to decline order. It is used only inside this module, so it is private.
+        /// Helper method to decline order. It is used only inside this module, so it is private.
         pub fn decline_order(&mut self, order_id: &Hash) {
             if let Some(order) = self.orders().get(order_id) {
                 if order.status() == "pending" {
