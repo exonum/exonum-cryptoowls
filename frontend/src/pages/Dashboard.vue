@@ -44,8 +44,8 @@
               <div class="row">
                 <div class="col-sm-3">Owl</div>
                 <div class="col-sm-3">User</div>
-                <div class="col-sm-2">Status</div>
-                <div class="col-sm-2">Price</div>
+                <div class="col-sm-3">Status</div>
+                <div class="col-sm-3">Price</div>
               </div>
             </li>
             <li v-for="order in orders" class="list-group-item">
@@ -60,11 +60,8 @@
                     <router-link :to="{ name: 'user', params: { publicKey: order.public_key } }" class="break-word">{{ order.public_key }}</router-link>
                   </code>
                 </div>
-                <div class="col-sm-2">{{ order.status }}</div>
-                <div class="col-sm-2">{{ order.price }}</div>
-                <div v-if="order.status === 'pending'" class="col-sm-2">
-                  <button type="submit" class="btn btn-primary" @click.prevent="acceptOrder(order)">Sell</button>
-                </div>
+                <div class="col-sm-3">{{ order.status }}</div>
+                <div class="col-sm-3">{{ order.price }}</div>
               </div>
             </li>
           </ul>
