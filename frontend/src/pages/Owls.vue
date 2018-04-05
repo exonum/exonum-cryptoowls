@@ -15,8 +15,8 @@
 </template>
 
 <script>
-  const Spinner = require('../components/Spinner.vue')
-  const OwlList = require('../components/OwlList.vue')
+  import Spinner from '../components/Spinner.vue'
+  import OwlList from '../components/OwlList.vue'
 
   module.exports = {
     components: {

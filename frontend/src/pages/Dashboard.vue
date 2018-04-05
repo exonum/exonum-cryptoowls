@@ -77,9 +77,9 @@
 </template>
 
 <script>
-  const Spinner = require('../components/Spinner.vue')
-  const UserSummary = require('../components/UserSummary.vue')
-  const OwlList = require('../components/OwlList.vue')
+  import Spinner from '../components/Spinner.vue'
+  import UserSummary from '../components/UserSummary.vue'
+  import OwlList from '../components/OwlList.vue'
 
   module.exports = {
     components: {

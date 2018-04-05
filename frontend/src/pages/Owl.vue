@@ -110,8 +110,8 @@
 </template>
 
 <script>
-  const Spinner = require('../components/Spinner.vue')
-  const OwlIcon = require('../components/OwlIcon.vue')
+  import Spinner from '../components/Spinner.vue'
+  import OwlIcon from '../components/OwlIcon.vue'
 
   module.exports = {
     components: {

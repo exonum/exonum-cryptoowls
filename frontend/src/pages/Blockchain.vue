@@ -32,7 +32,7 @@
 </template>
 
 <script>
-  const Spinner = require('../components/Spinner.vue')
+  import Spinner from '../components/Spinner.vue'
 
   module.exports = {
     components: {
