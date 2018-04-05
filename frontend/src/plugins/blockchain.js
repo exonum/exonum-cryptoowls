@@ -306,17 +306,19 @@ module.exports = {
         // Конвертирует ДНК в массив байт
         const buffer = DNA.serialize({dna: dna})
 
-        // Конвертируем массив байт в бинарное представление (череж промежуточное hex представление)
-        const appearanceHex = Exonum.uint8ArrayToHexadecimal(new Uint8Array(buffer.slice(3)))
-        const appearanceBinary = Exonum.hexadecimalToBinaryString(appearanceHex)
+        // Первые три элемента являются RGB цветом совы
+        const color = Exonum.uint8ArrayToHexadecimal(new Uint8Array(buffer.slice(0, 3)))
+
+        // Четвертый элемент конвертируем в бинарное представление
+        const appearance = Exonum.uint8ArrayToBinaryString(new Uint8Array(buffer.slice(3)))
 
         return {
-          color: Exonum.uint8ArrayToHexadecimal(new Uint8Array(buffer.slice(0, 3))),
+          color: color,
           appearance: {
-            eyes: parseInt(appearanceBinary.slice(0, 2), 2),
-            wings: parseInt(appearanceBinary.slice(2, 4), 2),
-            chest: parseInt(appearanceBinary.slice(4, 6), 2),
-            tail: parseInt(appearanceBinary.slice(6, 8), 2)
+            eyes: parseInt(appearance.slice(0, 2), 2),
+            wings: parseInt(appearance.slice(2, 4), 2),
+            chest: parseInt(appearance.slice(4, 6), 2),
+            tail: parseInt(appearance.slice(6, 8), 2)
           }
         }
       },
