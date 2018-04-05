@@ -94,7 +94,7 @@ npm start -- --port=3000 --api-root=http://127.0.0.1:8200
 
 Ready! Application can be reached at [http://127.0.0.1:3000](http://127.0.0.1:3000).
 
-## Лицензия
+## License
 
 Cryptoowls demo is licensed under the Apache License (Version 2.0).
 See [LICENSE](LICENSE) for details.
