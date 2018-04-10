@@ -106,18 +106,11 @@ mod data_layout {
 
 /// Database schema
 pub mod schema {
-    use byteorder::{BigEndian, ReadBytesExt};
-    use rand::{IsaacRng, Rng, SeedableRng};
-    use rand::distributions::{Sample, Weighted, WeightedChoice};
-
     use exonum::storage::{Fork, ListIndex, ProofMapIndex, Snapshot, ValueSetIndex};
     use exonum::blockchain::gen_prefix;
-    use exonum::crypto::{CryptoHash, Hash, PublicKey};
+    use exonum::crypto::{Hash, PublicKey};
 
-    use std::time::SystemTime;
-    use std::io::Cursor;
-
-    use data_layout::{CryptoOwl, CryptoOwlState, Order, User};
+    use data_layout::{CryptoOwlState, Order, User};
 
     pub struct CryptoOwlsSchema<T> {
         view: T,
@@ -196,17 +189,23 @@ pub mod schema {
 
 /// Module with description of all transactions
 pub mod transactions {
-    use exonum::crypto::{CryptoHash, Hash, PublicKey};
-    use exonum::blockchain::{ExecutionError, ExecutionResult, Schema, Transaction};
-    use exonum::storage::Fork;
-    use exonum::messages::Message;
+    use byteorder::{BigEndian, ReadBytesExt};
+    use rand::{IsaacRng, Rng, SeedableRng};
+    use rand::distributions::{Sample, Weighted, WeightedChoice};
     use num_traits::ToPrimitive;
 
-    use schema;
-    use data_layout::{CryptoOwlState, Order, User};
+    use exonum::crypto::{CryptoHash, Hash, PublicKey};
+    use exonum::storage::{Fork, Snapshot};
+    use exonum::blockchain::{ExecutionError, ExecutionResult, Schema, Transaction};
+    use exonum::messages::Message;
     use exonum_time::TimeSchema;
 
     use std::time::SystemTime;
+    use std::io::Cursor;
+
+    use data_layout::{CryptoOwl, CryptoOwlState, Order, User};
+    use schema;
+    use schema::CryptoOwlsSchema;
 
     use {BREEDING_PRICE, BREEDING_TIMEOUT, CRYPTOOWLS_SERVICE_ID, ISSUE_AMMOUNT, ISSUE_TIMEOUT};
 
@@ -298,12 +297,12 @@ pub mod transactions {
                     schema.make_uniq_owl(
                         (1u32, 0u32),
                         &format!("{}'s Adam", self.name()),
-                        &state_hash
+                        &state_hash,
                     ),
                     schema.make_uniq_owl(
                         (1u32, 100042u32),
                         &format!("{}'s Eve", self.name()),
-                        &key.hash()
+                        &key.hash(),
                     ),
                 ];
                 schema.refresh_owls(key, starter_pack, ts);
@@ -361,8 +360,7 @@ pub mod transactions {
                 // Check last breeding time for each owl
                 if parents.iter().any(|ref p| {
                     ts.duration_since(p.last_breeding()).unwrap().as_secs() < BREEDING_TIMEOUT
-                })
-                {
+                }) {
                     return Err(ErrorKind::EarlyBreeding.into());
                 }
 
@@ -447,10 +445,9 @@ pub mod transactions {
                     owl_state.last_breeding(),
                 );
 
-                schema.user_owls_mut(self.public_key()).remove(
-                    accepted_order
-                        .owl_id(),
-                );
+                schema
+                    .user_owls_mut(self.public_key())
+                    .remove(accepted_order.owl_id());
             }
             Ok(())
         }
@@ -458,8 +455,8 @@ pub mod transactions {
 
     /// Read-only tables
     impl<T> CryptoOwlsSchema<T>
-        where
-            T: AsRef<Snapshot>,
+    where
+        T: AsRef<Snapshot>,
     {
         // Method to generate new unique owl
         pub fn make_uniq_owl(&self, genes: (u32, u32), name: &str, hash_seed: &Hash) -> CryptoOwl {
@@ -530,10 +527,8 @@ pub mod transactions {
         ) {
             for owl in owls {
                 self.user_owls_mut(owner_key).insert(owl.hash());
-                self.owls_state_mut().put(
-                    &owl.hash(),
-                    CryptoOwlState::new(owl, owner_key, ts),
-                );
+                self.owls_state_mut()
+                    .put(&owl.hash(), CryptoOwlState::new(owl, owner_key, ts));
             }
         }
 
@@ -561,41 +556,41 @@ pub mod transactions {
                 let seller = self.users().get(acceptor_key).unwrap();
 
                 if order.status() == "pending" {
-                    if buyer.balance() >= order.price() &&
-                        self.user_owls(acceptor_key).contains(order.owl_id())
-                        {
-                            let new_order = Order::new(
-                                order.public_key(),
-                                order.owl_id(),
-                                "accepted",
-                                order.price(),
-                            );
+                    if buyer.balance() >= order.price()
+                        && self.user_owls(acceptor_key).contains(order.owl_id())
+                    {
+                        let new_order = Order::new(
+                            order.public_key(),
+                            order.owl_id(),
+                            "accepted",
+                            order.price(),
+                        );
 
-                            self.orders_mut().put(order_id, new_order.clone());
+                        self.orders_mut().put(order_id, new_order.clone());
 
-                            self.set_user_balance(
-                                seller.public_key(),
-                                seller.balance() + order.price(),
-                                None,
-                            );
-                            self.set_user_balance(
-                                buyer.public_key(),
-                                buyer.balance() - order.price(),
-                                None,
-                            );
+                        self.set_user_balance(
+                            seller.public_key(),
+                            seller.balance() + order.price(),
+                            None,
+                        );
+                        self.set_user_balance(
+                            buyer.public_key(),
+                            buyer.balance() - order.price(),
+                            None,
+                        );
 
-                            // Decline all other owl orders
-                            let order_ids: Vec<Hash> = {
-                                let idx = self.owl_orders(order.owl_id());
-                                let order_ids = idx.iter().collect();
-                                order_ids
-                            };
+                        // Decline all other owl orders
+                        let order_ids: Vec<Hash> = {
+                            let idx = self.owl_orders(order.owl_id());
+                            let order_ids = idx.iter().collect();
+                            order_ids
+                        };
 
-                            for order_id in order_ids {
-                                self.decline_order(&order_id);
-                            }
-                            return Some(new_order);
+                        for order_id in order_ids {
+                            self.decline_order(&order_id);
                         }
+                        return Some(new_order);
+                    }
                     self.decline_order(order_id);
                 }
             }
@@ -741,9 +736,7 @@ mod api {
                 move |req: &mut Request| match req.get::<bodyparser::Struct<Transactions>>() {
                     Ok(Some(transaction)) => {
                         let tx_hash = self_.post_transaction(transaction).map_err(ApiError::from)?;
-                        let json = json!({
-                            "tx_hash": tx_hash
-                        });
+                        let json = json!({ "tx_hash": tx_hash });
                         self_.ok_response(&json)
                     }
                     Ok(None) => Err(ApiError::BadRequest("Empty request body".into()))?,
