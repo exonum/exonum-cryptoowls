@@ -84,9 +84,8 @@ fn test_issue() {
 
     {
         // should be impossible to issue right after creation of user
-        testkit.create_block_with_transactions(
-            txvec![Issue::new(&pubkey, SystemTime::now(), &key)],
-        );
+        testkit
+            .create_block_with_transactions(txvec![Issue::new(&pubkey, SystemTime::now(), &key)]);
 
         let snapshot = testkit.snapshot();
         let schema = CryptoOwlsSchema::new(&snapshot);
@@ -208,10 +207,7 @@ fn test_breeding() {
     let user_owls_count = user_owls_idx.iter().count();
     // same as before
     assert_eq!(user_owls_count, 3);
-
 }
-
-
 
 #[test]
 fn test_sell_owl() {
