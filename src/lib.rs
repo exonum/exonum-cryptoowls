@@ -164,63 +164,6 @@ pub mod schema {
                 self.owls_state().root_hash(),
             ]
         }
-
-        // Method to generate new unique owl
-        pub fn make_uniq_owl(&self, genes: (u32, u32), name: &str, hash_seed: &Hash) -> CryptoOwl {
-            // Hash is a byte array [u8; 32]. To seed random number generator an array
-            // of 32-bit numbers &[u32] is required. So we use `std::io::Cursor` and build
-            // a new u32 number of each 4 bytes.
-
-            let hash_seed: &[u8] = hash_seed.as_ref();
-            let mut seed = [0u32; 4];
-            let mut cursor = Cursor::new(hash_seed);
-            for i in 0..4 {
-                seed[i] = cursor.read_u32::<BigEndian>().unwrap();
-            }
-            let mut rng = IsaacRng::from_seed(&seed);
-
-            // Create a unique owl using infinite loop. Call `break` if resulted owl is unique.
-            loop {
-                let mut son_dna = 0u32;
-                // Checking every bit in parent DNAs
-                for i in 0..32 {
-                    // Step by all `genes` and set them in accordance with parents genes
-                    let mask = 2u32.pow(i);
-                    let (fg, mg) = (genes.0 & mask, genes.1 & mask);
-                    if fg == mg {
-                        // With a probability of 8/10 the child bits will be equal to parents bits
-                        // in the case if parents bits are equal.
-                        let mut possible_genes = vec![
-                            Weighted {
-                                weight: 8,
-                                item: fg,
-                            },
-                            Weighted {
-                                weight: 2,
-                                item: fg ^ mask,
-                            },
-                        ];
-
-                        let mut choices = WeightedChoice::new(&mut possible_genes);
-                        son_dna |= choices.sample(&mut rng);
-                    } else {
-                        // If bits are different, the resulting bit will be selected
-                        // with probability 1/2.
-                        if rng.gen() {
-                            son_dna |= mask;
-                        }
-                    }
-                }
-
-                // Create a new owls with given DNA.
-                // Break out of the loop if the resulted owl is unique.
-                // Otherwise, try again.
-                let newborn = CryptoOwl::new(name, son_dna);
-                if self.owls_state().get(&newborn.hash()).is_none() {
-                    break newborn;
-                }
-            }
-        }
     }
 
     /// Mutable accessors for all our tables
@@ -247,103 +190,6 @@ pub mod schema {
 
         pub fn owl_orders_mut(&mut self, owl_id: &Hash) -> ListIndex<&mut Fork, Hash> {
             ListIndex::with_prefix("cryptoowls.owl_orders", gen_prefix(owl_id), self.view)
-        }
-
-        /// Helper method to update owl state after breed or create
-        pub fn refresh_owls(
-            &mut self,
-            owner_key: &PublicKey,
-            owls: Vec<CryptoOwl>,
-            ts: SystemTime,
-        ) {
-            for owl in owls {
-                self.user_owls_mut(owner_key).insert(owl.hash());
-                self.owls_state_mut().put(
-                    &owl.hash(),
-                    CryptoOwlState::new(owl, owner_key, ts),
-                );
-            }
-        }
-
-        /// Helper method to change user balance
-        pub fn set_user_balance(
-            &mut self,
-            public_key: &PublicKey,
-            balance: u64,
-            last_fillup: Option<SystemTime>,
-        ) {
-            if let Some(user) = self.users().get(public_key) {
-                let last_fillup = last_fillup.unwrap_or(user.last_fillup());
-                let new_user = User::new(public_key, user.name(), balance, last_fillup);
-                self.users_mut().put(public_key, new_user)
-            }
-        }
-
-        /// Helper method to accept order
-        /// Function will check that buyer has enough funds, order of status allows to accept order.
-        /// Then function will update order, buyer and seller balances.
-        /// Finally function will mark all other orders as declined.
-        pub fn accept_order(&mut self, acceptor_key: &PublicKey, order_id: &Hash) -> Option<Order> {
-            if let Some(order) = self.orders().get(order_id) {
-                let buyer = self.users().get(order.public_key()).unwrap();
-                let seller = self.users().get(acceptor_key).unwrap();
-
-                if order.status() == "pending" {
-                    if buyer.balance() >= order.price() &&
-                        self.user_owls(acceptor_key).contains(order.owl_id())
-                    {
-                        let new_order = Order::new(
-                            order.public_key(),
-                            order.owl_id(),
-                            "accepted",
-                            order.price(),
-                        );
-
-                        self.orders_mut().put(order_id, new_order.clone());
-
-                        self.set_user_balance(
-                            seller.public_key(),
-                            seller.balance() + order.price(),
-                            None,
-                        );
-                        self.set_user_balance(
-                            buyer.public_key(),
-                            buyer.balance() - order.price(),
-                            None,
-                        );
-
-                        // Decline all other owl orders
-                        let order_ids: Vec<Hash> = {
-                            let idx = self.owl_orders(order.owl_id());
-                            let order_ids = idx.iter().collect();
-                            order_ids
-                        };
-
-                        for order_id in order_ids {
-                            self.decline_order(&order_id);
-                        }
-                        return Some(new_order);
-                    }
-                    self.decline_order(order_id);
-                }
-            }
-            None
-        }
-
-        /// Helper method to decline order. It is used only inside this module, so it is private.
-        pub fn decline_order(&mut self, order_id: &Hash) {
-            if let Some(order) = self.orders().get(order_id) {
-                if order.status() == "pending" {
-                    let new_order = Order::new(
-                        order.public_key(),
-                        order.owl_id(),
-                        "declined",
-                        order.price(),
-                    );
-
-                    self.orders_mut().put(order_id, new_order);
-                }
-            }
         }
     }
 }
@@ -607,6 +453,169 @@ pub mod transactions {
                 );
             }
             Ok(())
+        }
+    }
+
+    /// Read-only tables
+    impl<T> CryptoOwlsSchema<T>
+        where
+            T: AsRef<Snapshot>,
+    {
+        // Method to generate new unique owl
+        pub fn make_uniq_owl(&self, genes: (u32, u32), name: &str, hash_seed: &Hash) -> CryptoOwl {
+            // Hash is a byte array [u8; 32]. To seed random number generator an array
+            // of 32-bit numbers &[u32] is required. So we use `std::io::Cursor` and build
+            // a new u32 number of each 4 bytes.
+
+            let hash_seed: &[u8] = hash_seed.as_ref();
+            let mut seed = [0u32; 4];
+            let mut cursor = Cursor::new(hash_seed);
+            for i in 0..4 {
+                seed[i] = cursor.read_u32::<BigEndian>().unwrap();
+            }
+            let mut rng = IsaacRng::from_seed(&seed);
+
+            // Create a unique owl using infinite loop. Call `break` if resulted owl is unique.
+            loop {
+                let mut son_dna = 0u32;
+                // Checking every bit in parent DNAs
+                for i in 0..32 {
+                    // Step by all `genes` and set them in accordance with parents genes
+                    let mask = 2u32.pow(i);
+                    let (fg, mg) = (genes.0 & mask, genes.1 & mask);
+                    if fg == mg {
+                        // With a probability of 8/10 the child bits will be equal to parents bits
+                        // in the case if parents bits are equal.
+                        let mut possible_genes = vec![
+                            Weighted {
+                                weight: 8,
+                                item: fg,
+                            },
+                            Weighted {
+                                weight: 2,
+                                item: fg ^ mask,
+                            },
+                        ];
+
+                        let mut choices = WeightedChoice::new(&mut possible_genes);
+                        son_dna |= choices.sample(&mut rng);
+                    } else {
+                        // If bits are different, the resulting bit will be selected
+                        // with probability 1/2.
+                        if rng.gen() {
+                            son_dna |= mask;
+                        }
+                    }
+                }
+
+                // Create a new owls with given DNA.
+                // Break out of the loop if the resulted owl is unique.
+                // Otherwise, try again.
+                let newborn = CryptoOwl::new(name, son_dna);
+                if self.owls_state().get(&newborn.hash()).is_none() {
+                    break newborn;
+                }
+            }
+        }
+    }
+
+    /// Mutable accessors for all our tables
+    impl<'a> CryptoOwlsSchema<&'a mut Fork> {
+        /// Helper method to update owl state after breed or create
+        pub fn refresh_owls(
+            &mut self,
+            owner_key: &PublicKey,
+            owls: Vec<CryptoOwl>,
+            ts: SystemTime,
+        ) {
+            for owl in owls {
+                self.user_owls_mut(owner_key).insert(owl.hash());
+                self.owls_state_mut().put(
+                    &owl.hash(),
+                    CryptoOwlState::new(owl, owner_key, ts),
+                );
+            }
+        }
+
+        /// Helper method to change user balance
+        pub fn set_user_balance(
+            &mut self,
+            public_key: &PublicKey,
+            balance: u64,
+            last_fillup: Option<SystemTime>,
+        ) {
+            if let Some(user) = self.users().get(public_key) {
+                let last_fillup = last_fillup.unwrap_or(user.last_fillup());
+                let new_user = User::new(public_key, user.name(), balance, last_fillup);
+                self.users_mut().put(public_key, new_user)
+            }
+        }
+
+        /// Helper method to accept order
+        /// Function will check that buyer has enough funds, order of status allows to accept order.
+        /// Then function will update order, buyer and seller balances.
+        /// Finally function will mark all other orders as declined.
+        pub fn accept_order(&mut self, acceptor_key: &PublicKey, order_id: &Hash) -> Option<Order> {
+            if let Some(order) = self.orders().get(order_id) {
+                let buyer = self.users().get(order.public_key()).unwrap();
+                let seller = self.users().get(acceptor_key).unwrap();
+
+                if order.status() == "pending" {
+                    if buyer.balance() >= order.price() &&
+                        self.user_owls(acceptor_key).contains(order.owl_id())
+                        {
+                            let new_order = Order::new(
+                                order.public_key(),
+                                order.owl_id(),
+                                "accepted",
+                                order.price(),
+                            );
+
+                            self.orders_mut().put(order_id, new_order.clone());
+
+                            self.set_user_balance(
+                                seller.public_key(),
+                                seller.balance() + order.price(),
+                                None,
+                            );
+                            self.set_user_balance(
+                                buyer.public_key(),
+                                buyer.balance() - order.price(),
+                                None,
+                            );
+
+                            // Decline all other owl orders
+                            let order_ids: Vec<Hash> = {
+                                let idx = self.owl_orders(order.owl_id());
+                                let order_ids = idx.iter().collect();
+                                order_ids
+                            };
+
+                            for order_id in order_ids {
+                                self.decline_order(&order_id);
+                            }
+                            return Some(new_order);
+                        }
+                    self.decline_order(order_id);
+                }
+            }
+            None
+        }
+
+        /// Helper method to decline order. It is used only inside this module, so it is private.
+        pub fn decline_order(&mut self, order_id: &Hash) {
+            if let Some(order) = self.orders().get(order_id) {
+                if order.status() == "pending" {
+                    let new_order = Order::new(
+                        order.public_key(),
+                        order.owl_id(),
+                        "declined",
+                        order.price(),
+                    );
+
+                    self.orders_mut().put(order_id, new_order);
+                }
+            }
         }
     }
 
