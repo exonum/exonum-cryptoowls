@@ -7,7 +7,7 @@ Demo created with [Exonum blockchain](https://github.com/exonum/exonum).
 Be sure you installed necessary packages:
 
 * [git](https://git-scm.com/downloads)
-* [Компилятор Rust](https://rustup.rs/)
+* [Rust](https://rustup.rs/)
 * [Node.js & npm](https://nodejs.org/en/download/)
 
 ## Build and run
