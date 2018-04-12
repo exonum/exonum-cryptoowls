@@ -17,10 +17,6 @@
             <tab title="Log In">
               <form @submit.prevent="login">
                 <div class="form-group">
-                  <label class="control-label">Public key:</label>
-                  <input v-model="publicKey" type="text" class="form-control" placeholder="Enter public key" required>
-                </div>
-                <div class="form-group">
                   <label class="control-label">Secret key:</label>
                   <input v-model="secretKey" type="text" class="form-control" placeholder="Enter secret key" required>
                 </div>
@@ -33,11 +29,7 @@
     </div>
 
     <modal :visible="isModalVisible" title="Successful registration" action-btn="Log In" @close="closeModal" @submit="proceed">
-      <div class="alert alert-warning" role="alert">Keep key pair in safe place. You will need next time to log in.</div>
-      <div class="form-group">
-        <label>Public key:</label>
-        <div><code>{{ keyPair.publicKey }}</code></div>
-      </div>
+      <div class="alert alert-warning" role="alert">Save the secret key in a safe place. You will need it to log in to the demo next time.</div>
       <div class="form-group">
         <label>Secret key:</label>
         <div><code>{{ keyPair.secretKey }}</code></div>
@@ -73,7 +65,7 @@
         this.isSpinnerVisible = true
 
         this.$store.commit('login', {
-          publicKey: this.publicKey,
+          publicKey: this.secretKey.substr(64),
           secretKey: this.secretKey
         })
 
