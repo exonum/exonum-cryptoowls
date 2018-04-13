@@ -12,7 +12,8 @@ Be sure you installed necessary packages:
 
 ## Build and run
 
-Below you will find a step-by-step guide to start the service on 4 nodes on the local machine.
+Below you will find a step-by-step guide to start the service
+on 4 nodes on the local machine.
 
 Clone the project and install Rust dependencies:
 
@@ -33,6 +34,8 @@ exonum-cryptoowls generate-template example/common.toml
 ```
 
 Generate templates of nodes configurations:
+
+<!-- markdownlint-disable MD013 -->
 
 ```sh
 exonum-cryptoowls generate-config example/common.toml  example/pub_1.toml example/sec_1.toml --peer-address 127.0.0.1:6331
@@ -68,6 +71,8 @@ exonum-cryptoowls run --node-config example/node_3_cfg.toml --db-path example/db
 exonum-cryptoowls run --node-config example/node_4_cfg.toml --db-path example/db4 --public-api-address 0.0.0.0:8203
 ```
 
+<!-- markdownlint-enable MD013 -->
+
 Install Node.js dependencies:
 
 ```sh
@@ -92,7 +97,8 @@ npm start -- --port=3000 --api-root=http://127.0.0.1:8200
 
 `--api-root` root URL of node's public API.
 
-Ready! Application can be reached at [http://127.0.0.1:3000](http://127.0.0.1:3000).
+Ready! Application can be reached
+at [http://127.0.0.1:3000](http://127.0.0.1:3000).
 
 ## License
 
