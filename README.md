@@ -12,7 +12,8 @@ Be sure you installed necessary packages:
 
 ## Build and run
 
-Below you will find a step-by-step guide to start the service on 4 nodes on the local machine.
+Below you will find a step-by-step guide to start the service
+on 4 nodes on the local machine.
 
 Clone the project and install Rust dependencies:
 
@@ -29,44 +30,48 @@ Generate blockchain configuration:
 ```sh
 mkdir example
 
-cargo run -- generate-template example/common.toml
+exonum-cryptoowls generate-template example/common.toml
 ```
 
 Generate templates of nodes configurations:
 
+<!-- markdownlint-disable MD013 -->
+
 ```sh
-cargo run -- generate-config example/common.toml  example/pub_1.toml example/sec_1.toml --peer-address 127.0.0.1:6331
+exonum-cryptoowls generate-config example/common.toml  example/pub_1.toml example/sec_1.toml --peer-address 127.0.0.1:6331
 
-cargo run -- generate-config example/common.toml  example/pub_2.toml example/sec_2.toml --peer-address 127.0.0.1:6332
+exonum-cryptoowls generate-config example/common.toml  example/pub_2.toml example/sec_2.toml --peer-address 127.0.0.1:6332
 
-cargo run -- generate-config example/common.toml  example/pub_3.toml example/sec_3.toml --peer-address 127.0.0.1:6333
+exonum-cryptoowls generate-config example/common.toml  example/pub_3.toml example/sec_3.toml --peer-address 127.0.0.1:6333
 
-cargo run -- generate-config example/common.toml  example/pub_4.toml example/sec_4.toml --peer-address 127.0.0.1:6334
+exonum-cryptoowls generate-config example/common.toml  example/pub_4.toml example/sec_4.toml --peer-address 127.0.0.1:6334
 ```
 
 Finalize generation of nodes configurations:
 
 ```sh
-cargo run -- finalize --public-api-address 0.0.0.0:8200 --private-api-address 0.0.0.0:8091 example/sec_1.toml example/node_1_cfg.toml --public-configs example/pub_1.toml example/pub_2.toml example/pub_3.toml example/pub_4.toml
+exonum-cryptoowls finalize --public-api-address 0.0.0.0:8200 --private-api-address 0.0.0.0:8091 example/sec_1.toml example/node_1_cfg.toml --public-configs example/pub_1.toml example/pub_2.toml example/pub_3.toml example/pub_4.toml
 
-cargo run -- finalize --public-api-address 0.0.0.0:8201 --private-api-address 0.0.0.0:8092 example/sec_2.toml example/node_2_cfg.toml --public-configs example/pub_1.toml example/pub_2.toml example/pub_3.toml example/pub_4.toml
+exonum-cryptoowls finalize --public-api-address 0.0.0.0:8201 --private-api-address 0.0.0.0:8092 example/sec_2.toml example/node_2_cfg.toml --public-configs example/pub_1.toml example/pub_2.toml example/pub_3.toml example/pub_4.toml
 
-cargo run -- finalize --public-api-address 0.0.0.0:8202 --private-api-address 0.0.0.0:8093 example/sec_3.toml example/node_3_cfg.toml --public-configs example/pub_1.toml example/pub_2.toml example/pub_3.toml example/pub_4.toml
+exonum-cryptoowls finalize --public-api-address 0.0.0.0:8202 --private-api-address 0.0.0.0:8093 example/sec_3.toml example/node_3_cfg.toml --public-configs example/pub_1.toml example/pub_2.toml example/pub_3.toml example/pub_4.toml
 
-cargo run -- finalize --public-api-address 0.0.0.0:8203 --private-api-address 0.0.0.0:8094 example/sec_4.toml example/node_4_cfg.toml --public-configs example/pub_1.toml example/pub_2.toml example/pub_3.toml example/pub_4.toml
+exonum-cryptoowls finalize --public-api-address 0.0.0.0:8203 --private-api-address 0.0.0.0:8094 example/sec_4.toml example/node_4_cfg.toml --public-configs example/pub_1.toml example/pub_2.toml example/pub_3.toml example/pub_4.toml
 ```
 
 Run nodes:
 
 ```sh
-cargo run -- run --node-config example/node_1_cfg.toml --db-path example/db1 --public-api-address 0.0.0.0:8200
+exonum-cryptoowls run --node-config example/node_1_cfg.toml --db-path example/db1 --public-api-address 0.0.0.0:8200
 
-cargo run -- run --node-config example/node_2_cfg.toml --db-path example/db2 --public-api-address 0.0.0.0:8201
+exonum-cryptoowls run --node-config example/node_2_cfg.toml --db-path example/db2 --public-api-address 0.0.0.0:8201
 
-cargo run -- run --node-config example/node_3_cfg.toml --db-path example/db3 --public-api-address 0.0.0.0:8202
+exonum-cryptoowls run --node-config example/node_3_cfg.toml --db-path example/db3 --public-api-address 0.0.0.0:8202
 
-cargo run -- run --node-config example/node_4_cfg.toml --db-path example/db4 --public-api-address 0.0.0.0:8203
+exonum-cryptoowls run --node-config example/node_4_cfg.toml --db-path example/db4 --public-api-address 0.0.0.0:8203
 ```
+
+<!-- markdownlint-enable MD013 -->
 
 Install Node.js dependencies:
 
@@ -92,7 +97,8 @@ npm start -- --port=3000 --api-root=http://127.0.0.1:8200
 
 `--api-root` root URL of node's public API.
 
-Ready! Application can be reached at [http://127.0.0.1:3000](http://127.0.0.1:3000).
+Ready! Application can be reached
+at [http://127.0.0.1:3000](http://127.0.0.1:3000).
 
 ## License
 
