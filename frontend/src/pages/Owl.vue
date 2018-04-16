@@ -33,10 +33,16 @@
                     </div>
                   </div>
                 </li>
-                <li class="list-group-item">
+                <li v-if="lastBreeding" class="list-group-item">
                   <div class="row">
                     <div class="col-sm-3"><strong>Last breeding:</strong></div>
-                    <div class="col-sm-9">{{ $moment(lastBreeding) }}</div>
+                    <div class="col-sm-9">{{ $moment.getDate(lastBreeding) }}</div>
+                  </div>
+                </li>
+                <li v-if="lastBreeding" class="list-group-item">
+                  <div class="row">
+                    <div class="col-sm-3"><strong>Ready for breeding in a:</strong></div>
+                    <div class="col-sm-9"><countdown v-bind:date="lastBreeding"/></div>
                   </div>
                 </li>
               </ul>
@@ -112,11 +118,13 @@
 <script>
   import Spinner from '../components/Spinner.vue'
   import OwlIcon from '../components/OwlIcon.vue'
+  import Countdown from '../components/Countdown.vue'
 
   module.exports = {
     components: {
       Spinner,
-      OwlIcon
+      OwlIcon,
+      Countdown
     },
     props: ['hash'],
     data: function() {

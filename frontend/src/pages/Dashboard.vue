@@ -52,7 +52,7 @@
               <div class="row">
                 <div class="col-sm-3">
                   <code>
-                      <router-link :to="{ name: 'owl', params: { hash: order.owl_id } }" class="break-word">{{ order.owl_id }}</router-link>
+                    <router-link :to="{ name: 'owl', params: { hash: order.owl_id } }" class="break-word">{{ order.owl_id }}</router-link>
                   </code>
                 </div>
                 <div class="col-sm-3">
