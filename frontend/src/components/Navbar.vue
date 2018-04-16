@@ -5,7 +5,10 @@
         <img src="images/cryptoowl.png" width="36" height="36" class="align-middle mr-2" alt="">
         Cryptoowls
       </router-link>
-      <div class="collapse navbar-collapse">
+      <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbar">
         <ul class="navbar-nav">
           <li class="nav-item">
             <router-link :to="{ name: 'users' }" class="nav-link">Users</router-link>
