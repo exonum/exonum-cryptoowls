@@ -21,20 +21,37 @@
         return this.$moment.diff(this.expires, this.now)
       }
     },
-    mounted() {
-      this.$nextTick(function() {
+    watch: {
+      date() {
+        this.stopCountdown()
+        this.now = new Date().getTime(),
+        this.expires = this.$moment.toTimestamp(this.date) + TIMEOUT
+        this.startCountdown()
+      }
+    },
+    methods: {
+      startCountdown() {
         this.interval = setInterval(() => {
           if (this.now < this.expires) {
             this.now = this.now + TICK
           } else {
-            clearInterval(this.interval)
+            this.stopCountdown()
           }
         }, TICK);
+      },
+
+      stopCountdown() {
+        clearInterval(this.interval)
+      }
+    },
+    mounted() {
+      this.$nextTick(function() {
+        this.startCountdown()
       })
     },
     destroyed() {
       this.$nextTick(function() {
-        clearInterval(this.interval)
+        this.stopCountdown()
       })
     }
   }

@@ -13,8 +13,8 @@
           <p class="card-text">Owner: <code><router-link :to="{ name: 'user', params: { publicKey: owl.owner } }" class="break-word">{{ owl.owner }}</router-link></code></p>
         </div>
         <div v-if="owl.last_breeding" class="card-footer">
-          <div class="text-muted">Last breeding: {{ $moment.getDate(owl.last_breeding) }}</div>
-          <div class="text-muted">Ready for breeding in a: <countdown v-bind:date="owl.last_breeding"/></div>
+          <div class="text-muted">Last breeding was on {{ $moment.getDate(owl.last_breeding) }}</div>
+          <div class="text-muted">Ready for breeding in a <countdown v-bind:date="owl.last_breeding"/></div>
         </div>
       </div>
     </div>
