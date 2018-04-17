@@ -39,16 +39,16 @@
                     <div class="col-sm-9">{{ $moment.getDate(lastBreeding) }}</div>
                   </div>
                 </li>
-                <li v-if="lastBreeding" class="list-group-item">
+                <li v-if="owner === keyPair.publicKey && lastBreeding" class="list-group-item">
                   <div class="row">
-                    <div class="col-sm-3"><strong>Ready for breeding in a:</strong></div>
+                    <div class="col-sm-3"><strong>Ready for breeding:</strong></div>
                     <div class="col-sm-9"><countdown v-bind:date="lastBreeding"/></div>
                   </div>
                 </li>
               </ul>
 
               <h2 class="mt-5">Orders</h2>
-              <ul v-if="isOwner" class="list-group mt-3">
+              <ul v-if="owner === keyPair.publicKey" class="list-group mt-3">
                 <li class="list-group-item font-weight-bold">
                   <div class="row">
                     <div class="col-sm-3">User</div>
@@ -92,7 +92,7 @@
                 </li>
               </ul>
 
-              <div v-if="$store.state.keyPair && !isOwner">
+              <div v-if="keyPair && owner !== keyPair.publicKey">
                 <h2 class="mt-5">My order</h2>
                 <form class="mt-3" @submit.prevent="createOrder">
                   <div class="form-group">
@@ -116,6 +116,7 @@
 </template>
 
 <script>
+  import { mapState } from 'vuex'
   import Spinner from '../components/Spinner.vue'
   import OwlIcon from '../components/OwlIcon.vue'
   import Countdown from '../components/Countdown.vue'
@@ -131,11 +132,13 @@
       return {
         owl: {},
         owner: '',
-        isOwner: false,
         lastBreeding: {},
         isSpinnerVisible: false
       }
     },
+    computed: mapState({
+      keyPair: state => state.keyPair
+    }),
     methods: {
       async loadOwl() {
         this.isSpinnerVisible = true
@@ -144,9 +147,6 @@
           const data = await this.$blockchain.getOwl(this.hash)
           this.owl = data.owl
           this.owner = data.owner
-          if (this.$store.state.keyPair) {
-            this.isOwner = this.$store.state.keyPair.publicKey === data.owner
-          }
           this.isSpinnerVisible = false
           this.lastBreeding = data.last_breeding
           this.loadOrders()
@@ -173,7 +173,7 @@
 
         try {
           const owlHash = this.$blockchain.getOwlHash(this.owl)
-          await this.$blockchain.createOrder(this.$store.state.keyPair, owlHash, this.price)
+          await this.$blockchain.createOrder(this.keyPair, owlHash, this.price)
           this.isSpinnerVisible = false
           this.$notify('success', 'Transaction accepted')
           this.loadOrders()
@@ -188,7 +188,7 @@
 
         try {
           const orderHash = this.$blockchain.getOrderHash(order)
-          await this.$blockchain.acceptOrder(this.$store.state.keyPair, orderHash)
+          await this.$blockchain.acceptOrder(this.keyPair, orderHash)
           this.isSpinnerVisible = false
           this.$notify('success', 'Transaction accepted')
           this.loadOwl()

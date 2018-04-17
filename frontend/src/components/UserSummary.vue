@@ -26,9 +26,9 @@
         <div class="col-sm-9">{{ $moment.getDate(user.last_fillup) }}</div>
       </div>
     </li>
-    <li v-if="user.last_fillup" class="list-group-item">
+    <li v-if="user.public_key === keyPair.publicKey && user.last_fillup" class="list-group-item">
       <div class="row">
-        <div class="col-sm-3"><strong>Available to issue in a:</strong></div>
+        <div class="col-sm-3"><strong>Available to issue:</strong></div>
         <div class="col-sm-9">
           <countdown v-bind:date="user.last_fillup"/>
         </div>
@@ -38,12 +38,16 @@
 </template>
 
 <script>
+  import { mapState } from 'vuex'
   import Countdown from '../components/Countdown.vue'
 
   module.exports = {
     components: {
       Countdown
     },
-    props: ['user']
+    props: ['user'],
+    computed: mapState({
+      keyPair: state => state.keyPair
+    })
   }
 </script>
