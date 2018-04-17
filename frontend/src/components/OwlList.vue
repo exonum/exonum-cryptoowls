@@ -12,8 +12,9 @@
           <p class="card-text">DNA: <code>{{ owl.owl.dna }}</code></p>
           <p class="card-text">Owner: <code><router-link :to="{ name: 'user', params: { publicKey: owl.owner } }" class="break-word">{{ owl.owner }}</router-link></code></p>
         </div>
-        <div class="card-footer">
-          <small class="text-muted">Last breeding: {{ $moment(owl.last_breeding) }}</small>
+        <div v-if="owl.last_breeding" class="card-footer">
+          <div class="text-muted">Last breeding was on {{ $moment.getDate(owl.last_breeding) }}</div>
+          <div class="text-muted mt-2">Ready for breeding in a <countdown v-bind:date="owl.last_breeding"/></div>
         </div>
       </div>
     </div>
@@ -22,11 +23,13 @@
 
 <script>
   import OwlIcon from './OwlIcon.vue'
+  import Countdown from './Countdown.vue'
 
   module.exports = {
     name: 'owl-list',
     components: {
-      OwlIcon
+      OwlIcon,
+      Countdown
     },
     props: ['owls']
   }

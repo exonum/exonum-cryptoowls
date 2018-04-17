@@ -376,7 +376,7 @@
     name: 'owl-icon',
     props: ['dna'],
     methods: {
-      draw: function() {
+      draw() {
         const code = this.$blockchain.splitDNA(this.dna)
         const draw = this.$svg(this.$refs.owl)
 
@@ -387,7 +387,7 @@
         draw.select('#eyes_' + code.appearance.eyes).attr('display', 'inline')
       }
     },
-    mounted: function() {
+    mounted() {
       this.$nextTick(function() {
         this.draw()
       })

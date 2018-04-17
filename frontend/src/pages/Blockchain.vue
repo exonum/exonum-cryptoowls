@@ -45,25 +45,24 @@
       }
     },
     methods: {
-      loadBlocks: function(latest) {
-        const self = this
-
+      async loadBlocks(latest) {
         this.isSpinnerVisible = true
 
-        this.$blockchain.getBlocks(latest).then(blocks => {
-          self.blocks = self.blocks.concat(blocks)
-          self.isSpinnerVisible = false
-        }).catch(error => {
-          self.$notify('error', error.toString())
-          self.isSpinnerVisible = false
-        })
+        try {
+          const blocks = await this.$blockchain.getBlocks(latest)
+          this.blocks = this.blocks.concat(blocks)
+          this.isSpinnerVisible = false
+        } catch (error) {
+          this.isSpinnerVisible = false
+          this.$notify('error', error.toString())
+        }
       },
 
-      loadMore: function() {
+      loadMore() {
         this.loadBlocks(this.blocks[this.blocks.length - 1].height - 1)
       }
     },
-    mounted: function() {
+    mounted() {
       this.$nextTick(function() {
         this.loadBlocks()
       })

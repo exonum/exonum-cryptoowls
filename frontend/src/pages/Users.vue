@@ -21,7 +21,7 @@
                 </div>
                 <div class="col-sm-3"><code>{{ user.public_key }}</code></div>
                 <div class="col-sm-3">{{ user.balance }}</div>
-                <div class="col-sm-3">{{ $moment(user.last_fillup) }}</div>
+                <div class="col-sm-3">{{ $moment.getDate(user.last_fillup) }}</div>
               </div>
             </li>
           </ul>
@@ -40,28 +40,26 @@
     components: {
       Spinner
     },
-    data: function() {
+    data() {
       return {
         users: [],
         isSpinnerVisible: false
       }
     },
     methods: {
-      loadUsers: function() {
-        const self = this
-
+      async loadUsers() {
         this.isSpinnerVisible = true
 
-        this.$blockchain.getUsers().then(users => {
-          self.users = users
-          self.isSpinnerVisible = false
-        }).catch(error => {
-          self.$notify('error', error.toString())
-          self.isSpinnerVisible = false
-        })
+        try {
+          this.users = await this.$blockchain.getUsers()
+          this.isSpinnerVisible = false
+        } catch (error) {
+          this.isSpinnerVisible = false
+          this.$notify('error', error.toString())
+        }
       }
     },
-    mounted: function() {
+    mounted() {
       this.$nextTick(function() {
         this.loadUsers()
       })

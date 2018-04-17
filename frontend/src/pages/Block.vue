@@ -38,28 +38,27 @@
     props: {
       height: String
     },
-    data: function() {
+    data() {
       return {
         transactions: [],
         isSpinnerVisible: false
       }
     },
     methods: {
-      loadBlock: function() {
-        const self = this
-
+      async loadBlock() {
         this.isSpinnerVisible = true
 
-        this.$blockchain.getBlock(this.height).then(data => {
-          self.transactions = data.txs
-          self.isSpinnerVisible = false
-        }).catch(error => {
-          self.$notify('error', error.toString())
-          self.isSpinnerVisible = false
-        })
+        try {
+          const data = await this.$blockchain.getBlock(this.height)
+          this.transactions = data.txs
+          this.isSpinnerVisible = false
+        } catch (error) {
+          this.isSpinnerVisible = false
+          this.$notify('error', error.toString())
+        }
       }
     },
-    mounted: function() {
+    mounted() {
       this.$nextTick(function() {
         this.loadBlock()
       })

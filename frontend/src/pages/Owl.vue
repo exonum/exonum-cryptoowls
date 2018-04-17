@@ -23,7 +23,7 @@
                     </div>
                   </div>
                 </li>
-                <li class="list-group-item">
+                <li v-if="owner" class="list-group-item">
                   <div class="row">
                     <div class="col-sm-3"><strong>Owner:</strong></div>
                     <div class="col-sm-9">
@@ -33,10 +33,16 @@
                     </div>
                   </div>
                 </li>
-                <li class="list-group-item">
+                <li v-if="lastBreeding" class="list-group-item">
                   <div class="row">
                     <div class="col-sm-3"><strong>Last breeding:</strong></div>
-                    <div class="col-sm-9">{{ $moment(lastBreeding) }}</div>
+                    <div class="col-sm-9">{{ $moment.getDate(lastBreeding) }}</div>
+                  </div>
+                </li>
+                <li v-if="lastBreeding" class="list-group-item">
+                  <div class="row">
+                    <div class="col-sm-3"><strong>Ready for breeding in a:</strong></div>
+                    <div class="col-sm-9"><countdown v-bind:date="lastBreeding"/></div>
                   </div>
                 </li>
               </ul>
@@ -112,14 +118,16 @@
 <script>
   import Spinner from '../components/Spinner.vue'
   import OwlIcon from '../components/OwlIcon.vue'
+  import Countdown from '../components/Countdown.vue'
 
   module.exports = {
     components: {
       Spinner,
-      OwlIcon
+      OwlIcon,
+      Countdown
     },
     props: ['hash'],
-    data: function() {
+    data() {
       return {
         owl: {},
         owner: '',
@@ -129,71 +137,68 @@
       }
     },
     methods: {
-      loadOwl: function() {
-        const self = this
-
+      async loadOwl() {
         this.isSpinnerVisible = true
 
-        this.$blockchain.getOwl(this.hash).then(data => {
-          self.owl = data.owl
-          self.owner = data.owner
-          if (self.$store.state.keyPair) {
-            self.isOwner = self.$store.state.keyPair.publicKey === data.owner
+        try {
+          const data = await this.$blockchain.getOwl(this.hash)
+          this.owl = data.owl
+          this.owner = data.owner
+          if (this.$store.state.keyPair) {
+            this.isOwner = this.$store.state.keyPair.publicKey === data.owner
           }
-          self.isSpinnerVisible = false
-          self.lastBreeding = data.last_breeding
-          self.loadOrders()
-        }).catch(error => {
-          self.$notify('error', error.toString())
-          self.isSpinnerVisible = false
-        })
+          this.isSpinnerVisible = false
+          this.lastBreeding = data.last_breeding
+          this.loadOrders()
+        } catch (error) {
+          this.isSpinnerVisible = false
+          this.$notify('error', error.toString())
+        }
       },
 
-      loadOrders: function() {
-        const self = this
-
+      async loadOrders() {
         this.isSpinnerVisible = true
 
-        self.$blockchain.getOrders(this.hash).then(data => {
-          self.orders = data
-          self.isSpinnerVisible = false
-        }).catch(error => {
-          self.$notify('error', error.toString())
-          self.isSpinnerVisible = false
-        })
+        try {
+          this.orders = await this.$blockchain.getOrders(this.hash)
+          this.isSpinnerVisible = false
+        } catch (error) {
+          this.isSpinnerVisible = false
+          this.$notify('error', error.toString())
+        }
       },
 
-      createOrder: function() {
-        const self = this
-
+      async createOrder() {
         this.isSpinnerVisible = true
 
-        self.$blockchain.createOrder(this.$store.state.keyPair, this.$blockchain.getOwlHash(this.owl), this.price).then(data => {
-          self.$notify('success', 'Transaction accepted')
-          self.isSpinnerVisible = false
-          self.loadOwl()
-        }).catch(error => {
-          self.$notify('error', error.toString())
-          self.isSpinnerVisible = false
-        })
+        try {
+          const owlHash = this.$blockchain.getOwlHash(this.owl)
+          await this.$blockchain.createOrder(this.$store.state.keyPair, owlHash, this.price)
+          this.isSpinnerVisible = false
+          this.$notify('success', 'Transaction accepted')
+          this.loadOrders()
+        } catch (error) {
+          this.isSpinnerVisible = false
+          this.$notify('error', error.toString())
+        }
       },
 
-      acceptOrder: function(order) {
-        const self = this
-
+      async acceptOrder(order) {
         this.isSpinnerVisible = true
 
-        self.$blockchain.acceptOrder(this.$store.state.keyPair, this.$blockchain.getOrderHash(order)).then(data => {
-          self.$notify('success', 'Transaction accepted')
-          self.isSpinnerVisible = false
-          self.loadOwl()
-        }).catch(error => {
-          self.$notify('error', error.toString())
-          self.isSpinnerVisible = false
-        })
+        try {
+          const orderHash = this.$blockchain.getOrderHash(order)
+          await this.$blockchain.acceptOrder(this.$store.state.keyPair, orderHash)
+          this.isSpinnerVisible = false
+          this.$notify('success', 'Transaction accepted')
+          this.loadOwl()
+        } catch (error) {
+          this.isSpinnerVisible = false
+          this.$notify('error', error.toString())
+        }
       }
     },
-    mounted: function() {
+    mounted() {
       this.$nextTick(function() {
         this.loadOwl()
       })

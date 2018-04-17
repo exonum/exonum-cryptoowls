@@ -23,14 +23,27 @@
     <li v-if="user.last_fillup" class="list-group-item">
       <div class="row">
         <div class="col-sm-3"><strong>Last issue:</strong></div>
-        <div class="col-sm-9">{{ $moment(user.last_fillup) }}</div>
+        <div class="col-sm-9">{{ $moment.getDate(user.last_fillup) }}</div>
+      </div>
+    </li>
+    <li v-if="user.last_fillup" class="list-group-item">
+      <div class="row">
+        <div class="col-sm-3"><strong>Available to issue in a:</strong></div>
+        <div class="col-sm-9">
+          <countdown v-bind:date="user.last_fillup"/>
+        </div>
       </div>
     </li>
   </ul>
 </template>
 
 <script>
+  import Countdown from '../components/Countdown.vue'
+
   module.exports = {
+    components: {
+      Countdown
+    },
     props: ['user']
   }
 </script>

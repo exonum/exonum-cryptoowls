@@ -14,7 +14,7 @@
                 </div>
               </div>
             </li>
-            <li class="list-group-item">
+            <li v-if="location.block_height" class="list-group-item">
               <div class="row">
                 <div class="col-sm-3"><strong>Block:</strong></div>
                 <div class="col-sm-9">
@@ -97,7 +97,7 @@
     props: {
       hash: String
     },
-    data: function() {
+    data() {
       return {
         transaction: {},
         location: {},
@@ -106,22 +106,21 @@
       }
     },
     methods: {
-      loadTransaction: function() {
-        const self = this
-
-        this.$blockchain.getTransaction(this.hash).then(data => {
-          self.transaction = data.content
-          self.location = data.location
-          self.status = data.status
-          self.type = data.type
-          self.isSpinnerVisible = false
-        }).catch(error => {
-          self.$notify('error', error.toString())
-          self.isSpinnerVisible = false
-        })
+      async loadTransaction() {
+        try {
+          const data = await this.$blockchain.getTransaction(this.hash)
+          this.transaction = data.content
+          this.location = data.location
+          this.status = data.status
+          this.type = data.type
+          this.isSpinnerVisible = false
+        } catch (error) {
+          this.isSpinnerVisible = false
+          this.$notify('error', error.toString())
+        }
       }
     },
-    mounted: function() {
+    mounted() {
       this.$nextTick(function() {
         this.loadTransaction()
       })
