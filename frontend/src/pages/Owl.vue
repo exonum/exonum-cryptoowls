@@ -176,6 +176,7 @@
           await this.$blockchain.createOrder(this.$store.state.keyPair, owlHash, this.price)
           this.isSpinnerVisible = false
           this.$notify('success', 'Transaction accepted')
+          this.loadOrders()
         } catch (error) {
           this.isSpinnerVisible = false
           this.$notify('error', error.toString())
@@ -190,6 +191,7 @@
           await this.$blockchain.acceptOrder(this.$store.state.keyPair, orderHash)
           this.isSpinnerVisible = false
           this.$notify('success', 'Transaction accepted')
+          this.loadOwl()
         } catch (error) {
           this.isSpinnerVisible = false
           this.$notify('error', error.toString())

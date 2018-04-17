@@ -14,7 +14,7 @@
         </div>
         <div v-if="owl.last_breeding" class="card-footer">
           <div class="text-muted">Last breeding was on {{ $moment.getDate(owl.last_breeding) }}</div>
-          <div class="text-muted">Ready for breeding in a <countdown v-bind:date="owl.last_breeding"/></div>
+          <div class="text-muted mt-2">Ready for breeding in a <countdown v-bind:date="owl.last_breeding"/></div>
         </div>
       </div>
     </div>
