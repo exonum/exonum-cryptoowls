@@ -14,7 +14,7 @@
                 </div>
               </div>
             </li>
-            <li class="list-group-item">
+            <li v-if="location.block_height" class="list-group-item">
               <div class="row">
                 <div class="col-sm-3"><strong>Block:</strong></div>
                 <div class="col-sm-9">
