@@ -74,6 +74,7 @@
 </template>
 
 <script>
+  import { mapState } from 'vuex'
   import Spinner from '../components/Spinner.vue'
   import UserSummary from '../components/UserSummary.vue'
   import OwlList from '../components/OwlList.vue'
@@ -92,9 +93,12 @@
         isSpinnerVisible: false
       }
     },
+    computed: mapState({
+      keyPair: state => state.keyPair
+    }),
     methods: {
       async loadUser() {
-        if (this.$store.state.keyPair === null) {
+        if (this.keyPair === null) {
           this.$store.commit('logout')
           this.$router.push({name: 'auth'})
           return
@@ -103,7 +107,7 @@
         this.isSpinnerVisible = true
 
         try {
-          this.user = await this.$blockchain.getUser(this.$store.state.keyPair.publicKey)
+          this.user = await this.$blockchain.getUser(this.keyPair.publicKey)
           this.isSpinnerVisible = false
           this.loadOwls()
         } catch (error) {
@@ -118,7 +122,7 @@
         this.isSpinnerVisible = true
 
         try {
-          this.owls = await this.$blockchain.getUserOwls(this.$store.state.keyPair.publicKey)
+          this.owls = await this.$blockchain.getUserOwls(this.keyPair.publicKey)
           this.isSpinnerVisible = false
           this.loadOrders()
         } catch (error) {
@@ -131,7 +135,7 @@
         this.isSpinnerVisible = true
 
         try {
-          this.orders = await this.$blockchain.getUserOrders(this.$store.state.keyPair.publicKey)
+          this.orders = await this.$blockchain.getUserOrders(this.keyPair.publicKey)
           this.isSpinnerVisible = false
         } catch (error) {
           this.isSpinnerVisible = false
@@ -143,7 +147,7 @@
         this.isSpinnerVisible = true
 
         try {
-          await this.$blockchain.issue(this.$store.state.keyPair)
+          await this.$blockchain.issue(this.keyPair)
           this.isSpinnerVisible = false
           this.$notify('success', 'Transaction accepted')
           this.loadUser()
@@ -157,7 +161,7 @@
         this.isSpinnerVisible = true
 
         try {
-          await this.$blockchain.makeOwl(this.$store.state.keyPair, this.name, this.mother, this.father)
+          await this.$blockchain.makeOwl(this.keyPair, this.name, this.mother, this.father)
           this.isSpinnerVisible = false
           this.$notify('success', 'Transaction accepted')
           this.loadUser()
@@ -172,7 +176,7 @@
 
         try {
           const orderHash = this.$blockchain.getOrderHash(order)
-          await this.$blockchain.acceptOrder(this.$store.state.keyPair, orderHash)
+          await this.$blockchain.acceptOrder(this.keyPair, orderHash)
           this.isSpinnerVisible = false
           this.$notify('success', 'Transaction accepted')
           this.loadUser()

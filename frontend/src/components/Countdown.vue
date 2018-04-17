@@ -1,5 +1,5 @@
 <template>
-  <span v-if="countdown > 0">{{ countdown }} seconds</span>
+  <span v-if="countdown > 0">in a {{ countdown }} seconds</span>
   <span v-else>Ready!</span>
 </template>
 

@@ -14,7 +14,7 @@
         </div>
         <div v-if="owl.last_breeding" class="card-footer">
           <div class="text-muted">Last breeding was on {{ $moment.getDate(owl.last_breeding) }}</div>
-          <div class="text-muted mt-2">Ready for breeding in a <countdown v-bind:date="owl.last_breeding"/></div>
+          <div v-if="owl.owner === keyPair.publicKey" class="text-muted mt-2">Ready for breeding: <countdown v-bind:date="owl.last_breeding"/></div>
         </div>
       </div>
     </div>
@@ -22,6 +22,7 @@
 </template>
 
 <script>
+  import { mapState } from 'vuex'
   import OwlIcon from './OwlIcon.vue'
   import Countdown from './Countdown.vue'
 
@@ -31,6 +32,9 @@
       OwlIcon,
       Countdown
     },
-    props: ['owls']
+    props: ['owls'],
+    computed: mapState({
+      keyPair: state => state.keyPair
+    })
   }
 </script>
