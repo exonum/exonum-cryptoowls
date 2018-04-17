@@ -50,14 +50,15 @@
       visible: toggle
     },
     methods: {
-      close: function() {
+      close() {
         this.$emit('close')
       },
-      submit: function() {
+
+      submit() {
         this.$emit('submit')
       }
     },
-    mounted: function() {
+    mounted() {
       this.$nextTick(function() {
         toggle(false)
       })

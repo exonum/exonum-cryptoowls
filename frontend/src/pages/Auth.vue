@@ -53,7 +53,7 @@
       Modal,
       Spinner
     },
-    data: function() {
+    data() {
       return {
         keyPair: {},
         isModalVisible: false,
@@ -61,7 +61,7 @@
       }
     },
     methods: {
-      login: function() {
+      login() {
         this.isSpinnerVisible = true
 
         this.$store.commit('login', {
@@ -74,27 +74,26 @@
         })
       },
 
-      register: function() {
-        const self = this
-
+      async register() {
         this.isSpinnerVisible = true
 
-        this.$blockchain.createUser(this.name).then(keyPair => {
-          self.name = ''
-          self.keyPair = keyPair
-          self.isSpinnerVisible = false
-          self.isModalVisible = true
-        }).catch(error => {
-          self.isSpinnerVisible = false
-          self.$notify('error', error.toString())
-        })
+        try {
+          const keyPair = await this.$blockchain.createUser(this.name)
+          this.name = ''
+          this.keyPair = keyPair
+          this.isSpinnerVisible = false
+          this.isModalVisible = true
+        } catch (error) {
+          this.isSpinnerVisible = false
+          this.$notify('error', error.toString())
+        }
       },
 
-      closeModal: function() {
+      closeModal() {
         this.isModalVisible = false
       },
 
-      proceed: function() {
+      proceed() {
         this.isModalVisible = false
 
         this.$store.commit('login', this.keyPair)

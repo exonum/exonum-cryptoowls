@@ -58,7 +58,7 @@
       OwlList
     },
     props: ['publicKey'],
-    data: function() {
+    data() {
       return {
         user: [],
         owls: [],
@@ -67,40 +67,33 @@
       }
     },
     methods: {
-      loadUser: function() {
-        const self = this
+      async loadUser() {
         this.isSpinnerVisible = true
-        this.$blockchain.getUser(this.publicKey).then(data => {
-          self.user = data
-          self.$blockchain.getUserOwls(self.publicKey).then(data => {
-            self.owls = data
-            self.isSpinnerVisible = false
-            self.loadOrders()
-          }).catch(error => {
-            self.$notify('error', error.toString())
-            self.isSpinnerVisible = false
-          })
-        }).catch(error => {
-          self.$notify('error', error.toString())
-          self.isSpinnerVisible = false
-        })
+
+        try {
+          this.user = await this.$blockchain.getUser(this.publicKey)
+          this.owls = await this.$blockchain.getUserOwls(this.publicKey)
+          this.isSpinnerVisible = false
+          this.loadOrders()
+        } catch (error) {
+          this.isSpinnerVisible = false
+          this.$notify('error', error.toString())
+        }
       },
 
-      loadOrders: function() {
-        const self = this
-
+      async loadOrders() {
         this.isSpinnerVisible = true
 
-        this.$blockchain.getUserOrders(this.publicKey).then(data => {
-          self.orders = data
-          self.isSpinnerVisible = false
-        }).catch(error => {
-          self.$notify('error', error.toString())
-          self.isSpinnerVisible = false
-        })
+        try {
+          this.orders = await this.$blockchain.getUserOrders(this.publicKey)
+          this.isSpinnerVisible = false
+        } catch (error) {
+          this.isSpinnerVisible = false
+          this.$notify('error', error.toString())
+        }
       }
     },
-    mounted: function() {
+    mounted() {
       this.$nextTick(function() {
         this.loadUser()
       })

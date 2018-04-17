@@ -23,28 +23,26 @@
       Spinner,
       OwlList
     },
-    data: function() {
+    data() {
       return {
         owls: [],
         isSpinnerVisible: false
       }
     },
     methods: {
-      loadOwls: function() {
-        const self = this
-
+      async loadOwls() {
         this.isSpinnerVisible = true
 
-        this.$blockchain.getOwls().then(owls => {
-          self.owls = owls
-          self.isSpinnerVisible = false
-        }).catch(error => {
-          self.$notify('error', error.toString())
-          self.isSpinnerVisible = false
-        })
+        try {
+          this.owls = await this.$blockchain.getOwls()
+          this.isSpinnerVisible = false
+        } catch (error) {
+          this.isSpinnerVisible = false
+          this.$notify('error', error.toString())
+        }
       }
     },
-    mounted: function() {
+    mounted() {
       this.$nextTick(function() {
         this.loadOwls()
       })

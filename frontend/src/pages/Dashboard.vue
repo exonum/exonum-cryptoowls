@@ -84,7 +84,7 @@
       UserSummary,
       OwlList
     },
-    data: function() {
+    data() {
       return {
         user: {},
         owls: [],
@@ -93,9 +93,7 @@
       }
     },
     methods: {
-      loadUser: function() {
-        const self = this
-
+      async loadUser() {
         if (this.$store.state.keyPair === null) {
           this.$store.commit('logout')
           this.$router.push({name: 'auth'})
@@ -104,91 +102,85 @@
 
         this.isSpinnerVisible = true
 
-        this.$blockchain.getUser(this.$store.state.keyPair.publicKey).then(data => {
-          self.user = data
+        try {
+          this.user = await this.$blockchain.getUser(this.$store.state.keyPair.publicKey)
           this.isSpinnerVisible = false
-          self.loadOwls()
-        }).catch(error => {
-          self.$notify('error', error.toString())
-          self.isSpinnerVisible = false
-        })
+          this.loadOwls()
+        } catch (error) {
+          this.isSpinnerVisible = false
+          this.$notify('error', error.toString())
+        }
       },
 
-      loadOwls: function() {
-        const self = this
-
+      async loadOwls() {
         this.isSpinnerVisible = true
 
-        this.$blockchain.getUserOwls(self.$store.state.keyPair.publicKey).then(data => {
-          self.owls = data
-          self.isSpinnerVisible = false
-          self.loadOrders()
-        }).catch(error => {
-          self.$notify('error', error.toString())
-          self.isSpinnerVisible = false
-        })
+        try {
+          this.owls = await this.$blockchain.getUserOwls(this.$store.state.keyPair.publicKey)
+          this.isSpinnerVisible = false
+          this.loadOrders()
+        } catch (error) {
+          this.isSpinnerVisible = false
+          this.$notify('error', error.toString())
+        }
       },
 
-      loadOrders: function() {
-        const self = this
-
+      async loadOrders() {
         this.isSpinnerVisible = true
 
-        this.$blockchain.getUserOrders(self.$store.state.keyPair.publicKey).then(data => {
-          self.orders = data
-          self.isSpinnerVisible = false
-        }).catch(error => {
-          self.$notify('error', error.toString())
-          self.isSpinnerVisible = false
-        })
+        try {
+          this.orders = await this.$blockchain.getUserOrders(this.$store.state.keyPair.publicKey)
+          this.isSpinnerVisible = false
+        } catch (error) {
+          this.isSpinnerVisible = false
+          this.$notify('error', error.toString())
+        }
       },
 
-      issue: function() {
-        const self = this
-
+      async issue() {
         this.isSpinnerVisible = true
 
-        this.$blockchain.issue(this.$store.state.keyPair).then(data => {
-          self.$notify('success', 'Transaction accepted')
-          self.isSpinnerVisible = false
-          self.loadUser()
-        }).catch(error => {
-          self.$notify('error', error.toString())
-          self.isSpinnerVisible = false
-        })
+        try {
+          await this.$blockchain.issue(this.$store.state.keyPair)
+          this.isSpinnerVisible = false
+          this.$notify('success', 'Transaction accepted')
+          this.loadUser()
+        } catch (error) {
+          this.isSpinnerVisible = false
+          this.$notify('error', error.toString())
+        }
       },
 
-      makeOwl: function() {
-        const self = this
-
+      async makeOwl() {
         this.isSpinnerVisible = true
 
-        this.$blockchain.makeOwl(this.$store.state.keyPair, this.name, this.mother, this.father).then(data => {
-          self.$notify('success', 'Transaction accepted')
-          self.isSpinnerVisible = false
-          self.loadUser()
-        }).catch(error => {
-          self.$notify('error', error.toString())
-          self.isSpinnerVisible = false
-        })
+        try {
+          await this.$blockchain.makeOwl(this.$store.state.keyPair, this.name, this.mother, this.father)
+          this.isSpinnerVisible = false
+          this.$notify('success', 'Transaction accepted')
+          this.loadUser()
+        } catch (error) {
+          this.isSpinnerVisible = false
+          this.$notify('error', error.toString())
+        }
       },
 
-      acceptOrder: function(order) {
-        const self = this
-
+      async acceptOrder(order) {
         this.isSpinnerVisible = true
 
-        self.$blockchain.acceptOrder(this.$store.state.keyPair, this.$blockchain.getOrderHash(order)).then(data => {
-          self.$notify('success', 'Transaction accepted')
-          self.isSpinnerVisible = false
-          self.loadUser()
-        }).catch(error => {
-          self.$notify('error', error.toString())
-          self.isSpinnerVisible = false
-        })
+        try {
+          const orderHash = this.$blockchain.getOrderHash(order)
+          await this.$blockchain.acceptOrder(this.$store.state.keyPair, orderHash)
+          this.isSpinnerVisible = false
+          this.$notify('success', 'Transaction accepted')
+          this.loadUser()
+        } catch (error) {
+          this.isSpinnerVisible = false
+          this.$notify('error', error.toString())
+        }
       }
     },
-    mounted: function() {
+    mounted() {
       this.$nextTick(function() {
         this.loadUser()
       })
