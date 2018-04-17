@@ -109,6 +109,8 @@
         } catch (error) {
           this.isSpinnerVisible = false
           this.$notify('error', error.toString())
+          this.$store.commit('logout')
+          this.$router.push({name: 'auth'})
         }
       },
 

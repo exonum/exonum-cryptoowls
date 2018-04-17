@@ -261,7 +261,12 @@ module.exports = {
       },
 
       getUser: publicKey => {
-        return axios.get(`/api/services/cryptoowls/v1/user/${publicKey}`).then(response => response.data)
+        return axios.get(`/api/services/cryptoowls/v1/user/${publicKey}`).then(response => {
+          if (response.data === 'User not found') {
+            throw new Error(response.data)
+          }
+          return response.data
+        })
       },
 
       getUserOrders: publicKey => {
