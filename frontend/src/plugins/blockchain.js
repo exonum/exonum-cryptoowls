@@ -51,11 +51,15 @@ function getSystemTime() {
   }
 }
 
-function waitForAcceptance(hash) {
+function waitForAcceptance(response) {
   let attempt = ATTEMPTS
 
+  if (response.data.debug) {
+    throw new Error(response.data.description)
+  }
+
   return (function makeAttempt() {
-    return axios.get(`/api/explorer/v1/transactions/${hash}`).then(response => {
+    return axios.get(`/api/explorer/v1/transactions/${response.data.tx_hash}`).then(response => {
       if (response.data.type === 'committed') {
         return response.data
       } else {
@@ -107,7 +111,7 @@ module.exports = {
           message_id: CREATE_USER_TX_ID,
           body: data,
           signature: signature
-        }).then(response => waitForAcceptance(response.data.tx_hash)).then(() => keyPair)
+        }).then(waitForAcceptance).then(() => keyPair)
       },
 
       makeOwl: (keyPair, name, father, mother) => {
@@ -146,7 +150,7 @@ module.exports = {
           message_id: MAKE_OWL_TX_ID,
           body: data,
           signature: signature
-        }).then(response => waitForAcceptance(response.data.tx_hash))
+        }).then(waitForAcceptance)
       },
 
       issue: (keyPair) => {
@@ -179,7 +183,7 @@ module.exports = {
           message_id: ISSUE_TX_ID,
           body: data,
           signature: signature
-        }).then(response => waitForAcceptance(response.data.tx_hash))
+        }).then(waitForAcceptance)
       },
 
       createOrder: (keyPair, owl, price) => {
@@ -216,7 +220,7 @@ module.exports = {
           message_id: CREATE_ORDER_TX_ID,
           body: data,
           signature: signature
-        }).then(response => waitForAcceptance(response.data.tx_hash))
+        }).then(waitForAcceptance)
       },
 
       acceptOrder: (keyPair, order) => {
@@ -249,7 +253,7 @@ module.exports = {
           message_id: ACCEPT_ORDER_TX_ID,
           body: data,
           signature: signature
-        }).then(response => waitForAcceptance(response.data.tx_hash))
+        }).then(waitForAcceptance)
       },
 
       getUsers: () => {
