@@ -30,7 +30,7 @@ Generate blockchain configuration:
 ```sh
 mkdir example
 
-exonum-cryptoowls generate-template example/common.toml
+exonum-cryptoowls generate-template example/common.toml --validators-count 4
 ```
 
 Generate templates of nodes configurations:
