@@ -294,13 +294,9 @@ pub mod transactions {
 
                 // New user get 2 random owls
                 let starter_pack = vec![
+                    schema.make_uniq_owl((1, 0), &format!("{}'s Adam", self.name()), &state_hash),
                     schema.make_uniq_owl(
-                        (1u32, 0u32),
-                        &format!("{}'s Adam", self.name()),
-                        &state_hash,
-                    ),
-                    schema.make_uniq_owl(
-                        (1u32, 100042u32),
+                        (1, 100_042),
                         &format!("{}'s Eve", self.name()),
                         &key.hash(),
                     ),
@@ -497,12 +493,10 @@ pub mod transactions {
 
                         let mut choices = WeightedChoice::new(&mut possible_genes);
                         son_dna |= choices.sample(&mut rng);
-                    } else {
+                    } else if rng.gen() {
                         // If bits are different, the resulting bit will be selected
                         // with probability 1/2.
-                        if rng.gen() {
-                            son_dna |= mask;
-                        }
+                        son_dna |= mask;
                     }
                 }
 
