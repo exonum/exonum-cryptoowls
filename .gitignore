@@ -9,6 +9,7 @@ target
 *.rs.bk
 Cargo.lock
 example
+cargo
 
 # IDE files
 .idea

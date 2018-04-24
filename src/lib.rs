@@ -23,6 +23,7 @@ extern crate serde_json;
 
 extern crate bodyparser;
 extern crate byteorder;
+extern crate chrono;
 extern crate exonum_time;
 extern crate iron;
 extern crate num_traits;
@@ -36,13 +37,13 @@ pub const CRYPTOOWLS_SERVICE_ID: u16 = 521;
 pub const CRYPTOOWLS_SERVICE_NAME: &str = "cryptoowls";
 
 /// Sum to be issued each time
-pub const ISSUE_AMMOUNT: u64 = 100;
+pub const ISSUE_AMOUNT: u64 = 100;
 
 /// Timeout (seconds) before user will be able to issue funds again
-pub const ISSUE_TIMEOUT: u64 = 60;
+pub const ISSUE_TIMEOUT: i64 = 60;
 
 /// Timeout (seconds) before user will be able to breed owl again
-pub const BREEDING_TIMEOUT: u64 = 60;
+pub const BREEDING_TIMEOUT: i64 = 60;
 
 /// Breeding price
 pub const BREEDING_PRICE: u64 = 42;
@@ -50,7 +51,7 @@ pub const BREEDING_PRICE: u64 = 42;
 /// Data structures stored in blockchain
 mod data_layout {
 
-    use std::time::SystemTime;
+    use chrono::{DateTime, Utc};
     use exonum::crypto::{Hash, PublicKey};
 
     encoding_struct! {
@@ -71,7 +72,7 @@ mod data_layout {
             /// Owner
             owner: &PublicKey,
             /// Time of the last breeding
-            last_breeding: SystemTime,
+            last_breeding: DateTime<Utc>,
         }
     }
 
@@ -85,7 +86,7 @@ mod data_layout {
             /// Current balance
             balance: u64,
             /// Time of the last issue of funds
-            last_fillup: SystemTime,
+            last_fillup: DateTime<Utc>,
         }
     }
 
@@ -107,7 +108,6 @@ mod data_layout {
 /// Database schema
 pub mod schema {
     use exonum::storage::{Fork, ListIndex, ProofMapIndex, Snapshot, ValueSetIndex};
-    use exonum::blockchain::gen_prefix;
     use exonum::crypto::{Hash, PublicKey};
 
     use data_layout::{CryptoOwlState, Order, User};
@@ -138,23 +138,23 @@ pub mod schema {
         }
         /// Helper table for linking user and his owls
         pub fn user_owls(&self, public_key: &PublicKey) -> ValueSetIndex<&T, Hash> {
-            ValueSetIndex::with_prefix("cryptoowls.user_owls", gen_prefix(public_key), &self.view)
+            ValueSetIndex::new_in_family("cryptoowls.user_owls", public_key, &self.view)
         }
         /// Helper table for linking user and his orders
         pub fn user_orders(&self, public_key: &PublicKey) -> ListIndex<&T, Hash> {
-            ListIndex::with_prefix("cryptoowls.user_orders", gen_prefix(public_key), &self.view)
+            ListIndex::new_in_family("cryptoowls.user_orders", public_key, &self.view)
         }
         /// Helper table for linking owl and her orders
         pub fn owl_orders(&self, owl_id: &Hash) -> ListIndex<&T, Hash> {
-            ListIndex::with_prefix("cryptoowls.owl_orders", gen_prefix(owl_id), &self.view)
+            ListIndex::new_in_family("cryptoowls.owl_orders", owl_id, &self.view)
         }
 
         /// Method to get state hash. Depends on `users`, `owls_state` and `orders` tables.
         pub fn state_hash(&self) -> Vec<Hash> {
             vec![
-                self.users().root_hash(),
-                self.orders().root_hash(),
-                self.owls_state().root_hash(),
+                self.users().merkle_root(),
+                self.orders().merkle_root(),
+                self.owls_state().merkle_root(),
             ]
         }
     }
@@ -174,15 +174,15 @@ pub mod schema {
         }
 
         pub fn user_owls_mut(&mut self, public_key: &PublicKey) -> ValueSetIndex<&mut Fork, Hash> {
-            ValueSetIndex::with_prefix("cryptoowls.user_owls", gen_prefix(public_key), self.view)
+            ValueSetIndex::new_in_family("cryptoowls.user_owls", public_key, self.view)
         }
 
         pub fn user_orders_mut(&mut self, public_key: &PublicKey) -> ListIndex<&mut Fork, Hash> {
-            ListIndex::with_prefix("cryptoowls.user_orders", gen_prefix(public_key), self.view)
+            ListIndex::new_in_family("cryptoowls.user_orders", public_key, self.view)
         }
 
         pub fn owl_orders_mut(&mut self, owl_id: &Hash) -> ListIndex<&mut Fork, Hash> {
-            ListIndex::with_prefix("cryptoowls.owl_orders", gen_prefix(owl_id), self.view)
+            ListIndex::new_in_family("cryptoowls.owl_orders", owl_id, self.view)
         }
     }
 }
@@ -190,6 +190,7 @@ pub mod schema {
 /// Module with description of all transactions
 pub mod transactions {
     use byteorder::{BigEndian, ReadBytesExt};
+    use chrono::{DateTime, Utc};
     use rand::{IsaacRng, Rng, SeedableRng};
     use rand::distributions::{Sample, Weighted, WeightedChoice};
     use num_traits::ToPrimitive;
@@ -200,14 +201,13 @@ pub mod transactions {
     use exonum::messages::Message;
     use exonum_time::TimeSchema;
 
-    use std::time::SystemTime;
     use std::io::Cursor;
 
     use data_layout::{CryptoOwl, CryptoOwlState, Order, User};
     use schema;
     use schema::CryptoOwlsSchema;
 
-    use {BREEDING_PRICE, BREEDING_TIMEOUT, CRYPTOOWLS_SERVICE_ID, ISSUE_AMMOUNT, ISSUE_TIMEOUT};
+    use {BREEDING_PRICE, BREEDING_TIMEOUT, CRYPTOOWLS_SERVICE_ID, ISSUE_AMOUNT, ISSUE_TIMEOUT};
 
     transactions! {
         pub Transactions {
@@ -233,7 +233,7 @@ pub mod transactions {
                 /// Mother identifier
                 mother_id: &Hash,
                 /// Timestamp. Is required to breed owls with the same identifiers.
-                seed: SystemTime,
+                seed: DateTime<Utc>,
             }
 
             /// Transaction to issue funds
@@ -241,7 +241,7 @@ pub mod transactions {
                 /// Public user identifier
                 public_key: &PublicKey,
                 /// Timestamp. Is required to create transactions owls with the same fields.
-                seed: SystemTime,
+                seed: DateTime<Utc>,
             }
 
             /// Transaction to make a new order
@@ -254,7 +254,7 @@ pub mod transactions {
                 /// Price
                 price: u64,
                 /// Timestamp. Is required to create transactions owls with the same fields.
-                seed: SystemTime,
+                seed: DateTime<Utc>,
             }
 
             /// Transaction to accept order (and sell owl)
@@ -281,7 +281,7 @@ pub mod transactions {
 
             let state_hash = {
                 let info_schema = Schema::new(&fork);
-                info_schema.state_hash_aggregator().root_hash()
+                info_schema.state_hash_aggregator().merkle_root()
             };
 
             let key = self.public_key();
@@ -289,7 +289,7 @@ pub mod transactions {
 
             // Ignore if the user with the same public identifier is already exists
             if schema.users().get(key).is_none() {
-                let user = User::new(&key, self.name(), ISSUE_AMMOUNT, ts);
+                let user = User::new(&key, self.name(), ISSUE_AMOUNT, ts);
                 schema.users_mut().put(key, user);
 
                 // New user get 2 random owls
@@ -324,7 +324,7 @@ pub mod transactions {
 
             let state_hash = {
                 let info_schema = Schema::new(&fork);
-                info_schema.state_hash_aggregator().root_hash()
+                info_schema.state_hash_aggregator().merkle_root()
             };
 
             let mut schema = schema::CryptoOwlsSchema::new(fork);
@@ -358,9 +358,10 @@ pub mod transactions {
                 }
 
                 // Check last breeding time for each owl
-                if parents.iter().any(|ref p| {
-                    ts.duration_since(p.last_breeding()).unwrap().as_secs() < BREEDING_TIMEOUT
-                }) {
+                if parents
+                    .iter()
+                    .any(|ref p| (ts - p.last_breeding()).num_seconds() < BREEDING_TIMEOUT)
+                {
                     return Err(ErrorKind::EarlyBreeding.into());
                 }
 
@@ -393,8 +394,8 @@ pub mod transactions {
             let key = self.public_key();
             let user = schema.users().get(key).unwrap();
 
-            if ts.duration_since(user.last_fillup()).unwrap().as_secs() >= ISSUE_TIMEOUT {
-                schema.set_user_balance(&key, user.balance() + ISSUE_AMMOUNT, Some(ts));
+            if (ts - user.last_fillup()).num_seconds() >= ISSUE_TIMEOUT {
+                schema.set_user_balance(&key, user.balance() + ISSUE_AMOUNT, Some(ts));
                 Ok(())
             } else {
                 // Issue timeout is not expired
@@ -523,7 +524,7 @@ pub mod transactions {
             &mut self,
             owner_key: &PublicKey,
             owls: Vec<CryptoOwl>,
-            ts: SystemTime,
+            ts: DateTime<Utc>,
         ) {
             for owl in owls {
                 self.user_owls_mut(owner_key).insert(owl.hash());
@@ -537,7 +538,7 @@ pub mod transactions {
             &mut self,
             public_key: &PublicKey,
             balance: u64,
-            last_fillup: Option<SystemTime>,
+            last_fillup: Option<DateTime<Utc>>,
         ) {
             if let Some(user) = self.users().get(public_key) {
                 let last_fillup = last_fillup.unwrap_or(user.last_fillup());

@@ -12,16 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-extern crate exonum;
-extern crate exonum_time;
-
-extern crate exonum_cryptoowls as cryptoowls;
 #[macro_use]
 extern crate exonum_testkit;
+
+extern crate chrono;
+extern crate exonum;
+extern crate exonum_cryptoowls as cryptoowls;
+extern crate exonum_time;
 extern crate rand;
 
+use chrono::{Duration, Utc};
+
 use std::collections::{HashMap, HashSet};
-use std::time::{Duration, SystemTime};
 use exonum_time::{MockTimeProvider, TimeService};
 
 use exonum::crypto::{self, CryptoHash};
@@ -33,7 +35,7 @@ use cryptoowls::service::CryptoOwlsService;
 use cryptoowls::transactions::*;
 
 fn init_testkit() -> (TestKit, MockTimeProvider) {
-    let mock_provider = MockTimeProvider::new(SystemTime::now());
+    let mock_provider = MockTimeProvider::default();
     let mut testkit = TestKitBuilder::validator()
         .with_service(CryptoOwlsService::new())
         .with_service(TimeService::with_provider(mock_provider.clone()))
@@ -84,8 +86,7 @@ fn test_issue() {
 
     {
         // should be impossible to issue right after creation of user
-        testkit
-            .create_block_with_transactions(txvec![Issue::new(&pubkey, SystemTime::now(), &key)]);
+        testkit.create_block_with_transactions(txvec![Issue::new(&pubkey, Utc::now(), &key)]);
 
         let snapshot = testkit.snapshot();
         let schema = CryptoOwlsSchema::new(&snapshot);
@@ -95,11 +96,11 @@ fn test_issue() {
 
     {
         // move us into the future
-        time_machine.add_time(Duration::new(200, 0));
+        time_machine.add_time(Duration::seconds(200));
         testkit.create_blocks_until(Height(8));
 
         testkit.create_block_with_transactions(txvec![
-            Issue::new(&pubkey, SystemTime::now() + Duration::new(100, 0), &key),
+            Issue::new(&pubkey, Utc::now() + Duration::seconds(100), &key),
         ]);
 
         let snapshot = testkit.snapshot();
@@ -134,7 +135,7 @@ fn test_breeding() {
             "Abel",
             &user_owls[0],
             &user_owls[1],
-            SystemTime::now(),
+            Utc::now(),
             &key,
         ),
     ]);
@@ -148,7 +149,7 @@ fn test_breeding() {
     assert_eq!(user_owls_count, 2);
 
     // some time should pass
-    time_machine.add_time(Duration::new(200, 0));
+    time_machine.add_time(Duration::seconds(200));
     testkit.create_blocks_until(Height(8));
 
     // So, now they grew up enough to breed
@@ -158,7 +159,7 @@ fn test_breeding() {
             "Abel",
             &user_owls[0],
             &user_owls[1],
-            SystemTime::now(),
+            Utc::now(),
             &key,
         ),
     ]);
@@ -186,7 +187,7 @@ fn test_breeding() {
     }
 
     // some time should pass
-    time_machine.add_time(Duration::new(200, 0));
+    time_machine.add_time(Duration::seconds(200));
     testkit.create_blocks_until(Height(16));
 
     // Shouldn't be able to make owl from one parent
@@ -196,7 +197,7 @@ fn test_breeding() {
             "Bastard",
             &user_owls[0],
             &user_owls[0],
-            SystemTime::now(),
+            Utc::now(),
             &key,
         ),
     ]);
@@ -234,7 +235,7 @@ fn test_sell_owl() {
     // Should be impossible to place order on one's own owl
     {
         testkit.create_block_with_transactions(txvec![
-            CreateOrder::new(&pubkey, &alice_owl, 0, SystemTime::now(), &key),
+            CreateOrder::new(&pubkey, &alice_owl, 0, Utc::now(), &key),
         ]);
 
         let snapshot = testkit.snapshot();
@@ -252,10 +253,10 @@ fn test_sell_owl() {
 
     {
         testkit.create_block_with_transactions(txvec![
-            CreateOrder::new(&pubkey_1, &alice_owl, 10, SystemTime::now(), &key_1),
-            CreateOrder::new(&pubkey_2, &alice_owl, 90, SystemTime::now(), &key_2),
-            CreateOrder::new(&pubkey_2, &alice_owl, 60, SystemTime::now(), &key_2),
-            CreateOrder::new(&pubkey_2, &bob_owl, 90, SystemTime::now(), &key_2),
+            CreateOrder::new(&pubkey_1, &alice_owl, 10, Utc::now(), &key_1),
+            CreateOrder::new(&pubkey_2, &alice_owl, 90, Utc::now(), &key_2),
+            CreateOrder::new(&pubkey_2, &alice_owl, 60, Utc::now(), &key_2),
+            CreateOrder::new(&pubkey_2, &bob_owl, 90, Utc::now(), &key_2),
         ]);
 
         let snapshot = testkit.snapshot();

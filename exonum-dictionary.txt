@@ -20,6 +20,7 @@ concat
 counterintuitive
 cryptocurrency
 cryptographically
+cryptoowls
 deadlinks
 deque
 deref
@@ -30,9 +31,11 @@ deserializer
 deserializes
 deserializing
 DESTDIR
+dnas
 doctests
 emsp
 Exonum
+fillup
 fsync
 fuzzer
 gitter
@@ -118,6 +121,7 @@ timestamps
 tlsdate
 toml
 toolchain
+transacitons
 txvec
 tymethod
 unboxed
