@@ -37,7 +37,7 @@ use cryptoowls::transactions::*;
 fn init_testkit() -> (TestKit, MockTimeProvider) {
     let mock_provider = MockTimeProvider::default();
     let mut testkit = TestKitBuilder::validator()
-        .with_service(CryptoOwlsService::new())
+        .with_service(CryptoOwlsService)
         .with_service(TimeService::with_provider(mock_provider.clone()))
         .create();
 
@@ -324,7 +324,7 @@ fn test_sell_owl() {
         let jane_order_id_2 = jane_orders_iter.next().unwrap();
 
         testkit.create_block_with_transactions(txvec![
-            AcceptOrder::new(&pubkey, &jane_order_id, &key),
+            AcceptOrder::new(&pubkey, jane_order_id, &key),
         ]);
 
         // But unfortunately Jane doesn't have required amount of money now
@@ -333,11 +333,11 @@ fn test_sell_owl() {
         let schema = CryptoOwlsSchema::new(&snapshot);
 
         let orders = schema.orders();
-        let declined_order = orders.get(&jane_order_id).unwrap();
+        let declined_order = orders.get(jane_order_id).unwrap();
         assert_eq!(declined_order.status(), "declined");
 
         // Check if second Jane's order is still in pending state
-        let pending_order = orders.get(&jane_order_id_2).unwrap();
+        let pending_order = orders.get(jane_order_id_2).unwrap();
         assert_eq!(pending_order.status(), "pending");
 
         // Jane still has the same amount of owls as before
@@ -362,7 +362,7 @@ fn test_sell_owl() {
 
         // So, second Jane's order should be in declined state now, cause
         // owl has been just sold to Bob
-        let declined_order = orders.get(&jane_order_id_2).unwrap();
+        let declined_order = orders.get(jane_order_id_2).unwrap();
         assert_eq!(declined_order.status(), "declined");
 
         // Bob's order should be in accepted state

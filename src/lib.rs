@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // FIXME: Sometimes clippy incorrectly calculates lifetimes.
-#![cfg_attr(feature="cargo-clippy", allow(let_and_return))]
+#![cfg_attr(feature = "cargo-clippy", allow(let_and_return))]
 
 #[macro_use]
 extern crate display_derive;
@@ -292,7 +292,7 @@ pub mod transactions {
 
             // Ignore if the user with the same public identifier is already exists
             if schema.users().get(key).is_none() {
-                let user = User::new(&key, self.name(), ISSUE_AMOUNT, ts);
+                let user = User::new(key, self.name(), ISSUE_AMOUNT, ts);
                 schema.users_mut().put(key, user);
 
                 // New user get 2 random owls
@@ -332,7 +332,7 @@ pub mod transactions {
             // If someone is missed will get None response
             let parents = [self.mother_id(), self.father_id()]
                 .iter()
-                .map(|&i| schema.owls_state().get(&i))
+                .map(|i| schema.owls_state().get(i))
                 .collect::<Option<Vec<CryptoOwlState>>>();
 
             let user = schema.users().get(self.public_key()).unwrap();
@@ -341,7 +341,7 @@ pub mod transactions {
             // Ignore transaction if mother of father is not found
             if let Some(parents) = parents {
                 // Check if user is owl owner
-                if parents.iter().any(|ref p| p.owner() != key) {
+                if parents.iter().any(|p| p.owner() != key) {
                     return Err(ErrorKind::AccessViolation.into());
                 }
 
@@ -359,7 +359,7 @@ pub mod transactions {
                 // Check last breeding time for each owl
                 if parents
                     .iter()
-                    .any(|ref p| (ts - p.last_breeding()).num_seconds() < BREEDING_TIMEOUT)
+                    .any(|p| (ts - p.last_breeding()).num_seconds() < BREEDING_TIMEOUT)
                 {
                     return Err(ErrorKind::EarlyBreeding.into());
                 }
@@ -368,10 +368,10 @@ pub mod transactions {
                 let son =
                     schema.make_uniq_owl((father.dna(), mother.dna()), self.name(), &state_hash);
                 let owls_to_update = vec![son, mother, father];
-                schema.refresh_owls(&key, owls_to_update, ts);
+                schema.refresh_owls(key, owls_to_update, ts);
 
-                let user = User::new(&key, user.name(), user.balance() - BREEDING_PRICE, ts);
-                schema.users_mut().put(&key, user);
+                let user = User::new(key, user.name(), user.balance() - BREEDING_PRICE, ts);
+                schema.users_mut().put(key, user);
             }
 
             Ok(())
@@ -394,7 +394,7 @@ pub mod transactions {
             let user = schema.users().get(key).unwrap();
 
             if (ts - user.last_fillup()).num_seconds() >= ISSUE_TIMEOUT {
-                schema.set_user_balance(&key, user.balance() + ISSUE_AMOUNT, Some(ts));
+                schema.set_user_balance(key, user.balance() + ISSUE_AMOUNT, Some(ts));
                 Ok(())
             } else {
                 // Issue timeout is not expired
@@ -411,17 +411,17 @@ pub mod transactions {
         fn execute(&self, fork: &mut Fork) -> ExecutionResult {
             let mut schema = schema::CryptoOwlsSchema::new(fork);
             let key = self.public_key();
-            let user = schema.users().get(&key).unwrap();
+            let user = schema.users().get(key).unwrap();
 
             // Execute code if the owl is found
             if let Some(owl) = schema.owls_state().get(self.owl_id()) {
                 // Check if buyer is not owl owner and he has enough funds
                 if owl.owner() != key && self.price() <= user.balance() {
-                    let order = Order::new(&key, self.owl_id(), "pending", self.price());
+                    let order = Order::new(key, self.owl_id(), "pending", self.price());
                     let order_hash = order.hash();
                     schema.orders_mut().put(&order.hash(), order);
-                    schema.user_orders_mut(&key).push(order_hash);
-                    schema.owl_orders_mut(&self.owl_id()).push(order_hash);
+                    schema.user_orders_mut(key).push(order_hash);
+                    schema.owl_orders_mut(self.owl_id()).push(order_hash);
                 }
             }
 
@@ -467,8 +467,8 @@ pub mod transactions {
             let hash_seed: &[u8] = hash_seed.as_ref();
             let mut seed = [0u32; 4];
             let mut cursor = Cursor::new(hash_seed);
-            for i in 0..4 {
-                seed[i] = cursor.read_u32::<BigEndian>().unwrap();
+            for seed in seed.iter_mut().take(4) {
+                *seed = cursor.read_u32::<BigEndian>().unwrap();
             }
             let mut rng = IsaacRng::from_seed(&seed);
 
@@ -538,7 +538,7 @@ pub mod transactions {
             last_fillup: Option<DateTime<Utc>>,
         ) {
             if let Some(user) = self.users().get(public_key) {
-                let last_fillup = last_fillup.unwrap_or(user.last_fillup());
+                let last_fillup = last_fillup.unwrap_or_else(|| user.last_fillup());
                 let new_user = User::new(public_key, user.name(), balance, last_fillup);
                 self.users_mut().put(public_key, new_user)
             }
@@ -628,7 +628,7 @@ pub mod transactions {
 
     impl ErrorKind {
         /// Converts error to the raw code
-        pub fn as_code(self) -> u8 {
+        pub fn as_code(&self) -> u8 {
             self.to_u8().unwrap()
         }
     }
@@ -788,7 +788,7 @@ mod api {
         fn get_owl(&self, owl_id: &Hash) -> Option<CryptoOwlState> {
             let snapshot = self.blockchain.snapshot();
             let schema = schema::CryptoOwlsSchema::new(snapshot);
-            schema.owls_state().get(&owl_id)
+            schema.owls_state().get(owl_id)
         }
 
         /// All owls
@@ -805,13 +805,13 @@ mod api {
             let snapshot = self.blockchain.snapshot();
             let schema = schema::CryptoOwlsSchema::new(snapshot);
 
-            schema.users().get(&public_key).and({
-                let idx = schema.user_owls(&public_key);
+            schema.users().get(public_key).and({
+                let idx = schema.user_owls(public_key);
                 // Attention, iterator type is ValueSetIndexIter<'_, Hash> !!!
                 let owls = idx.iter()
                     .map(|h| schema.owls_state().get(&h.1))
                     .collect::<Option<Vec<CryptoOwlState>>>()
-                    .or(Some(vec![]));
+                    .or_else(|| Some(Vec::new()));
                 owls
             })
         }
@@ -826,7 +826,7 @@ mod api {
                 let orders = idx.iter()
                     .map(|h| schema.orders().get(&h))
                     .collect::<Option<Vec<Order>>>()
-                    .or(Some(vec![]));
+                    .or_else(|| Some(Vec::new()));
                 orders
             })
         }
@@ -841,7 +841,7 @@ mod api {
                 let orders = idx.iter()
                     .map(|h| schema.orders().get(&h))
                     .collect::<Option<Vec<Order>>>()
-                    .or(Some(vec![]));
+                    .or_else(|| Some(Vec::new()));
                 orders
             })
         }
@@ -874,19 +874,15 @@ pub mod service {
 
     use CRYPTOOWLS_SERVICE_ID;
 
+    #[derive(Debug, Default)]
     pub struct CryptoOwlsService;
 
-    impl CryptoOwlsService {
-        pub fn new() -> Self {
-            CryptoOwlsService {}
-        }
-    }
-
+    #[derive(Debug, Default)]
     pub struct CryptoOwlsServiceFactory;
 
     impl ServiceFactory for CryptoOwlsServiceFactory {
         fn make_service(&mut self, _: &Context) -> Box<Service> {
-            Box::new(CryptoOwlsService::new())
+            Box::new(CryptoOwlsService)
         }
     }
 
