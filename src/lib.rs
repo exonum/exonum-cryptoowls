@@ -12,6 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// FIXME: Sometimes clippy incorrectly calculates lifetimes.
+#![cfg_attr(feature = "cargo-clippy", allow(let_and_return))]
+
 #[macro_use]
 extern crate display_derive;
 #[macro_use]
@@ -23,6 +26,7 @@ extern crate serde_json;
 
 extern crate bodyparser;
 extern crate byteorder;
+extern crate chrono;
 extern crate exonum_time;
 extern crate iron;
 extern crate num_traits;
@@ -36,13 +40,13 @@ pub const CRYPTOOWLS_SERVICE_ID: u16 = 521;
 pub const CRYPTOOWLS_SERVICE_NAME: &str = "cryptoowls";
 
 /// Sum to be issued each time
-pub const ISSUE_AMMOUNT: u64 = 100;
+pub const ISSUE_AMOUNT: u64 = 100;
 
 /// Timeout (seconds) before user will be able to issue funds again
-pub const ISSUE_TIMEOUT: u64 = 60;
+pub const ISSUE_TIMEOUT: i64 = 60;
 
 /// Timeout (seconds) before user will be able to breed owl again
-pub const BREEDING_TIMEOUT: u64 = 60;
+pub const BREEDING_TIMEOUT: i64 = 60;
 
 /// Breeding price
 pub const BREEDING_PRICE: u64 = 42;
@@ -50,7 +54,7 @@ pub const BREEDING_PRICE: u64 = 42;
 /// Data structures stored in blockchain
 mod data_layout {
 
-    use std::time::SystemTime;
+    use chrono::{DateTime, Utc};
     use exonum::crypto::{Hash, PublicKey};
 
     encoding_struct! {
@@ -71,7 +75,7 @@ mod data_layout {
             /// Owner
             owner: &PublicKey,
             /// Time of the last breeding
-            last_breeding: SystemTime,
+            last_breeding: DateTime<Utc>,
         }
     }
 
@@ -85,7 +89,7 @@ mod data_layout {
             /// Current balance
             balance: u64,
             /// Time of the last issue of funds
-            last_fillup: SystemTime,
+            last_fillup: DateTime<Utc>,
         }
     }
 
@@ -107,7 +111,6 @@ mod data_layout {
 /// Database schema
 pub mod schema {
     use exonum::storage::{Fork, ListIndex, ProofMapIndex, Snapshot, ValueSetIndex};
-    use exonum::blockchain::gen_prefix;
     use exonum::crypto::{Hash, PublicKey};
 
     use data_layout::{CryptoOwlState, Order, User};
@@ -138,23 +141,23 @@ pub mod schema {
         }
         /// Helper table for linking user and his owls
         pub fn user_owls(&self, public_key: &PublicKey) -> ValueSetIndex<&T, Hash> {
-            ValueSetIndex::with_prefix("cryptoowls.user_owls", gen_prefix(public_key), &self.view)
+            ValueSetIndex::new_in_family("cryptoowls.user_owls", public_key, &self.view)
         }
         /// Helper table for linking user and his orders
         pub fn user_orders(&self, public_key: &PublicKey) -> ListIndex<&T, Hash> {
-            ListIndex::with_prefix("cryptoowls.user_orders", gen_prefix(public_key), &self.view)
+            ListIndex::new_in_family("cryptoowls.user_orders", public_key, &self.view)
         }
         /// Helper table for linking owl and her orders
         pub fn owl_orders(&self, owl_id: &Hash) -> ListIndex<&T, Hash> {
-            ListIndex::with_prefix("cryptoowls.owl_orders", gen_prefix(owl_id), &self.view)
+            ListIndex::new_in_family("cryptoowls.owl_orders", owl_id, &self.view)
         }
 
         /// Method to get state hash. Depends on `users`, `owls_state` and `orders` tables.
         pub fn state_hash(&self) -> Vec<Hash> {
             vec![
-                self.users().root_hash(),
-                self.orders().root_hash(),
-                self.owls_state().root_hash(),
+                self.users().merkle_root(),
+                self.orders().merkle_root(),
+                self.owls_state().merkle_root(),
             ]
         }
     }
@@ -174,15 +177,15 @@ pub mod schema {
         }
 
         pub fn user_owls_mut(&mut self, public_key: &PublicKey) -> ValueSetIndex<&mut Fork, Hash> {
-            ValueSetIndex::with_prefix("cryptoowls.user_owls", gen_prefix(public_key), self.view)
+            ValueSetIndex::new_in_family("cryptoowls.user_owls", public_key, self.view)
         }
 
         pub fn user_orders_mut(&mut self, public_key: &PublicKey) -> ListIndex<&mut Fork, Hash> {
-            ListIndex::with_prefix("cryptoowls.user_orders", gen_prefix(public_key), self.view)
+            ListIndex::new_in_family("cryptoowls.user_orders", public_key, self.view)
         }
 
         pub fn owl_orders_mut(&mut self, owl_id: &Hash) -> ListIndex<&mut Fork, Hash> {
-            ListIndex::with_prefix("cryptoowls.owl_orders", gen_prefix(owl_id), self.view)
+            ListIndex::new_in_family("cryptoowls.owl_orders", owl_id, self.view)
         }
     }
 }
@@ -190,6 +193,7 @@ pub mod schema {
 /// Module with description of all transactions
 pub mod transactions {
     use byteorder::{BigEndian, ReadBytesExt};
+    use chrono::{DateTime, Utc};
     use rand::{IsaacRng, Rng, SeedableRng};
     use rand::distributions::{Sample, Weighted, WeightedChoice};
     use num_traits::ToPrimitive;
@@ -200,14 +204,13 @@ pub mod transactions {
     use exonum::messages::Message;
     use exonum_time::TimeSchema;
 
-    use std::time::SystemTime;
     use std::io::Cursor;
 
     use data_layout::{CryptoOwl, CryptoOwlState, Order, User};
     use schema;
     use schema::CryptoOwlsSchema;
 
-    use {BREEDING_PRICE, BREEDING_TIMEOUT, CRYPTOOWLS_SERVICE_ID, ISSUE_AMMOUNT, ISSUE_TIMEOUT};
+    use {BREEDING_PRICE, BREEDING_TIMEOUT, CRYPTOOWLS_SERVICE_ID, ISSUE_AMOUNT, ISSUE_TIMEOUT};
 
     transactions! {
         pub Transactions {
@@ -233,7 +236,7 @@ pub mod transactions {
                 /// Mother identifier
                 mother_id: &Hash,
                 /// Timestamp. Is required to breed owls with the same identifiers.
-                seed: SystemTime,
+                seed: DateTime<Utc>,
             }
 
             /// Transaction to issue funds
@@ -241,7 +244,7 @@ pub mod transactions {
                 /// Public user identifier
                 public_key: &PublicKey,
                 /// Timestamp. Is required to create transactions owls with the same fields.
-                seed: SystemTime,
+                seed: DateTime<Utc>,
             }
 
             /// Transaction to make a new order
@@ -254,7 +257,7 @@ pub mod transactions {
                 /// Price
                 price: u64,
                 /// Timestamp. Is required to create transactions owls with the same fields.
-                seed: SystemTime,
+                seed: DateTime<Utc>,
             }
 
             /// Transaction to accept order (and sell owl)
@@ -281,7 +284,7 @@ pub mod transactions {
 
             let state_hash = {
                 let info_schema = Schema::new(&fork);
-                info_schema.state_hash_aggregator().root_hash()
+                info_schema.state_hash_aggregator().merkle_root()
             };
 
             let key = self.public_key();
@@ -289,18 +292,14 @@ pub mod transactions {
 
             // Ignore if the user with the same public identifier is already exists
             if schema.users().get(key).is_none() {
-                let user = User::new(&key, self.name(), ISSUE_AMMOUNT, ts);
+                let user = User::new(key, self.name(), ISSUE_AMOUNT, ts);
                 schema.users_mut().put(key, user);
 
                 // New user get 2 random owls
                 let starter_pack = vec![
+                    schema.make_uniq_owl((1, 0), &format!("{}'s Adam", self.name()), &state_hash),
                     schema.make_uniq_owl(
-                        (1u32, 0u32),
-                        &format!("{}'s Adam", self.name()),
-                        &state_hash,
-                    ),
-                    schema.make_uniq_owl(
-                        (1u32, 100042u32),
+                        (1, 100_042),
                         &format!("{}'s Eve", self.name()),
                         &key.hash(),
                     ),
@@ -324,7 +323,7 @@ pub mod transactions {
 
             let state_hash = {
                 let info_schema = Schema::new(&fork);
-                info_schema.state_hash_aggregator().root_hash()
+                info_schema.state_hash_aggregator().merkle_root()
             };
 
             let mut schema = schema::CryptoOwlsSchema::new(fork);
@@ -333,7 +332,7 @@ pub mod transactions {
             // If someone is missed will get None response
             let parents = [self.mother_id(), self.father_id()]
                 .iter()
-                .map(|&i| schema.owls_state().get(&i))
+                .map(|i| schema.owls_state().get(i))
                 .collect::<Option<Vec<CryptoOwlState>>>();
 
             let user = schema.users().get(self.public_key()).unwrap();
@@ -342,7 +341,7 @@ pub mod transactions {
             // Ignore transaction if mother of father is not found
             if let Some(parents) = parents {
                 // Check if user is owl owner
-                if parents.iter().any(|ref p| p.owner() != key) {
+                if parents.iter().any(|p| p.owner() != key) {
                     return Err(ErrorKind::AccessViolation.into());
                 }
 
@@ -358,9 +357,10 @@ pub mod transactions {
                 }
 
                 // Check last breeding time for each owl
-                if parents.iter().any(|ref p| {
-                    ts.duration_since(p.last_breeding()).unwrap().as_secs() < BREEDING_TIMEOUT
-                }) {
+                if parents
+                    .iter()
+                    .any(|p| (ts - p.last_breeding()).num_seconds() < BREEDING_TIMEOUT)
+                {
                     return Err(ErrorKind::EarlyBreeding.into());
                 }
 
@@ -368,10 +368,10 @@ pub mod transactions {
                 let son =
                     schema.make_uniq_owl((father.dna(), mother.dna()), self.name(), &state_hash);
                 let owls_to_update = vec![son, mother, father];
-                schema.refresh_owls(&key, owls_to_update, ts);
+                schema.refresh_owls(key, owls_to_update, ts);
 
-                let user = User::new(&key, user.name(), user.balance() - BREEDING_PRICE, ts);
-                schema.users_mut().put(&key, user);
+                let user = User::new(key, user.name(), user.balance() - BREEDING_PRICE, ts);
+                schema.users_mut().put(key, user);
             }
 
             Ok(())
@@ -393,8 +393,8 @@ pub mod transactions {
             let key = self.public_key();
             let user = schema.users().get(key).unwrap();
 
-            if ts.duration_since(user.last_fillup()).unwrap().as_secs() >= ISSUE_TIMEOUT {
-                schema.set_user_balance(&key, user.balance() + ISSUE_AMMOUNT, Some(ts));
+            if (ts - user.last_fillup()).num_seconds() >= ISSUE_TIMEOUT {
+                schema.set_user_balance(key, user.balance() + ISSUE_AMOUNT, Some(ts));
                 Ok(())
             } else {
                 // Issue timeout is not expired
@@ -411,17 +411,17 @@ pub mod transactions {
         fn execute(&self, fork: &mut Fork) -> ExecutionResult {
             let mut schema = schema::CryptoOwlsSchema::new(fork);
             let key = self.public_key();
-            let user = schema.users().get(&key).unwrap();
+            let user = schema.users().get(key).unwrap();
 
             // Execute code if the owl is found
             if let Some(owl) = schema.owls_state().get(self.owl_id()) {
                 // Check if buyer is not owl owner and he has enough funds
                 if owl.owner() != key && self.price() <= user.balance() {
-                    let order = Order::new(&key, self.owl_id(), "pending", self.price());
+                    let order = Order::new(key, self.owl_id(), "pending", self.price());
                     let order_hash = order.hash();
                     schema.orders_mut().put(&order.hash(), order);
-                    schema.user_orders_mut(&key).push(order_hash);
-                    schema.owl_orders_mut(&self.owl_id()).push(order_hash);
+                    schema.user_orders_mut(key).push(order_hash);
+                    schema.owl_orders_mut(self.owl_id()).push(order_hash);
                 }
             }
 
@@ -467,8 +467,8 @@ pub mod transactions {
             let hash_seed: &[u8] = hash_seed.as_ref();
             let mut seed = [0u32; 4];
             let mut cursor = Cursor::new(hash_seed);
-            for i in 0..4 {
-                seed[i] = cursor.read_u32::<BigEndian>().unwrap();
+            for seed in seed.iter_mut().take(4) {
+                *seed = cursor.read_u32::<BigEndian>().unwrap();
             }
             let mut rng = IsaacRng::from_seed(&seed);
 
@@ -496,12 +496,10 @@ pub mod transactions {
 
                         let mut choices = WeightedChoice::new(&mut possible_genes);
                         son_dna |= choices.sample(&mut rng);
-                    } else {
+                    } else if rng.gen() {
                         // If bits are different, the resulting bit will be selected
                         // with probability 1/2.
-                        if rng.gen() {
-                            son_dna |= mask;
-                        }
+                        son_dna |= mask;
                     }
                 }
 
@@ -523,7 +521,7 @@ pub mod transactions {
             &mut self,
             owner_key: &PublicKey,
             owls: Vec<CryptoOwl>,
-            ts: SystemTime,
+            ts: DateTime<Utc>,
         ) {
             for owl in owls {
                 self.user_owls_mut(owner_key).insert(owl.hash());
@@ -537,10 +535,10 @@ pub mod transactions {
             &mut self,
             public_key: &PublicKey,
             balance: u64,
-            last_fillup: Option<SystemTime>,
+            last_fillup: Option<DateTime<Utc>>,
         ) {
             if let Some(user) = self.users().get(public_key) {
-                let last_fillup = last_fillup.unwrap_or(user.last_fillup());
+                let last_fillup = last_fillup.unwrap_or_else(|| user.last_fillup());
                 let new_user = User::new(public_key, user.name(), balance, last_fillup);
                 self.users_mut().put(public_key, new_user)
             }
@@ -630,7 +628,7 @@ pub mod transactions {
 
     impl ErrorKind {
         /// Converts error to the raw code
-        pub fn as_code(self) -> u8 {
+        pub fn as_code(&self) -> u8 {
             self.to_u8().unwrap()
         }
     }
@@ -790,7 +788,7 @@ mod api {
         fn get_owl(&self, owl_id: &Hash) -> Option<CryptoOwlState> {
             let snapshot = self.blockchain.snapshot();
             let schema = schema::CryptoOwlsSchema::new(snapshot);
-            schema.owls_state().get(&owl_id)
+            schema.owls_state().get(owl_id)
         }
 
         /// All owls
@@ -807,13 +805,13 @@ mod api {
             let snapshot = self.blockchain.snapshot();
             let schema = schema::CryptoOwlsSchema::new(snapshot);
 
-            schema.users().get(&public_key).and({
-                let idx = schema.user_owls(&public_key);
+            schema.users().get(public_key).and({
+                let idx = schema.user_owls(public_key);
                 // Attention, iterator type is ValueSetIndexIter<'_, Hash> !!!
                 let owls = idx.iter()
                     .map(|h| schema.owls_state().get(&h.1))
                     .collect::<Option<Vec<CryptoOwlState>>>()
-                    .or(Some(vec![]));
+                    .or_else(|| Some(Vec::new()));
                 owls
             })
         }
@@ -828,7 +826,7 @@ mod api {
                 let orders = idx.iter()
                     .map(|h| schema.orders().get(&h))
                     .collect::<Option<Vec<Order>>>()
-                    .or(Some(vec![]));
+                    .or_else(|| Some(Vec::new()));
                 orders
             })
         }
@@ -843,7 +841,7 @@ mod api {
                 let orders = idx.iter()
                     .map(|h| schema.orders().get(&h))
                     .collect::<Option<Vec<Order>>>()
-                    .or(Some(vec![]));
+                    .or_else(|| Some(Vec::new()));
                 orders
             })
         }
@@ -876,19 +874,15 @@ pub mod service {
 
     use CRYPTOOWLS_SERVICE_ID;
 
+    #[derive(Debug, Default)]
     pub struct CryptoOwlsService;
 
-    impl CryptoOwlsService {
-        pub fn new() -> Self {
-            CryptoOwlsService {}
-        }
-    }
-
+    #[derive(Debug, Default)]
     pub struct CryptoOwlsServiceFactory;
 
     impl ServiceFactory for CryptoOwlsServiceFactory {
         fn make_service(&mut self, _: &Context) -> Box<Service> {
-            Box::new(CryptoOwlsService::new())
+            Box::new(CryptoOwlsService)
         }
     }
 
