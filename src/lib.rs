@@ -12,6 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// FIXME: Sometimes clippy incorrectly calculates lifetimes.
+#![cfg_attr(feature="cargo-clippy", allow(let_and_return))]
+
 #[macro_use]
 extern crate display_derive;
 #[macro_use]
