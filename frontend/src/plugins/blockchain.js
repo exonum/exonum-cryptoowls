@@ -2,7 +2,6 @@ import * as Exonum from 'exonum-client'
 import bigInt from 'big-integer'
 import axios from 'axios'
 
-const NETWORK_ID = 0
 const PROTOCOL_VERSION = 0
 const SERVICE_ID = 521
 const CREATE_USER_TX_ID = 0
@@ -84,7 +83,6 @@ module.exports = {
 
         // Describe transaction to create new user
         const TxCreateWallet = Exonum.newMessage({
-          network_id: NETWORK_ID,
           protocol_version: PROTOCOL_VERSION,
           service_id: SERVICE_ID,
           message_id: CREATE_USER_TX_ID,
@@ -105,7 +103,6 @@ module.exports = {
 
         // Send transaction into blockchain
         return axios.post('/api/services/cryptoowls/v1/transaction', {
-          network_id: NETWORK_ID,
           protocol_version: PROTOCOL_VERSION,
           service_id: SERVICE_ID,
           message_id: CREATE_USER_TX_ID,
@@ -117,7 +114,6 @@ module.exports = {
       makeOwl: (keyPair, name, father, mother) => {
         // Describe transaction to make new owl
         const TxMakeOwl = Exonum.newMessage({
-          network_id: NETWORK_ID,
           protocol_version: PROTOCOL_VERSION,
           service_id: SERVICE_ID,
           message_id: MAKE_OWL_TX_ID,
@@ -144,7 +140,6 @@ module.exports = {
 
         // Send transaction into blockchain
         return axios.post('/api/services/cryptoowls/v1/transaction', {
-          network_id: NETWORK_ID,
           protocol_version: PROTOCOL_VERSION,
           service_id: SERVICE_ID,
           message_id: MAKE_OWL_TX_ID,
@@ -156,7 +151,6 @@ module.exports = {
       issue: (keyPair) => {
         // Describe transaction to issue funds
         const TxIssue = Exonum.newMessage({
-          network_id: NETWORK_ID,
           protocol_version: PROTOCOL_VERSION,
           service_id: SERVICE_ID,
           message_id: ISSUE_TX_ID,
@@ -177,7 +171,6 @@ module.exports = {
 
         // Send transaction into blockchain
         return axios.post('/api/services/cryptoowls/v1/transaction', {
-          network_id: NETWORK_ID,
           protocol_version: PROTOCOL_VERSION,
           service_id: SERVICE_ID,
           message_id: ISSUE_TX_ID,
@@ -189,7 +182,6 @@ module.exports = {
       createOrder: (keyPair, owl, price) => {
         // Describe transaction to place new order
         const TxCreateOrder = Exonum.newMessage({
-          network_id: NETWORK_ID,
           protocol_version: PROTOCOL_VERSION,
           service_id: SERVICE_ID,
           message_id: CREATE_ORDER_TX_ID,
@@ -214,7 +206,6 @@ module.exports = {
 
         // Send transaction into blockchain
         return axios.post('/api/services/cryptoowls/v1/transaction', {
-          network_id: NETWORK_ID,
           protocol_version: PROTOCOL_VERSION,
           service_id: SERVICE_ID,
           message_id: CREATE_ORDER_TX_ID,
@@ -226,7 +217,6 @@ module.exports = {
       acceptOrder: (keyPair, order) => {
         // Describe transaction to accept order
         const TxAcceptOrder = Exonum.newMessage({
-          network_id: NETWORK_ID,
           protocol_version: PROTOCOL_VERSION,
           service_id: SERVICE_ID,
           message_id: ACCEPT_ORDER_TX_ID,
@@ -247,7 +237,6 @@ module.exports = {
 
         // Send transaction into blockchain
         return axios.post('/api/services/cryptoowls/v1/transaction', {
-          network_id: NETWORK_ID,
           protocol_version: PROTOCOL_VERSION,
           service_id: SERVICE_ID,
           message_id: ACCEPT_ORDER_TX_ID,
