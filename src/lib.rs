@@ -579,18 +579,15 @@ pub mod transactions {
                 auction_state.started_at() + Duration::seconds(auction.duration() as i64);
             assert!(ts >= auction_end_at);
 
-            let bids = {
-                let bids_idx = schema.auction_bids(self.auction_id());
-                let bids = bids_idx.into_iter().collect::<Vec<_>>();
-                bids
-            };
-
             // Release balances and find winner.
-            let winner_bid = bids.into_iter().fold(None, |_, bid| {
-                let user = schema.users().get(bid.public_key()).unwrap();
-                schema.release_user_balance(user, bid.value());
-                Some(bid)
-            });
+            let winner_bid = {
+                (0..schema.auction_bids(self.auction_id()).len()).fold(None, |_, index| {
+                    let bid = schema.auction_bids(self.auction_id()).get(index).unwrap();
+                    let user = schema.users().get(bid.public_key()).unwrap();
+                    schema.release_user_balance(user, bid.value());
+                    Some(bid)
+                })
+            };
 
             if let Some(winner_bid) = winner_bid {
                 // Decrease winner balance
@@ -886,16 +883,16 @@ mod api {
             };
 
             let self_ = self.clone();
-            let transaction =
-                move |req: &mut Request| match req.get::<bodyparser::Struct<Transactions>>() {
-                    Ok(Some(transaction)) => {
-                        let tx_hash = self_.post_transaction(transaction).map_err(ApiError::from)?;
-                        let json = json!({ "tx_hash": tx_hash });
-                        self_.ok_response(&json)
-                    }
-                    Ok(None) => Err(ApiError::BadRequest("Empty request body".into()))?,
-                    Err(e) => Err(ApiError::BadRequest(e.to_string()))?,
-                };
+            let transaction = move |req: &mut Request| match req.get::<bodyparser::Struct<Transactions>>(
+            ) {
+                Ok(Some(transaction)) => {
+                    let tx_hash = self_.post_transaction(transaction).map_err(ApiError::from)?;
+                    let json = json!({ "tx_hash": tx_hash });
+                    self_.ok_response(&json)
+                }
+                Ok(None) => Err(ApiError::BadRequest("Empty request body".into()))?,
+                Err(e) => Err(ApiError::BadRequest(e.to_string()))?,
+            };
 
             // View-only handlers
             router.get("/v1/users", get_users, "get_users");
