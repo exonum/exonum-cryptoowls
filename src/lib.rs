@@ -88,32 +88,63 @@ mod data_layout {
             name: &str,
             /// Current balance
             balance: u64,
+            /// Reserved money that participate in the auction.
+            reserved: u64,
             /// Time of the last issue of funds
             last_fillup: DateTime<Utc>,
         }
     }
 
     encoding_struct! {
-        /// Order to buy an owl
-        struct Order {
-            /// Order author
-            public_key: &PublicKey,
-            /// Owl identifier
+        /// Auction bid
+        struct Bid {
+            /// Bidder is some participant identified by their public key.
+            bidder_key: &PublicKey,
+            /// Value of the bid.
+            value: u64,
+        }
+    }
+
+    encoding_struct! {
+        /// Information about auction.
+        struct Auction {
+            /// Participant selling the item.
+            auctioneer_key: &PublicKey,
+            /// Item with item_id is auctioned.
             owl_id: &Hash,
-            /// pending, accepted or declined
-            status: &str,
-            /// Price
-            price: u64,
+            /// Start price
+            start_price: u64,
+            /// Bids are during the `duration` seconds starting from `started_at`.
+            /// Type `Duration` is not used because
+            /// the trait `exonum::encoding::SegmentField<'_>` is not implemented for `chrono::Duration`
+            duration: u64,
+        }
+    }
+
+    encoding_struct! {
+        /// Auction state
+        struct AuctionState {
+            /// Auction identifier
+            id: u64,
+            /// Auction information
+            auction: Auction,
+            /// Start time of the auction.
+            started_at: DateTime<Utc>,
+            /// Merkle root of history of bids. Last bid wins.
+            bidding_merkle_root: &Hash,
+            /// If closed => no auctions are accepted.
+            closed: bool,
         }
     }
 }
 
 /// Database schema
 pub mod schema {
-    use exonum::storage::{Fork, ListIndex, ProofMapIndex, Snapshot, ValueSetIndex};
+    use exonum::storage::{Fork, ListIndex, MapIndex, ProofListIndex, ProofMapIndex, Snapshot,
+                          ValueSetIndex};
     use exonum::crypto::{Hash, PublicKey};
 
-    use data_layout::{CryptoOwlState, Order, User};
+    use data_layout::{AuctionState, Bid, CryptoOwlState, User};
 
     pub struct CryptoOwlsSchema<T> {
         view: T,
@@ -127,37 +158,48 @@ pub mod schema {
         pub fn new(view: T) -> Self {
             CryptoOwlsSchema { view }
         }
+
         /// Users
         pub fn users(&self) -> ProofMapIndex<&T, PublicKey, User> {
             ProofMapIndex::new("cryptoowls.users", &self.view)
         }
+
         /// Owls and their states (see data_layout::CryptoOwlState)
         pub fn owls_state(&self) -> ProofMapIndex<&T, Hash, CryptoOwlState> {
             ProofMapIndex::new("cryptoowls.owls_state", &self.view)
         }
-        /// Owl orders
-        pub fn orders(&self) -> ProofMapIndex<&T, Hash, Order> {
-            ProofMapIndex::new("cryptoowls.orders", &self.view)
+
+        /// Owl auctions
+        pub fn auctions(&self) -> ProofListIndex<&T, AuctionState> {
+            ProofListIndex::new("cryptoowls.auctions", &self.view)
         }
+
+        /// Owl auction bids
+        pub fn auction_bids(&self, auction_id: u64) -> ProofListIndex<&T, Bid> {
+            ProofListIndex::new_in_family("cryptoowls.auction_bids", &auction_id, &self.view)
+        }
+
         /// Helper table for linking user and his owls
         pub fn user_owls(&self, public_key: &PublicKey) -> ValueSetIndex<&T, Hash> {
             ValueSetIndex::new_in_family("cryptoowls.user_owls", public_key, &self.view)
         }
-        /// Helper table for linking user and his orders
-        pub fn user_orders(&self, public_key: &PublicKey) -> ListIndex<&T, Hash> {
-            ListIndex::new_in_family("cryptoowls.user_orders", public_key, &self.view)
+
+        /// Helper table for linking user and his auctions
+        pub fn user_auctions(&self, public_key: &PublicKey) -> ListIndex<&T, u64> {
+            ListIndex::new_in_family("cryptoowls.user_auctions", public_key, &self.view)
         }
-        /// Helper table for linking owl and her orders
-        pub fn owl_orders(&self, owl_id: &Hash) -> ListIndex<&T, Hash> {
-            ListIndex::new_in_family("cryptoowls.owl_orders", owl_id, &self.view)
+
+        /// Helper table for linking owl and his open auction.
+        pub fn owl_auction(&self) -> MapIndex<&T, Hash, u64> {
+            MapIndex::new("cryptoowls.owl_auctions", &self.view)
         }
 
         /// Method to get state hash. Depends on `users`, `owls_state` and `orders` tables.
         pub fn state_hash(&self) -> Vec<Hash> {
             vec![
                 self.users().merkle_root(),
-                self.orders().merkle_root(),
                 self.owls_state().merkle_root(),
+                self.auctions().merkle_root(),
             ]
         }
     }
@@ -172,20 +214,24 @@ pub mod schema {
             ProofMapIndex::new("cryptoowls.owls_state", self.view)
         }
 
-        pub fn orders_mut(&mut self) -> ProofMapIndex<&mut Fork, Hash, Order> {
-            ProofMapIndex::new("cryptoowls.orders", self.view)
+        pub fn auctions_mut(&mut self) -> ProofListIndex<&mut Fork, AuctionState> {
+            ProofListIndex::new("cryptoowls.auctions", self.view)
+        }
+
+        pub fn auction_bids_mut(&mut self, auction_id: u64) -> ProofListIndex<&mut Fork, Bid> {
+            ProofListIndex::new_in_family("cryptoowls.auction_bids", &auction_id, self.view)
         }
 
         pub fn user_owls_mut(&mut self, public_key: &PublicKey) -> ValueSetIndex<&mut Fork, Hash> {
             ValueSetIndex::new_in_family("cryptoowls.user_owls", public_key, self.view)
         }
 
-        pub fn user_orders_mut(&mut self, public_key: &PublicKey) -> ListIndex<&mut Fork, Hash> {
-            ListIndex::new_in_family("cryptoowls.user_orders", public_key, self.view)
+        pub fn user_auctions_mut(&mut self, public_key: &PublicKey) -> ListIndex<&mut Fork, u64> {
+            ListIndex::new_in_family("cryptoowls.user_auctions", public_key, self.view)
         }
 
-        pub fn owl_orders_mut(&mut self, owl_id: &Hash) -> ListIndex<&mut Fork, Hash> {
-            ListIndex::new_in_family("cryptoowls.owl_orders", owl_id, self.view)
+        pub fn owl_auction_mut(&mut self) -> MapIndex<&mut Fork, Hash, u64> {
+            MapIndex::new("cryptoowls.owl_auctions", self.view)
         }
     }
 }
@@ -193,7 +239,7 @@ pub mod schema {
 /// Module with description of all transactions
 pub mod transactions {
     use byteorder::{BigEndian, ReadBytesExt};
-    use chrono::{DateTime, Utc};
+    use chrono::{DateTime, Duration, Utc};
     use rand::{IsaacRng, Rng, SeedableRng};
     use rand::distributions::{Sample, Weighted, WeightedChoice};
     use num_traits::ToPrimitive;
@@ -206,7 +252,7 @@ pub mod transactions {
 
     use std::io::Cursor;
 
-    use data_layout::{CryptoOwl, CryptoOwlState, Order, User};
+    use data_layout::{Auction, AuctionState, Bid, CryptoOwl, CryptoOwlState, User};
     use schema;
     use schema::CryptoOwlsSchema;
 
@@ -247,26 +293,29 @@ pub mod transactions {
                 seed: DateTime<Utc>,
             }
 
-            /// Transaction to make a new order
-            struct CreateOrder
-            {
-                /// Public user identifier
+            /// Transaction type for adding a new item.
+            struct CreateAuction {
+                /// Auctioneer of the item.
                 public_key: &PublicKey,
-                /// Owl identifier
-                owl_id: &Hash,
-                /// Price
-                price: u64,
-                /// Timestamp. Is required to create transactions owls with the same fields.
-                seed: DateTime<Utc>,
+                /// Auction information
+                auction: Auction,
             }
 
-            /// Transaction to accept order (and sell owl)
-            struct AcceptOrder
-            {
-                /// Public user identifier
+            struct MakeBid {
+                /// Bidder.
                 public_key: &PublicKey,
-                /// Order identifier
-                order_id: &Hash,
+                /// Auction ID where a bid must be made.
+                auction_id: u64,
+                /// Bid value.
+                value: u64,
+            }
+
+            /// Check that given auction is closable.
+            struct CloseAuction {
+                /// Auction to close.
+                auction_id: u64,
+                /// Timestamp. Is required to create transactions owls with the same fields.
+                seed: DateTime<Utc>,
             }
         }
     }
@@ -292,7 +341,7 @@ pub mod transactions {
 
             // Ignore if the user with the same public identifier is already exists
             if schema.users().get(key).is_none() {
-                let user = User::new(key, self.name(), ISSUE_AMOUNT, ts);
+                let user = User::new(key, self.name(), ISSUE_AMOUNT, 0, ts);
                 schema.users_mut().put(key, user);
 
                 // New user get 2 random owls
@@ -336,12 +385,11 @@ pub mod transactions {
                 .collect::<Option<Vec<CryptoOwlState>>>();
 
             let user = schema.users().get(self.public_key()).unwrap();
-            let key = user.public_key();
 
             // Ignore transaction if mother of father is not found
             if let Some(parents) = parents {
                 // Check if user is owl owner
-                if parents.iter().any(|p| p.owner() != key) {
+                if parents.iter().any(|p| p.owner() != user.public_key()) {
                     return Err(ErrorKind::AccessViolation.into());
                 }
 
@@ -368,10 +416,9 @@ pub mod transactions {
                 let son =
                     schema.make_uniq_owl((father.dna(), mother.dna()), self.name(), &state_hash);
                 let owls_to_update = vec![son, mother, father];
-                schema.refresh_owls(key, owls_to_update, ts);
+                schema.refresh_owls(user.public_key(), owls_to_update, ts);
 
-                let user = User::new(key, user.name(), user.balance() - BREEDING_PRICE, ts);
-                schema.users_mut().put(key, user);
+                schema.decrease_user_balance(user, BREEDING_PRICE);
             }
 
             Ok(())
@@ -394,7 +441,7 @@ pub mod transactions {
             let user = schema.users().get(key).unwrap();
 
             if (ts - user.last_fillup()).num_seconds() >= ISSUE_TIMEOUT {
-                schema.set_user_balance(key, user.balance() + ISSUE_AMOUNT, Some(ts));
+                schema.increase_user_balance(user, ISSUE_AMOUNT, Some(ts));
                 Ok(())
             } else {
                 // Issue timeout is not expired
@@ -403,25 +450,38 @@ pub mod transactions {
         }
     }
 
-    impl Transaction for CreateOrder {
+    impl Transaction for CreateAuction {
         fn verify(&self) -> bool {
             self.verify_signature(self.public_key())
         }
 
         fn execute(&self, fork: &mut Fork) -> ExecutionResult {
+            let ts = {
+                let time_schema = TimeSchema::new(&fork);
+                time_schema.time().get().unwrap()
+            };
+
             let mut schema = schema::CryptoOwlsSchema::new(fork);
-            let key = self.public_key();
-            let user = schema.users().get(key).unwrap();
+            let user = schema
+                .users()
+                .get(self.public_key())
+                .ok_or_else(|| ErrorKind::Todo)?;
+            let auction = self.auction();
 
             // Execute code if the owl is found
-            if let Some(owl) = schema.owls_state().get(self.owl_id()) {
-                // Check if buyer is not owl owner and he has enough funds
-                if owl.owner() != key && self.price() <= user.balance() {
-                    let order = Order::new(key, self.owl_id(), "pending", self.price());
-                    let order_hash = order.hash();
-                    schema.orders_mut().put(&order.hash(), order);
-                    schema.user_orders_mut(key).push(order_hash);
-                    schema.owl_orders_mut(self.owl_id()).push(order_hash);
+            if let Some(owl) = schema.owls_state().get(auction.owl_id()) {
+                // Check if creator is owl owner.
+                if owl.owner() == user.public_key() {
+                    if schema.owl_auction().get(auction.owl_id()).is_some() {
+                        Err(ErrorKind::Todo)?;
+                    }
+                    // Establish a new auction.
+                    let auction_id = schema.auctions().len();
+                    let owl_id = *auction.owl_id();
+                    let state = AuctionState::new(auction_id, auction, ts, &Hash::zero(), false);
+
+                    schema.auctions_mut().push(state);
+                    schema.owl_auction_mut().put(&owl_id, auction_id);
                 }
             }
 
@@ -429,26 +489,112 @@ pub mod transactions {
         }
     }
 
-    impl Transaction for AcceptOrder {
+    impl Transaction for MakeBid {
         fn verify(&self) -> bool {
             self.verify_signature(self.public_key())
         }
 
         fn execute(&self, fork: &mut Fork) -> ExecutionResult {
             let mut schema = schema::CryptoOwlsSchema::new(fork);
-            if let Some(accepted_order) = schema.accept_order(self.public_key(), self.order_id()) {
-                let owl_state = schema.owls_state().get(accepted_order.owl_id()).unwrap();
+            // Check preconditions and fetch data
+            let user = schema
+                .users()
+                .get(self.public_key())
+                .ok_or_else(|| ErrorKind::Todo)?;
+            let auction_state = schema
+                .auctions()
+                .get(self.auction_id())
+                .ok_or_else(|| ErrorKind::Todo)?;
 
+            if auction_state.closed() {
+                Err(ErrorKind::Todo)?;
+            }
+
+            if user.balance() < self.value() {
+                Err(ErrorKind::Todo)?;
+            }
+
+            // Reserve value in user wallet
+            schema.reserve_user_balance(user, self.value());
+
+            // Make bid
+            let bid = Bid::new(self.public_key(), self.value());
+            schema.auction_bids_mut(self.auction_id()).push(bid);
+            // Refresh auction state
+            let bids_merkle_root = schema.auction_bids(self.auction_id()).merkle_root();
+            schema.auctions_mut().push(AuctionState::new(
+                auction_state.id(),
+                auction_state.auction(),
+                auction_state.started_at(),
+                &bids_merkle_root,
+                auction_state.closed(),
+            ));
+
+            Ok(())
+        }
+    }
+
+    impl Transaction for CloseAuction {
+        fn verify(&self) -> bool {
+            true
+        }
+
+        fn execute(&self, fork: &mut Fork) -> ExecutionResult {
+            let ts = {
+                let time_schema = TimeSchema::new(&fork);
+                time_schema.time().get().unwrap()
+            };
+
+            let mut schema = schema::CryptoOwlsSchema::new(fork);
+            // Check preconditions and fetch data
+            let auction_state = schema
+                .auctions()
+                .get(self.auction_id())
+                .ok_or_else(|| ErrorKind::Todo)?;
+            let auction = auction_state.auction();
+
+            assert!(!auction_state.closed());
+            let auction_end_at =
+                auction_state.started_at() + Duration::seconds(auction.duration() as i64);
+            assert!(ts >= auction_end_at);
+
+            let bids = {
+                let bids_idx = schema.auction_bids(self.auction_id());
+                let bids = bids_idx.into_iter().collect::<Vec<_>>();
+                bids
+            };
+
+            // Release balances and find winner.
+            let winner_bid = bids.into_iter()
+                .inspect(|bid| {
+                    let user = schema.users().get(bid.bidder_key()).unwrap();
+                    schema.release_user_balance(user, bid.value());
+                })
+                .max_by(|a, b| a.value().cmp(&b.value()));
+
+            if let Some(winner_bid) = winner_bid {
+                // Decrease winner balance
+                let user = schema.users().get(winner_bid.bidder_key()).unwrap();
+                schema.decrease_user_balance(user, winner_bid.value());
+                // Change owl owner
+                let owl_state = schema.owls_state().get(auction.owl_id()).unwrap();
                 schema.refresh_owls(
-                    accepted_order.public_key(),
+                    winner_bid.bidder_key(),
                     vec![owl_state.owl()],
                     owl_state.last_breeding(),
                 );
+            };
+            schema.owl_auction_mut().remove(auction.owl_id());
 
-                schema
-                    .user_owls_mut(self.public_key())
-                    .remove(accepted_order.owl_id());
-            }
+            // Close auction
+            schema.auctions_mut().push(AuctionState::new(
+                auction_state.id(),
+                auction_state.auction(),
+                auction_state.started_at(),
+                auction_state.bidding_merkle_root(),
+                true,
+            ));
+
             Ok(())
         }
     }
@@ -530,85 +676,66 @@ pub mod transactions {
             }
         }
 
-        /// Helper method to change user balance
-        pub fn set_user_balance(
+        /// Helper method to increase user balance
+        pub fn increase_user_balance(
             &mut self,
-            public_key: &PublicKey,
+            user: User,
             balance: u64,
             last_fillup: Option<DateTime<Utc>>,
         ) {
-            if let Some(user) = self.users().get(public_key) {
-                let last_fillup = last_fillup.unwrap_or_else(|| user.last_fillup());
-                let new_user = User::new(public_key, user.name(), balance, last_fillup);
-                self.users_mut().put(public_key, new_user)
-            }
+            let last_fillup = last_fillup.unwrap_or_else(|| user.last_fillup());
+            self.users_mut().put(
+                user.public_key(),
+                User::new(
+                    user.public_key(),
+                    user.name(),
+                    user.balance() + balance,
+                    user.reserved(),
+                    last_fillup,
+                ),
+            );
         }
 
-        /// Helper method to accept order
-        /// Function will check that buyer has enough funds, order of status allows to accept order.
-        /// Then function will update order, buyer and seller balances.
-        /// Finally function will mark all other orders as declined.
-        pub fn accept_order(&mut self, acceptor_key: &PublicKey, order_id: &Hash) -> Option<Order> {
-            if let Some(order) = self.orders().get(order_id) {
-                let buyer = self.users().get(order.public_key()).unwrap();
-                let seller = self.users().get(acceptor_key).unwrap();
-
-                if order.status() == "pending" {
-                    if buyer.balance() >= order.price()
-                        && self.user_owls(acceptor_key).contains(order.owl_id())
-                    {
-                        let new_order = Order::new(
-                            order.public_key(),
-                            order.owl_id(),
-                            "accepted",
-                            order.price(),
-                        );
-
-                        self.orders_mut().put(order_id, new_order.clone());
-
-                        self.set_user_balance(
-                            seller.public_key(),
-                            seller.balance() + order.price(),
-                            None,
-                        );
-                        self.set_user_balance(
-                            buyer.public_key(),
-                            buyer.balance() - order.price(),
-                            None,
-                        );
-
-                        // Decline all other owl orders
-                        let order_ids: Vec<Hash> = {
-                            let idx = self.owl_orders(order.owl_id());
-                            let order_ids = idx.iter().collect();
-                            order_ids
-                        };
-
-                        for order_id in order_ids {
-                            self.decline_order(&order_id);
-                        }
-                        return Some(new_order);
-                    }
-                    self.decline_order(order_id);
-                }
-            }
-            None
+        /// Helper method to decrease user balance
+        pub fn decrease_user_balance(&mut self, user: User, balance: u64) {
+            self.users_mut().put(
+                user.public_key(),
+                User::new(
+                    user.public_key(),
+                    user.name(),
+                    user.balance() - balance,
+                    user.reserved(),
+                    user.last_fillup(),
+                ),
+            );
         }
 
-        /// Helper method to decline order. It is used only inside this module, so it is private.
-        pub fn decline_order(&mut self, order_id: &Hash) {
-            if let Some(order) = self.orders().get(order_id) {
-                if order.status() == "pending" {
-                    let new_order = Order::new(
-                        order.public_key(),
-                        order.owl_id(),
-                        "declined",
-                        order.price(),
-                    );
+        /// Helper method to decrease user balance
+        pub fn reserve_user_balance(&mut self, user: User, reserve: u64) {
+            self.users_mut().put(
+                user.public_key(),
+                User::new(
+                    user.public_key(),
+                    user.name(),
+                    user.balance() - reserve,
+                    user.reserved() + reserve,
+                    user.last_fillup(),
+                ),
+            );
+        }
 
-                    self.orders_mut().put(order_id, new_order);
-                }
-            }
+        /// Helper method to decrease user balance
+        pub fn release_user_balance(&mut self, user: User, reserve: u64) {
+            self.users_mut().put(
+                user.public_key(),
+                User::new(
+                    user.public_key(),
+                    user.name(),
+                    user.balance() + reserve,
+                    user.reserved() - reserve,
+                    user.last_fillup(),
+                ),
+            );
         }
     }
 
@@ -624,6 +751,8 @@ pub mod transactions {
         AccessViolation = 4,
         #[display(fmt = "Perversion.")]
         SelfBreeding = 5,
+        #[display(fmt = "Todo.")]
+        Todo = 6,
     }
 
     impl ErrorKind {
@@ -656,7 +785,7 @@ mod api {
     use exonum::blockchain::{Blockchain, Transaction};
 
     use schema;
-    use data_layout::{CryptoOwlState, Order, User};
+    use data_layout::{AuctionState, Bid, CryptoOwlState, User};
     use transactions::Transactions;
 
     #[derive(Clone)]
@@ -684,9 +813,19 @@ mod api {
             };
 
             let self_ = self.clone();
-            let get_users_orders = move |req: &mut Request| {
+            let get_users_auctions = move |req: &mut Request| {
                 let public_key: PublicKey = self_.url_fragment(req, "pub_key")?;
-                if let Some(orders) = self_.get_users_orders(&public_key) {
+                if let Some(orders) = self_.get_users_auctions(&public_key) {
+                    self_.ok_response(&json!(orders))
+                } else {
+                    self_.not_found_response(&json!("User not found"))
+                }
+            };
+
+            let self_ = self.clone();
+            let get_auction_bids = move |req: &mut Request| {
+                let auction_id = self_.url_fragment(req, "auction_id")?;
+                if let Some(orders) = self_.get_auction_bids(auction_id) {
                     self_.ok_response(&json!(orders))
                 } else {
                     self_.not_found_response(&json!("User not found"))
@@ -710,16 +849,6 @@ mod api {
             };
 
             let self_ = self.clone();
-            let get_owls_orders = move |req: &mut Request| {
-                let owl_hash = self_.url_fragment(req, "owl_hash")?;
-                if let Some(orders) = self_.get_owls_orders(&owl_hash) {
-                    self_.ok_response(&json!(orders))
-                } else {
-                    self_.not_found_response(&json!("Owl not found"))
-                }
-            };
-
-            let self_ = self.clone();
             let get_user_owls = move |req: &mut Request| {
                 let public_key: PublicKey = self_.url_fragment(req, "pub_key")?;
                 if let Some(orders) = self_.get_user_owls(&public_key) {
@@ -730,37 +859,36 @@ mod api {
             };
 
             let self_ = self.clone();
-            let transaction =
-                move |req: &mut Request| match req.get::<bodyparser::Struct<Transactions>>() {
-                    Ok(Some(transaction)) => {
-                        let tx_hash = self_.post_transaction(transaction).map_err(ApiError::from)?;
-                        let json = json!({ "tx_hash": tx_hash });
-                        self_.ok_response(&json)
-                    }
-                    Ok(None) => Err(ApiError::BadRequest("Empty request body".into()))?,
-                    Err(e) => Err(ApiError::BadRequest(e.to_string()))?,
-                };
+            let transaction = move |req: &mut Request| match req.get::<bodyparser::Struct<Transactions>>(
+            ) {
+                Ok(Some(transaction)) => {
+                    let tx_hash = self_.post_transaction(transaction).map_err(ApiError::from)?;
+                    let json = json!({ "tx_hash": tx_hash });
+                    self_.ok_response(&json)
+                }
+                Ok(None) => Err(ApiError::BadRequest("Empty request body".into()))?,
+                Err(e) => Err(ApiError::BadRequest(e.to_string()))?,
+            };
 
             // View-only handlers
             router.get("/v1/users", get_users, "get_users");
             router.get("/v1/user/:pub_key", get_user, "get_user");
 
             router.get(
-                "/v1/user/:pub_key/orders",
-                get_users_orders,
-                "get_users_orders",
+                "/v1/user/:pub_key/auctions",
+                get_users_auctions,
+                "get_users_auctions",
+            );
+            router.get(
+                "/v1/auctions/:auction_id",
+                get_auction_bids,
+                "get_auction_bids",
             );
 
             router.get("/v1/user/:pub_key/owls", get_user_owls, "get_user_owls");
 
             router.get("/v1/owl/:owl_hash", get_owl, "get_owl");
             router.get("/v1/owls", get_owls, "get_owls");
-
-            router.get(
-                "/v1/owl/:owl_hash/orders",
-                get_owls_orders,
-                "get_owls_orders",
-            );
 
             // Transactions
             router.post("/v1/transaction", transaction, "post_transaction");
@@ -816,34 +944,28 @@ mod api {
             })
         }
 
-        /// Owl orders
-        fn get_owls_orders(&self, owl_id: &Hash) -> Option<Vec<Order>> {
+        /// Auctions made by user
+        fn get_users_auctions(&self, users_key: &PublicKey) -> Option<Vec<AuctionState>> {
             let snapshot = self.blockchain.snapshot();
             let schema = schema::CryptoOwlsSchema::new(snapshot);
 
-            schema.owls_state().get(owl_id).and({
-                let idx = schema.owl_orders(owl_id);
-                let orders = idx.iter()
-                    .map(|h| schema.orders().get(&h))
-                    .collect::<Option<Vec<Order>>>()
-                    .or_else(|| Some(Vec::new()));
-                orders
-            })
+            let user = schema.users().get(users_key)?;
+            let user_auctions = schema.user_auctions(user.public_key());
+            let auctions = user_auctions
+                .into_iter()
+                .map(|auction_id| schema.auctions().get(auction_id).unwrap())
+                .collect();
+            Some(auctions)
         }
 
-        /// Orders made by user
-        fn get_users_orders(&self, users_key: &PublicKey) -> Option<Vec<Order>> {
+        fn get_auction_bids(&self, auction_id: u64) -> Option<Vec<Bid>> {
             let snapshot = self.blockchain.snapshot();
             let schema = schema::CryptoOwlsSchema::new(snapshot);
 
-            schema.users().get(users_key).and({
-                let idx = schema.user_orders(users_key);
-                let orders = idx.iter()
-                    .map(|h| schema.orders().get(&h))
-                    .collect::<Option<Vec<Order>>>()
-                    .or_else(|| Some(Vec::new()));
-                orders
-            })
+            let auction_state = schema.auctions().get(auction_id)?;
+            let auction_bids = schema.auction_bids(auction_state.id());
+            let bids = auction_bids.into_iter().collect();
+            Some(bids)
         }
 
         fn post_transaction(&self, transaction: Transactions) -> Result<Hash, ApiError> {
