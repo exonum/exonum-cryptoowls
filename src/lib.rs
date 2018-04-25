@@ -52,7 +52,7 @@ pub const BREEDING_TIMEOUT: i64 = 60;
 pub const BREEDING_PRICE: u64 = 42;
 
 /// Data structures stored in blockchain
-mod data_layout {
+pub mod data_layout {
 
     use chrono::{DateTime, Utc};
     use exonum::crypto::{Hash, PublicKey};
@@ -99,7 +99,7 @@ mod data_layout {
         /// Auction bid
         struct Bid {
             /// Bidder is some participant identified by their public key.
-            bidder_key: &PublicKey,
+            public_key: &PublicKey,
             /// Value of the bid.
             value: u64,
         }
@@ -109,7 +109,7 @@ mod data_layout {
         /// Information about auction.
         struct Auction {
             /// Participant selling the item.
-            auctioneer_key: &PublicKey,
+            public_key: &PublicKey,
             /// Item with item_id is auctioned.
             owl_id: &Hash,
             /// Start price
@@ -128,6 +128,8 @@ mod data_layout {
             id: u64,
             /// Auction information
             auction: Auction,
+            /// Current price,
+            current_price: u64,
             /// Start time of the auction.
             started_at: DateTime<Utc>,
             /// Merkle root of history of bids. Last bid wins.
@@ -295,8 +297,6 @@ pub mod transactions {
 
             /// Transaction type for adding a new item.
             struct CreateAuction {
-                /// Auctioneer of the item.
-                public_key: &PublicKey,
                 /// Auction information
                 auction: Auction,
             }
@@ -452,7 +452,7 @@ pub mod transactions {
 
     impl Transaction for CreateAuction {
         fn verify(&self) -> bool {
-            self.verify_signature(self.public_key())
+            self.verify_signature(self.auction().public_key())
         }
 
         fn execute(&self, fork: &mut Fork) -> ExecutionResult {
@@ -462,11 +462,11 @@ pub mod transactions {
             };
 
             let mut schema = schema::CryptoOwlsSchema::new(fork);
+            let auction = self.auction();
             let user = schema
                 .users()
-                .get(self.public_key())
+                .get(auction.public_key())
                 .ok_or_else(|| ErrorKind::Todo)?;
-            let auction = self.auction();
 
             // Execute code if the owl is found
             if let Some(owl) = schema.owls_state().get(auction.owl_id()) {
@@ -478,7 +478,15 @@ pub mod transactions {
                     // Establish a new auction.
                     let auction_id = schema.auctions().len();
                     let owl_id = *auction.owl_id();
-                    let state = AuctionState::new(auction_id, auction, ts, &Hash::zero(), false);
+                    let start_price = auction.start_price();
+                    let state = AuctionState::new(
+                        auction_id,
+                        auction,
+                        start_price,
+                        ts,
+                        &Hash::zero(),
+                        false,
+                    );
 
                     schema.auctions_mut().push(state);
                     schema.owl_auction_mut().put(&owl_id, auction_id);
@@ -505,12 +513,21 @@ pub mod transactions {
                 .auctions()
                 .get(self.auction_id())
                 .ok_or_else(|| ErrorKind::Todo)?;
+            let auction = auction_state.auction();
 
             if auction_state.closed() {
                 Err(ErrorKind::Todo)?;
             }
 
+            if auction_state.current_price() >= self.value() {
+                Err(ErrorKind::Todo)?;
+            }
+
             if user.balance() < self.value() {
+                Err(ErrorKind::Todo)?;
+            }
+
+            if user.public_key() == auction.public_key() {
                 Err(ErrorKind::Todo)?;
             }
 
@@ -522,13 +539,17 @@ pub mod transactions {
             schema.auction_bids_mut(self.auction_id()).push(bid);
             // Refresh auction state
             let bids_merkle_root = schema.auction_bids(self.auction_id()).merkle_root();
-            schema.auctions_mut().push(AuctionState::new(
+            schema.auctions_mut().set(
                 auction_state.id(),
-                auction_state.auction(),
-                auction_state.started_at(),
-                &bids_merkle_root,
-                auction_state.closed(),
-            ));
+                AuctionState::new(
+                    auction_state.id(),
+                    auction,
+                    self.value(),
+                    auction_state.started_at(),
+                    &bids_merkle_root,
+                    auction_state.closed(),
+                ),
+            );
 
             Ok(())
         }
@@ -565,21 +586,23 @@ pub mod transactions {
             };
 
             // Release balances and find winner.
-            let winner_bid = bids.into_iter()
-                .inspect(|bid| {
-                    let user = schema.users().get(bid.bidder_key()).unwrap();
-                    schema.release_user_balance(user, bid.value());
-                })
-                .max_by(|a, b| a.value().cmp(&b.value()));
+            let winner_bid = bids.into_iter().fold(None, |_, bid| {
+                let user = schema.users().get(bid.public_key()).unwrap();
+                schema.release_user_balance(user, bid.value());
+                Some(bid)
+            });
 
             if let Some(winner_bid) = winner_bid {
                 // Decrease winner balance
-                let user = schema.users().get(winner_bid.bidder_key()).unwrap();
+                let user = schema.users().get(winner_bid.public_key()).unwrap();
                 schema.decrease_user_balance(user, winner_bid.value());
+                // Increase seller balance
+                let user = schema.users().get(auction.public_key()).unwrap();
+                schema.increase_user_balance(user, winner_bid.value(), None);
                 // Change owl owner
                 let owl_state = schema.owls_state().get(auction.owl_id()).unwrap();
                 schema.refresh_owls(
-                    winner_bid.bidder_key(),
+                    winner_bid.public_key(),
                     vec![owl_state.owl()],
                     owl_state.last_breeding(),
                 );
@@ -587,13 +610,17 @@ pub mod transactions {
             schema.owl_auction_mut().remove(auction.owl_id());
 
             // Close auction
-            schema.auctions_mut().push(AuctionState::new(
+            schema.auctions_mut().set(
                 auction_state.id(),
-                auction_state.auction(),
-                auction_state.started_at(),
-                auction_state.bidding_merkle_root(),
-                true,
-            ));
+                AuctionState::new(
+                    auction_state.id(),
+                    auction_state.auction(),
+                    auction_state.current_price(),
+                    auction_state.started_at(),
+                    auction_state.bidding_merkle_root(),
+                    true,
+                ),
+            );
 
             Ok(())
         }
@@ -859,16 +886,16 @@ mod api {
             };
 
             let self_ = self.clone();
-            let transaction = move |req: &mut Request| match req.get::<bodyparser::Struct<Transactions>>(
-            ) {
-                Ok(Some(transaction)) => {
-                    let tx_hash = self_.post_transaction(transaction).map_err(ApiError::from)?;
-                    let json = json!({ "tx_hash": tx_hash });
-                    self_.ok_response(&json)
-                }
-                Ok(None) => Err(ApiError::BadRequest("Empty request body".into()))?,
-                Err(e) => Err(ApiError::BadRequest(e.to_string()))?,
-            };
+            let transaction =
+                move |req: &mut Request| match req.get::<bodyparser::Struct<Transactions>>() {
+                    Ok(Some(transaction)) => {
+                        let tx_hash = self_.post_transaction(transaction).map_err(ApiError::from)?;
+                        let json = json!({ "tx_hash": tx_hash });
+                        self_.ok_response(&json)
+                    }
+                    Ok(None) => Err(ApiError::BadRequest("Empty request body".into()))?,
+                    Err(e) => Err(ApiError::BadRequest(e.to_string()))?,
+                };
 
             // View-only handlers
             router.get("/v1/users", get_users, "get_users");

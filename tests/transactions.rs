@@ -26,12 +26,14 @@ use chrono::{Duration, Utc};
 use std::collections::{HashMap, HashSet};
 use exonum_time::{MockTimeProvider, TimeService};
 
-use exonum::crypto::{self, CryptoHash};
+use exonum::crypto::{self, CryptoHash, Signature};
 use exonum_testkit::{TestKit, TestKitBuilder};
 use exonum::helpers::Height;
 
+use cryptoowls::ISSUE_AMOUNT;
 use cryptoowls::schema::CryptoOwlsSchema;
 use cryptoowls::service::CryptoOwlsService;
+use cryptoowls::data_layout::*;
 use cryptoowls::transactions::*;
 
 fn init_testkit() -> (TestKit, MockTimeProvider) {
@@ -210,172 +212,108 @@ fn test_breeding() {
     assert_eq!(user_owls_count, 3);
 }
 
-// #[test]
-// fn test_sell_owl() {
-//     let (mut testkit, _) = init_testkit();
-//     let (pubkey, key) = crypto::gen_keypair();
-//     let (pubkey_1, key_1) = crypto::gen_keypair();
-//     let (pubkey_2, key_2) = crypto::gen_keypair();
+#[test]
+fn test_sell_owl() {
+    let (mut testkit, time_machine) = init_testkit();
+    let (pubkey, key) = crypto::gen_keypair();
+    let (pubkey_1, key_1) = crypto::gen_keypair();
+    let (pubkey_2, key_2) = crypto::gen_keypair();
 
-//     testkit.create_block_with_transactions(txvec![
-//         CreateUser::new(&pubkey, "Alice", &key),
-//         CreateUser::new(&pubkey_1, "Bob", &key_1),
-//         CreateUser::new(&pubkey_2, "Jane", &key_2),
-//     ]);
+    testkit.create_block_with_transactions(txvec![
+        CreateUser::new(&pubkey, "Alice", &key),
+        CreateUser::new(&pubkey_1, "Bob", &key_1),
+        CreateUser::new(&pubkey_2, "Jane", &key_2),
+    ]);
 
-//     let snapshot = testkit.snapshot();
-//     let schema = CryptoOwlsSchema::new(&snapshot);
+    let snapshot = testkit.snapshot();
+    let schema = CryptoOwlsSchema::new(&snapshot);
 
-//     let alice_owls = schema.user_owls(&pubkey);
-//     let alice_owl = alice_owls.iter().map(|x| x.1).next().unwrap();
+    let alice_owls = schema.user_owls(&pubkey);
+    let alice_owl = alice_owls.iter().map(|x| x.1).next().unwrap();
 
-//     let bob_owls = schema.user_owls(&pubkey_1);
-//     let bob_owl = bob_owls.iter().map(|x| x.1).next().unwrap();
+    // Create auction
+    testkit
+        .create_block_with_transactions(txvec![
+            CreateAuction::new(Auction::new(&pubkey, &alice_owl, 10, 1_000), &key)
+        ])
+        .transactions
+        .into_iter()
+        .for_each(|tx| tx.status().unwrap());
+    // Make bids
+    testkit
+        .create_block_with_transactions(txvec![
+            MakeBid::new(&pubkey_1, 0, 20, &key_1),
+            MakeBid::new(&pubkey_2, 0, 30, &key_2),
+        ])
+        .transactions
+        .into_iter()
+        .for_each(|tx| tx.status().unwrap());
+    // Check reserved balances
+    {
+        let snapshot = testkit.snapshot();
+        let schema = CryptoOwlsSchema::new(&snapshot);
 
-//     // Should be impossible to place order on one's own owl
-//     {
-//         testkit.create_block_with_transactions(txvec![
-//             CreateOrder::new(&pubkey, &alice_owl, 0, Utc::now(), &key),
-//         ]);
+        let auction = schema.auctions().get(0).unwrap();
+        let bob = schema.users().get(&pubkey_1).unwrap();
+        let jane = schema.users().get(&pubkey_2).unwrap();
 
-//         let snapshot = testkit.snapshot();
-//         let schema = CryptoOwlsSchema::new(&snapshot);
+        assert_eq!(bob.balance(), ISSUE_AMOUNT - 20);
+        assert_eq!(bob.reserved(), 20);
+        assert_eq!(jane.balance(), ISSUE_AMOUNT - 30);
+        assert_eq!(jane.reserved(), 30);
 
-//         let user_orders = schema.user_orders(&pubkey);
-//         let user_orders_cnt = user_orders.iter().count();
+        assert!(!auction.closed());
+        assert_eq!(
+            auction.bidding_merkle_root(),
+            &schema.auction_bids(0).merkle_root()
+        );
+        assert_eq!(schema.owl_auction().get(&alice_owl).unwrap(), 0);
+    }
+    // Try to close auction immediately
+    testkit
+        .create_block_with_transactions(txvec![
+            CloseAuction::new_with_signature(0, Utc::now(), &Signature::zero()),
+        ])
+        .transactions
+        .into_iter()
+        .for_each(|tx| {
+            tx.status().unwrap_err();
+        });
 
-//         let owl_orders = schema.owl_orders(&alice_owl);
-//         let owl_orders_cnt = owl_orders.iter().count();
+    // Some time should pass
+    time_machine.add_time(Duration::seconds(1_001));
+    testkit.create_blocks_until(Height(16));
+    // Close auction
+    testkit
+        .create_block_with_transactions(txvec![
+            CloseAuction::new_with_signature(0, Utc::now(), &Signature::zero()),
+        ])
+        .transactions
+        .into_iter()
+        .for_each(|tx| tx.status().unwrap());
+    // Check results
+    {
+        let snapshot = testkit.snapshot();
+        let schema = CryptoOwlsSchema::new(&snapshot);
 
-//         assert_eq!(user_orders_cnt, 0);
-//         assert_eq!(owl_orders_cnt, 0);
-//     }
+        let auction = schema.auctions().get(0).unwrap();
+        let alice = schema.users().get(&pubkey).unwrap();
+        let bob = schema.users().get(&pubkey_1).unwrap();
+        let jane = schema.users().get(&pubkey_2).unwrap();
 
-//     {
-//         testkit.create_block_with_transactions(txvec![
-//             CreateOrder::new(&pubkey_1, &alice_owl, 10, Utc::now(), &key_1),
-//             CreateOrder::new(&pubkey_2, &alice_owl, 90, Utc::now(), &key_2),
-//             CreateOrder::new(&pubkey_2, &alice_owl, 60, Utc::now(), &key_2),
-//             CreateOrder::new(&pubkey_2, &bob_owl, 90, Utc::now(), &key_2),
-//         ]);
+        assert_eq!(bob.balance(), ISSUE_AMOUNT);
+        assert_eq!(bob.reserved(), 0);
+        assert_eq!(jane.balance(), ISSUE_AMOUNT - 30);
+        assert_eq!(jane.reserved(), 0);
+        assert_eq!(alice.balance(), ISSUE_AMOUNT + 30);
+        assert_eq!(alice.reserved(), 0);
 
-//         let snapshot = testkit.snapshot();
-//         let schema = CryptoOwlsSchema::new(&snapshot);
-
-//         let alice_orders = schema.user_orders(&pubkey);
-//         let alice_orders: Vec<_> = alice_orders.iter().collect();
-
-//         let bob_orders = schema.user_orders(&pubkey_1);
-//         let bob_orders: Vec<_> = bob_orders.iter().collect();
-
-//         let jane_orders = schema.user_orders(&pubkey_2);
-//         let jane_orders: Vec<_> = jane_orders.iter().collect();
-
-//         let alice_owl_orders = schema.owl_orders(&alice_owl);
-//         let alice_owl_orders: Vec<_> = alice_owl_orders.iter().collect();
-
-//         let bob_owl_orders = schema.owl_orders(&bob_owl);
-//         let bob_owl_orders: Vec<_> = bob_owl_orders.iter().collect();
-
-//         assert_eq!(alice_orders.len(), 0);
-//         assert_eq!(bob_orders.len(), 1);
-//         assert_eq!(jane_orders.len(), 3);
-//         assert_eq!(alice_owl_orders.len(), 3);
-//         assert_eq!(bob_owl_orders.len(), 1);
-
-//         // Bob sells his owl to Alice
-//         testkit.create_block_with_transactions(txvec![
-//             AcceptOrder::new(&pubkey_1, &bob_owl_orders[0], &key_1),
-//         ]);
-
-//         let snapshot = testkit.snapshot();
-//         let schema = CryptoOwlsSchema::new(&snapshot);
-
-//         let ex_bob_owl_orders = schema.owl_orders(&bob_owl);
-//         let ex_bob_owl_orders: Vec<_> = ex_bob_owl_orders.iter().collect();
-//         let orders = schema.orders();
-//         let accepted_order = orders.get(&ex_bob_owl_orders[0]).unwrap();
-//         assert_eq!(accepted_order.status(), "accepted");
-
-//         let jane_owls = schema.user_owls(&pubkey_2);
-//         let jane_owls: Vec<_> = jane_owls.iter().map(|x| x.0).collect();
-//         assert_eq!(jane_owls.len(), 3);
-
-//         let owls = schema.owls_state();
-//         for owl_hash in jane_owls {
-//             let owl = owls.get(&owl_hash).unwrap();
-//             assert_eq!(owl.owner(), &pubkey_2);
-//         }
-
-//         let bob_owls = schema.user_owls(&pubkey_1);
-//         let bob_owls: Vec<_> = bob_owls.iter().map(|x| x.0).collect();
-//         assert_eq!(bob_owls.len(), 1);
-
-//         let jane = schema.users().get(&pubkey_2).unwrap();
-//         assert_eq!(jane.balance(), 10);
-
-//         let bob = schema.users().get(&pubkey_1).unwrap();
-//         assert_eq!(bob.balance(), 190);
-
-//         // Alice makes attempt to sell her owl to Jane
-//         let mut jane_orders_iter = jane_orders.iter().filter(|&x| x != &bob_owl_orders[0]);
-
-//         let jane_order_id = jane_orders_iter.next().unwrap();
-//         let jane_order_id_2 = jane_orders_iter.next().unwrap();
-
-//         testkit.create_block_with_transactions(txvec![
-//             AcceptOrder::new(&pubkey, jane_order_id, &key),
-//         ]);
-
-//         // But unfortunately Jane doesn't have required amount of money now
-
-//         let snapshot = testkit.snapshot();
-//         let schema = CryptoOwlsSchema::new(&snapshot);
-
-//         let orders = schema.orders();
-//         let declined_order = orders.get(jane_order_id).unwrap();
-//         assert_eq!(declined_order.status(), "declined");
-
-//         // Check if second Jane's order is still in pending state
-//         let pending_order = orders.get(jane_order_id_2).unwrap();
-//         assert_eq!(pending_order.status(), "pending");
-
-//         // Jane still has the same amount of owls as before
-//         let jane_owls = schema.user_owls(&pubkey_2);
-//         let jane_owls: Vec<_> = jane_owls.iter().map(|x| x.0).collect();
-//         assert_eq!(jane_owls.len(), 3);
-
-//         let alice_owls = schema.user_owls(&pubkey);
-//         let alice_owls_cnt = alice_owls.iter().count();
-//         assert_eq!(alice_owls_cnt, 2);
-
-//         // Now Alice is selling her owl to Bob
-//         let bob_order_id = bob_orders[0];
-
-//         testkit.create_block_with_transactions(txvec![
-//             AcceptOrder::new(&pubkey, &bob_order_id, &key),
-//         ]);
-
-//         let snapshot = testkit.snapshot();
-//         let schema = CryptoOwlsSchema::new(&snapshot);
-//         let orders = schema.orders();
-
-//         // So, second Jane's order should be in declined state now, cause
-//         // owl has been just sold to Bob
-//         let declined_order = orders.get(jane_order_id_2).unwrap();
-//         assert_eq!(declined_order.status(), "declined");
-
-//         // Bob's order should be in accepted state
-//         let accepted_order = orders.get(&bob_order_id).unwrap();
-//         assert_eq!(accepted_order.status(), "accepted");
-
-//         // And he has 2 owls again
-//         let bob_owls = schema.user_owls(&pubkey_1);
-//         let bob_owls_cnt = bob_owls.iter().count();
-//         assert_eq!(bob_owls_cnt, 2);
-
-//         let alice_owls = schema.user_owls(&pubkey);
-//         let alice_owls_cnt = alice_owls.iter().count();
-//         assert_eq!(alice_owls_cnt, 1);
-//     }
-// }
+        assert!(auction.closed());
+        assert!(schema.owl_auction().get(&alice_owl).is_none());
+        assert!(schema.user_owls(&pubkey_2).contains_by_hash(&alice_owl));
+        assert_eq!(
+            schema.owls_state().get(&alice_owl).unwrap().owner(),
+            &pubkey_2
+        );
+    }
+}
