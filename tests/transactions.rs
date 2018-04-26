@@ -257,8 +257,8 @@ fn test_sell_owl() {
         let bob = schema.users().get(&pubkey_1).unwrap();
         let jane = schema.users().get(&pubkey_2).unwrap();
 
-        assert_eq!(bob.balance(), ISSUE_AMOUNT - 20);
-        assert_eq!(bob.reserved(), 20);
+        assert_eq!(bob.balance(), ISSUE_AMOUNT);
+        assert_eq!(bob.reserved(), 0);
         assert_eq!(jane.balance(), ISSUE_AMOUNT - 30);
         assert_eq!(jane.reserved(), 30);
 

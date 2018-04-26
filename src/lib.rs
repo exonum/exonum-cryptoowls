@@ -128,8 +128,6 @@ pub mod data_layout {
             id: u64,
             /// Auction information
             auction: Auction,
-            /// Current price,
-            current_price: u64,
             /// Start time of the auction.
             started_at: DateTime<Utc>,
             /// Merkle root of history of bids. Last bid wins.
@@ -485,9 +483,7 @@ pub mod transactions {
             // Establish a new auction.
             let auction_id = schema.auctions().len();
             let owl_id = *auction.owl_id();
-            let start_price = auction.start_price();
-            let state =
-                AuctionState::new(auction_id, auction, start_price, ts, &Hash::zero(), false);
+            let state = AuctionState::new(auction_id, auction, ts, &Hash::zero(), false);
 
             schema.auctions_mut().push(state);
             schema.owl_auction_mut().put(&owl_id, auction_id);
@@ -518,7 +514,7 @@ pub mod transactions {
                 Err(ErrorKind::Todo)?;
             }
 
-            if auction_state.current_price() >= self.value() {
+            if auction.start_price() >= self.value() {
                 Err(ErrorKind::Todo)?;
             }
 
@@ -528,6 +524,16 @@ pub mod transactions {
 
             if user.public_key() == auction.public_key() {
                 Err(ErrorKind::Todo)?;
+            }
+
+            // Release balance in previous bid
+            if let Some(last_bid) = schema.auction_bids(auction_state.id()).last() {
+                if last_bid.value() >= self.value() {
+                    Err(ErrorKind::Todo)?;
+                }
+
+                let prev_bid_user = schema.users().get(last_bid.public_key()).unwrap();
+                schema.release_user_balance(prev_bid_user, last_bid.value());
             }
 
             // Reserve value in user wallet
@@ -543,7 +549,6 @@ pub mod transactions {
                 AuctionState::new(
                     auction_state.id(),
                     auction,
-                    self.value(),
                     auction_state.started_at(),
                     &bids_merkle_root,
                     auction_state.closed(),
@@ -578,20 +583,10 @@ pub mod transactions {
                 auction_state.started_at() + Duration::seconds(auction.duration() as i64);
             assert!(ts >= auction_end_at);
 
-            // Release balances and find winner.
-            let winner_bid = {
-                (0..schema.auction_bids(self.auction_id()).len()).fold(None, |_, index| {
-                    let bid = schema.auction_bids(self.auction_id()).get(index).unwrap();
-                    let user = schema.users().get(bid.public_key()).unwrap();
-                    schema.release_user_balance(user, bid.value());
-                    Some(bid)
-                })
-            };
-
-            if let Some(winner_bid) = winner_bid {
+            if let Some(winner_bid) = schema.auction_bids(auction_state.id()).last() {
                 // Decrease winner balance
                 let user = schema.users().get(winner_bid.public_key()).unwrap();
-                schema.decrease_user_balance(user, winner_bid.value());
+                schema.confirm_user_bid(user, winner_bid.value());
                 // Increase seller balance
                 let user = schema.users().get(auction.public_key()).unwrap();
                 schema.increase_user_balance(user, winner_bid.value(), None);
@@ -611,7 +606,6 @@ pub mod transactions {
                 AuctionState::new(
                     auction_state.id(),
                     auction_state.auction(),
-                    auction_state.current_price(),
                     auction_state.started_at(),
                     auction_state.bidding_merkle_root(),
                     true,
@@ -733,7 +727,7 @@ pub mod transactions {
             );
         }
 
-        /// Helper method to decrease user balance
+        /// Helper method to decrease user reserved balance
         pub fn reserve_user_balance(&mut self, user: User, reserve: u64) {
             self.users_mut().put(
                 user.public_key(),
@@ -747,7 +741,7 @@ pub mod transactions {
             );
         }
 
-        /// Helper method to decrease user balance
+        /// Helper method to decrease user reserved balance
         pub fn release_user_balance(&mut self, user: User, reserve: u64) {
             self.users_mut().put(
                 user.public_key(),
@@ -756,6 +750,20 @@ pub mod transactions {
                     user.name(),
                     user.balance() + reserve,
                     user.reserved() - reserve,
+                    user.last_fillup(),
+                ),
+            );
+        }
+
+        /// Helper method to decrease user bid with value
+        pub fn confirm_user_bid(&mut self, user: User, bid_value: u64) {
+            self.users_mut().put(
+                user.public_key(),
+                User::new(
+                    user.public_key(),
+                    user.name(),
+                    user.balance(),
+                    user.reserved() - bid_value,
                     user.last_fillup(),
                 ),
             );
@@ -882,16 +890,16 @@ mod api {
             };
 
             let self_ = self.clone();
-            let transaction = move |req: &mut Request| match req.get::<bodyparser::Struct<Transactions>>(
-            ) {
-                Ok(Some(transaction)) => {
-                    let tx_hash = self_.post_transaction(transaction).map_err(ApiError::from)?;
-                    let json = json!({ "tx_hash": tx_hash });
-                    self_.ok_response(&json)
-                }
-                Ok(None) => Err(ApiError::BadRequest("Empty request body".into()))?,
-                Err(e) => Err(ApiError::BadRequest(e.to_string()))?,
-            };
+            let transaction =
+                move |req: &mut Request| match req.get::<bodyparser::Struct<Transactions>>() {
+                    Ok(Some(transaction)) => {
+                        let tx_hash = self_.post_transaction(transaction).map_err(ApiError::from)?;
+                        let json = json!({ "tx_hash": tx_hash });
+                        self_.ok_response(&json)
+                    }
+                    Ok(None) => Err(ApiError::BadRequest("Empty request body".into()))?,
+                    Err(e) => Err(ApiError::BadRequest(e.to_string()))?,
+                };
 
             // View-only handlers
             router.get("/v1/users", get_users, "get_users");
