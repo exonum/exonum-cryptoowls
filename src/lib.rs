@@ -22,6 +22,8 @@ extern crate enum_primitive_derive;
 #[macro_use]
 extern crate exonum;
 #[macro_use]
+extern crate log;
+#[macro_use]
 extern crate serde_json;
 
 extern crate bodyparser;
@@ -324,10 +326,7 @@ pub mod transactions {
         }
 
         fn execute(&self, fork: &mut Fork) -> ExecutionResult {
-            let ts = {
-                let time_schema = TimeSchema::new(&fork);
-                time_schema.time().get().unwrap()
-            };
+            let ts = current_time(fork).unwrap();
 
             let state_hash = {
                 let info_schema = Schema::new(&fork);
@@ -361,10 +360,7 @@ pub mod transactions {
         }
 
         fn execute(&self, fork: &mut Fork) -> ExecutionResult {
-            let ts = {
-                let time_schema = TimeSchema::new(&fork);
-                time_schema.time().get().unwrap()
-            };
+            let ts = current_time(fork).unwrap();
 
             let state_hash = {
                 let info_schema = Schema::new(&fork);
@@ -425,10 +421,7 @@ pub mod transactions {
         }
 
         fn execute(&self, fork: &mut Fork) -> ExecutionResult {
-            let ts = {
-                let time_schema = TimeSchema::new(&fork);
-                time_schema.time().get().unwrap()
-            };
+            let ts = current_time(fork).unwrap();
 
             let mut schema = schema::CryptoOwlsSchema::new(fork);
             let key = self.public_key();
@@ -450,10 +443,7 @@ pub mod transactions {
         }
 
         fn execute(&self, fork: &mut Fork) -> ExecutionResult {
-            let ts = {
-                let time_schema = TimeSchema::new(&fork);
-                time_schema.time().get().unwrap()
-            };
+            let ts = current_time(fork).unwrap();
 
             // Fetch data and check preconditions.
             let mut schema = schema::CryptoOwlsSchema::new(fork);
@@ -561,10 +551,7 @@ pub mod transactions {
         }
 
         fn execute(&self, fork: &mut Fork) -> ExecutionResult {
-            let ts = {
-                let time_schema = TimeSchema::new(&fork);
-                time_schema.time().get().unwrap()
-            };
+            let ts = current_time(fork).unwrap();
 
             let mut schema = schema::CryptoOwlsSchema::new(fork);
             // Check preconditions and fetch data
@@ -575,8 +562,7 @@ pub mod transactions {
             let auction = auction_state.auction();
 
             assert!(!auction_state.closed());
-            let auction_end_at =
-                auction_state.started_at() + Duration::seconds(auction.duration() as i64);
+            let auction_end_at = auction_state.end_at();
             assert!(ts >= auction_end_at);
 
             if let Some(winner_bid) = schema.auction_bids(auction_state.id()).last() {
@@ -766,6 +752,18 @@ pub mod transactions {
         }
     }
 
+    impl AuctionState {
+        pub fn end_at(&self) -> DateTime<Utc> {
+            self.started_at() + Duration::seconds(self.auction().duration() as i64)
+        }
+    }
+
+    // A helper function to get current time from the time oracle
+    pub fn current_time(snapshot: &Snapshot) -> Option<DateTime<Utc>> {
+        let time_schema = TimeSchema::new(snapshot);
+        time_schema.time().get()
+    }
+
     #[derive(Display, Primitive)]
     pub enum ErrorKind {
         #[display(fmt = "Too early for breeding.")]
@@ -795,7 +793,6 @@ pub mod transactions {
             ExecutionError::with_description(e.as_code(), err_txt)
         }
     }
-
 }
 
 /// Module with API implementation
@@ -886,16 +883,16 @@ mod api {
             };
 
             let self_ = self.clone();
-            let transaction = move |req: &mut Request| match req.get::<bodyparser::Struct<Transactions>>(
-            ) {
-                Ok(Some(transaction)) => {
-                    let tx_hash = self_.post_transaction(transaction).map_err(ApiError::from)?;
-                    let json = json!({ "tx_hash": tx_hash });
-                    self_.ok_response(&json)
-                }
-                Ok(None) => Err(ApiError::BadRequest("Empty request body".into()))?,
-                Err(e) => Err(ApiError::BadRequest(e.to_string()))?,
-            };
+            let transaction =
+                move |req: &mut Request| match req.get::<bodyparser::Struct<Transactions>>() {
+                    Ok(Some(transaction)) => {
+                        let tx_hash = self_.post_transaction(transaction).map_err(ApiError::from)?;
+                        let json = json!({ "tx_hash": tx_hash });
+                        self_.ok_response(&json)
+                    }
+                    Ok(None) => Err(ApiError::BadRequest("Empty request body".into()))?,
+                    Err(e) => Err(ApiError::BadRequest(e.to_string()))?,
+                };
 
             // View-only handlers
             router.get("/v1/users", get_users, "get_users");
@@ -1010,16 +1007,16 @@ pub mod service {
     use router::Router;
 
     use exonum::api::Api;
-    use exonum::crypto::Hash;
+    use exonum::crypto::{Hash, Signature};
     use exonum::encoding;
     use exonum::storage::Snapshot;
-    use exonum::blockchain::{ApiContext, Service, Transaction, TransactionSet};
+    use exonum::blockchain::{ApiContext, Service, ServiceContext, Transaction, TransactionSet};
     use exonum::helpers::fabric::{Context, ServiceFactory};
     use exonum::messages::RawTransaction;
 
     use api::CryptoOwlsApi;
     use schema::CryptoOwlsSchema;
-    use transactions::Transactions;
+    use transactions::{self, CloseAuction, Transactions};
 
     use CRYPTOOWLS_SERVICE_ID;
 
@@ -1054,6 +1051,35 @@ pub mod service {
         fn state_hash(&self, snapshot: &Snapshot) -> Vec<Hash> {
             let schema = CryptoOwlsSchema::new(snapshot);
             schema.state_hash()
+        }
+
+        // Check open auctions state after each block's commit
+        fn handle_commit(&self, ctx: &ServiceContext) {
+            let current_time = if let Some(time) = transactions::current_time(ctx.snapshot()) {
+                time
+            } else {
+                return;
+            };
+
+            let schema = CryptoOwlsSchema::new(ctx.snapshot());
+            let open_auctions = schema.owl_auction();
+            // Check open auctions
+            open_auctions.into_iter().for_each(|(_, auction_id)| {
+                let auction_state = schema.auctions().get(auction_id).unwrap();
+                if auction_state.end_at() > current_time {
+                    let tx = CloseAuction::new_with_signature(
+                        auction_id,
+                        current_time,
+                        &Signature::zero(),
+                    );
+                    if let Err(e) = ctx.transaction_sender().send(tx.into()) {
+                        error!(
+                            "Unable to send `CloseAuction` transaction, an error occurred. {}",
+                            e
+                        );
+                    }
+                }
+            });
         }
 
         // Handling requests to a node
