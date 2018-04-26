@@ -461,6 +461,7 @@ pub mod transactions {
                 time_schema.time().get().unwrap()
             };
 
+            // Fetch data and check preconditions.
             let mut schema = schema::CryptoOwlsSchema::new(fork);
             let auction = self.auction();
             let user = schema
@@ -468,30 +469,28 @@ pub mod transactions {
                 .get(auction.public_key())
                 .ok_or_else(|| ErrorKind::Todo)?;
 
-            // Execute code if the owl is found
-            if let Some(owl) = schema.owls_state().get(auction.owl_id()) {
-                // Check if creator is owl owner.
-                if owl.owner() == user.public_key() {
-                    if schema.owl_auction().get(auction.owl_id()).is_some() {
-                        Err(ErrorKind::Todo)?;
-                    }
-                    // Establish a new auction.
-                    let auction_id = schema.auctions().len();
-                    let owl_id = *auction.owl_id();
-                    let start_price = auction.start_price();
-                    let state = AuctionState::new(
-                        auction_id,
-                        auction,
-                        start_price,
-                        ts,
-                        &Hash::zero(),
-                        false,
-                    );
+            let owl = schema
+                .owls_state()
+                .get(auction.owl_id())
+                .ok_or_else(|| ErrorKind::Todo)?;
 
-                    schema.auctions_mut().push(state);
-                    schema.owl_auction_mut().put(&owl_id, auction_id);
-                }
+            if owl.owner() != user.public_key() {
+                Err(ErrorKind::Todo)?;
             }
+
+            if schema.owl_auction().get(auction.owl_id()).is_some() {
+                Err(ErrorKind::Todo)?;
+            }
+
+            // Establish a new auction.
+            let auction_id = schema.auctions().len();
+            let owl_id = *auction.owl_id();
+            let start_price = auction.start_price();
+            let state =
+                AuctionState::new(auction_id, auction, start_price, ts, &Hash::zero(), false);
+
+            schema.auctions_mut().push(state);
+            schema.owl_auction_mut().put(&owl_id, auction_id);
 
             Ok(())
         }
