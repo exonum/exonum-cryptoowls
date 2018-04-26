@@ -338,21 +338,19 @@ pub mod transactions {
             let mut schema = schema::CryptoOwlsSchema::new(fork);
 
             // Ignore if the user with the same public identifier is already exists
-            if schema.users().get(key).is_none() {
-                let user = User::new(key, self.name(), ISSUE_AMOUNT, 0, ts);
-                schema.users_mut().put(key, user);
-
-                // New user get 2 random owls
-                let starter_pack = vec![
-                    schema.make_uniq_owl((1, 0), &format!("{}'s Adam", self.name()), &state_hash),
-                    schema.make_uniq_owl(
-                        (1, 100_042),
-                        &format!("{}'s Eve", self.name()),
-                        &key.hash(),
-                    ),
-                ];
-                schema.refresh_owls(key, starter_pack, ts);
+            if schema.users().get(key).is_some() {
+                Err(ErrorKind::Todo)?;
             }
+
+            let user = User::new(key, self.name(), ISSUE_AMOUNT, 0, ts);
+            schema.users_mut().put(key, user);
+
+            // New user get 2 random owls
+            let starter_pack = vec![
+                schema.make_uniq_owl((1, 0), &format!("{}'s Adam", self.name()), &state_hash),
+                schema.make_uniq_owl((1, 100_042), &format!("{}'s Eve", self.name()), &key.hash()),
+            ];
+            schema.refresh_owls(key, starter_pack, ts);
             Ok(())
         }
     }
@@ -377,47 +375,45 @@ pub mod transactions {
 
             // Find mother and father
             // If someone is missed will get None response
+            // Ignore transaction if mother of father is not found
             let parents = [self.mother_id(), self.father_id()]
                 .iter()
                 .map(|i| schema.owls_state().get(i))
-                .collect::<Option<Vec<CryptoOwlState>>>();
+                .collect::<Option<Vec<CryptoOwlState>>>()
+                .ok_or_else(|| ErrorKind::Todo)?;
 
             let user = schema.users().get(self.public_key()).unwrap();
 
-            // Ignore transaction if mother of father is not found
-            if let Some(parents) = parents {
-                // Check if user is owl owner
-                if parents.iter().any(|p| p.owner() != user.public_key()) {
-                    return Err(ErrorKind::AccessViolation.into());
-                }
-
-                let (mother, father) = (parents[0].owl(), parents[1].owl());
-                // Can not use the same owl as mother and father at the same time
-                if mother == father {
-                    return Err(ErrorKind::SelfBreeding.into());
-                }
-
-                // User has enough funds for breeding
-                if user.balance() < BREEDING_PRICE {
-                    return Err(ErrorKind::InsufficientFunds.into());
-                }
-
-                // Check last breeding time for each owl
-                if parents
-                    .iter()
-                    .any(|p| (ts - p.last_breeding()).num_seconds() < BREEDING_TIMEOUT)
-                {
-                    return Err(ErrorKind::EarlyBreeding.into());
-                }
-
-                // All conditions are fulfilled, start breeding
-                let son =
-                    schema.make_uniq_owl((father.dna(), mother.dna()), self.name(), &state_hash);
-                let owls_to_update = vec![son, mother, father];
-                schema.refresh_owls(user.public_key(), owls_to_update, ts);
-
-                schema.decrease_user_balance(user, BREEDING_PRICE);
+            // Check if user is owl owner
+            if parents.iter().any(|p| p.owner() != user.public_key()) {
+                return Err(ErrorKind::AccessViolation.into());
             }
+
+            let (mother, father) = (parents[0].owl(), parents[1].owl());
+            // Can not use the same owl as mother and father at the same time
+            if mother == father {
+                return Err(ErrorKind::SelfBreeding.into());
+            }
+
+            // User has enough funds for breeding
+            if user.balance() < BREEDING_PRICE {
+                return Err(ErrorKind::InsufficientFunds.into());
+            }
+
+            // Check last breeding time for each owl
+            if parents
+                .iter()
+                .any(|p| (ts - p.last_breeding()).num_seconds() < BREEDING_TIMEOUT)
+            {
+                return Err(ErrorKind::EarlyBreeding.into());
+            }
+
+            // All conditions are fulfilled, start breeding
+            let son = schema.make_uniq_owl((father.dna(), mother.dna()), self.name(), &state_hash);
+            let owls_to_update = vec![son, mother, father];
+            schema.refresh_owls(user.public_key(), owls_to_update, ts);
+
+            schema.decrease_user_balance(user, BREEDING_PRICE);
 
             Ok(())
         }
@@ -890,16 +886,16 @@ mod api {
             };
 
             let self_ = self.clone();
-            let transaction =
-                move |req: &mut Request| match req.get::<bodyparser::Struct<Transactions>>() {
-                    Ok(Some(transaction)) => {
-                        let tx_hash = self_.post_transaction(transaction).map_err(ApiError::from)?;
-                        let json = json!({ "tx_hash": tx_hash });
-                        self_.ok_response(&json)
-                    }
-                    Ok(None) => Err(ApiError::BadRequest("Empty request body".into()))?,
-                    Err(e) => Err(ApiError::BadRequest(e.to_string()))?,
-                };
+            let transaction = move |req: &mut Request| match req.get::<bodyparser::Struct<Transactions>>(
+            ) {
+                Ok(Some(transaction)) => {
+                    let tx_hash = self_.post_transaction(transaction).map_err(ApiError::from)?;
+                    let json = json!({ "tx_hash": tx_hash });
+                    self_.ok_response(&json)
+                }
+                Ok(None) => Err(ApiError::BadRequest("Empty request body".into()))?,
+                Err(e) => Err(ApiError::BadRequest(e.to_string()))?,
+            };
 
             // View-only handlers
             router.get("/v1/users", get_users, "get_users");
