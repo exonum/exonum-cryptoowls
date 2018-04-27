@@ -409,7 +409,7 @@ pub mod transactions {
             let owls_to_update = vec![son, mother, father];
             schema.refresh_owls(user.public_key(), owls_to_update, ts);
 
-            schema.decrease_user_balance(user, BREEDING_PRICE);
+            schema.decrease_user_balance(&user, BREEDING_PRICE);
 
             Ok(())
         }
@@ -428,7 +428,7 @@ pub mod transactions {
             let user = schema.users().get(key).unwrap();
 
             if (ts - user.last_fillup()).num_seconds() >= ISSUE_TIMEOUT {
-                schema.increase_user_balance(user, ISSUE_AMOUNT, Some(ts));
+                schema.increase_user_balance(&user, ISSUE_AMOUNT, Some(ts));
                 Ok(())
             } else {
                 // Issue timeout is not expired
@@ -519,11 +519,11 @@ pub mod transactions {
                 }
 
                 let prev_bid_user = schema.users().get(last_bid.public_key()).unwrap();
-                schema.release_user_balance(prev_bid_user, last_bid.value());
+                schema.release_user_balance(&prev_bid_user, last_bid.value());
             }
 
             // Reserve value in user wallet
-            schema.reserve_user_balance(user, self.value());
+            schema.reserve_user_balance(&user, self.value());
 
             // Make bid
             let bid = Bid::new(self.public_key(), self.value());
@@ -568,10 +568,10 @@ pub mod transactions {
             if let Some(winner_bid) = schema.auction_bids(auction_state.id()).last() {
                 // Decrease winner balance
                 let user = schema.users().get(winner_bid.public_key()).unwrap();
-                schema.confirm_user_bid(user, winner_bid.value());
+                schema.confirm_user_bid(&user, winner_bid.value());
                 // Increase seller balance
                 let user = schema.users().get(auction.public_key()).unwrap();
-                schema.increase_user_balance(user, winner_bid.value(), None);
+                schema.increase_user_balance(&user, winner_bid.value(), None);
                 // Change owl owner
                 let owl_state = schema.owls_state().get(auction.owl_id()).unwrap();
                 schema.refresh_owls(
@@ -678,7 +678,7 @@ pub mod transactions {
         /// Helper method to increase user balance
         pub fn increase_user_balance(
             &mut self,
-            user: User,
+            user: &User,
             balance: u64,
             last_fillup: Option<DateTime<Utc>>,
         ) {
@@ -696,7 +696,7 @@ pub mod transactions {
         }
 
         /// Helper method to decrease user balance
-        pub fn decrease_user_balance(&mut self, user: User, balance: u64) {
+        pub fn decrease_user_balance(&mut self, user: &User, balance: u64) {
             self.users_mut().put(
                 user.public_key(),
                 User::new(
@@ -710,7 +710,7 @@ pub mod transactions {
         }
 
         /// Helper method to decrease user reserved balance
-        pub fn reserve_user_balance(&mut self, user: User, reserve: u64) {
+        pub fn reserve_user_balance(&mut self, user: &User, reserve: u64) {
             self.users_mut().put(
                 user.public_key(),
                 User::new(
@@ -724,7 +724,7 @@ pub mod transactions {
         }
 
         /// Helper method to decrease user reserved balance
-        pub fn release_user_balance(&mut self, user: User, reserve: u64) {
+        pub fn release_user_balance(&mut self, user: &User, reserve: u64) {
             self.users_mut().put(
                 user.public_key(),
                 User::new(
@@ -738,7 +738,7 @@ pub mod transactions {
         }
 
         /// Helper method to decrease user bid with value
-        pub fn confirm_user_bid(&mut self, user: User, bid_value: u64) {
+        pub fn confirm_user_bid(&mut self, user: &User, bid_value: u64) {
             self.users_mut().put(
                 user.public_key(),
                 User::new(
