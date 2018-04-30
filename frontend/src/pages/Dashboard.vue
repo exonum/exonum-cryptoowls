@@ -38,30 +38,30 @@
           <h2 class="mt-5">My owls</h2>
           <owl-list v-bind:owls="owls"/>
 
-          <h2 class="mt-5">My orders</h2>
+          <h2 class="mt-5">My auctions</h2>
           <ul class="list-group mt-3">
             <li class="list-group-item font-weight-bold">
               <div class="row">
+                <div class="col-sm-3">Auction</div>
                 <div class="col-sm-3">Owl</div>
-                <div class="col-sm-3">User</div>
-                <div class="col-sm-3">Status</div>
-                <div class="col-sm-3">Price</div>
+                <div class="col-sm-3">Start price</div>
+                <div class="col-sm-3">Duration</div>
               </div>
             </li>
-            <li v-for="order in orders" class="list-group-item">
+            <li v-for="auction in auctions" class="list-group-item">
               <div class="row">
                 <div class="col-sm-3">
                   <code>
-                    <router-link :to="{ name: 'owl', params: { hash: order.owl_id } }" class="break-word">{{ order.owl_id }}</router-link>
+                    <router-link :to="{ name: 'auction', params: { hash: auction.id } }" class="break-word">{{ auction.id }}</router-link>
                   </code>
                 </div>
                 <div class="col-sm-3">
                   <code>
-                    <router-link :to="{ name: 'user', params: { publicKey: order.public_key } }" class="break-word">{{ order.public_key }}</router-link>
+                    <router-link :to="{ name: 'owl', params: { hash: auction.owl_id } }" class="break-word">{{ auction.owl_id }}</router-link>
                   </code>
                 </div>
-                <div class="col-sm-3">{{ order.status }}</div>
-                <div class="col-sm-3">{{ order.price }}</div>
+                <div class="col-sm-3">{{ auction.start_price }}</div>
+                <div class="col-sm-3">{{ auction.duration }}</div>
               </div>
             </li>
           </ul>
@@ -89,7 +89,7 @@
       return {
         user: {},
         owls: [],
-        orders: [],
+        auctions: [],
         isSpinnerVisible: false
       }
     },
@@ -124,18 +124,18 @@
         try {
           this.owls = await this.$blockchain.getUserOwls(this.keyPair.publicKey)
           this.isSpinnerVisible = false
-          this.loadOrders()
+          this.loadAuctions()
         } catch (error) {
           this.isSpinnerVisible = false
           this.$notify('error', error.toString())
         }
       },
 
-      async loadOrders() {
+      async loadAuctions() {
         this.isSpinnerVisible = true
 
         try {
-          this.orders = await this.$blockchain.getUserOrders(this.keyPair.publicKey)
+          this.auctions = await this.$blockchain.getUserAuctions(this.keyPair.publicKey)
           this.isSpinnerVisible = false
         } catch (error) {
           this.isSpinnerVisible = false
@@ -162,21 +162,6 @@
 
         try {
           await this.$blockchain.makeOwl(this.keyPair, this.name, this.mother, this.father)
-          this.isSpinnerVisible = false
-          this.$notify('success', 'Transaction accepted')
-          this.loadUser()
-        } catch (error) {
-          this.isSpinnerVisible = false
-          this.$notify('error', error.toString())
-        }
-      },
-
-      async acceptOrder(order) {
-        this.isSpinnerVisible = true
-
-        try {
-          const orderHash = this.$blockchain.getOrderHash(order)
-          await this.$blockchain.acceptOrder(this.keyPair, orderHash)
           this.isSpinnerVisible = false
           this.$notify('success', 'Transaction accepted')
           this.loadUser()
