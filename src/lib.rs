@@ -336,9 +336,9 @@ pub mod transactions {
             let key = self.public_key();
             let mut schema = schema::CryptoOwlsSchema::new(fork);
 
-            // Ignore if the user with the same public identifier is already exists
+            // Reject tx if the user with the same public identifier is already exists
             if schema.users().get(key).is_some() {
-                Err(ErrorKind::Todo)?;
+                Err(ErrorKind::UserAlreadyRegistered)?;
             }
 
             let user = User::new(key, self.name(), ISSUE_AMOUNT, 0, ts);
@@ -369,39 +369,39 @@ pub mod transactions {
 
             let mut schema = schema::CryptoOwlsSchema::new(fork);
 
-            // Find mother and father
-            // If someone is missed will get None response
-            // Ignore transaction if mother of father is not found
+            // Find mother and father.
+            // If someone is missed will get None response.
+            // Reject transaction if mother or father is not found.
             let parents = [self.mother_id(), self.father_id()]
                 .iter()
                 .map(|i| schema.owls_state().get(i))
                 .collect::<Option<Vec<CryptoOwlState>>>()
-                .ok_or_else(|| ErrorKind::Todo)?;
+                .ok_or_else(|| ErrorKind::OwlNotFound)?;
 
             let user = schema.users().get(self.public_key()).unwrap();
 
             // Check if user is owl owner
             if parents.iter().any(|p| p.owner() != user.public_key()) {
-                return Err(ErrorKind::AccessViolation.into());
+                Err(ErrorKind::AccessViolation)?;
             }
 
             let (mother, father) = (parents[0].owl(), parents[1].owl());
-            // Can not use the same owl as mother and father at the same time
+            // Can not use the same owl as mother and father at the same time.
             if mother == father {
-                return Err(ErrorKind::SelfBreeding.into());
+                Err(ErrorKind::SelfBreeding)?;
             }
 
-            // User has enough funds for breeding
+            // User has enough funds for breeding.
             if user.balance() < BREEDING_PRICE {
-                return Err(ErrorKind::InsufficientFunds.into());
+                Err(ErrorKind::InsufficientFunds)?;
             }
 
-            // Check last breeding time for each owl
+            // Check last breeding time for each owl.
             if parents
                 .iter()
                 .any(|p| (ts - p.last_breeding()).num_seconds() < BREEDING_TIMEOUT)
             {
-                return Err(ErrorKind::EarlyBreeding.into());
+                Err(ErrorKind::EarlyBreeding)?;
             }
 
             // All conditions are fulfilled, start breeding
@@ -427,13 +427,13 @@ pub mod transactions {
             let key = self.public_key();
             let user = schema.users().get(key).unwrap();
 
-            if (ts - user.last_fillup()).num_seconds() >= ISSUE_TIMEOUT {
-                schema.increase_user_balance(&user, ISSUE_AMOUNT, Some(ts));
-                Ok(())
-            } else {
+            if (ts - user.last_fillup()).num_seconds() < ISSUE_TIMEOUT {
                 // Issue timeout is not expired
-                Err(ErrorKind::EarlyIssue.into())
+                Err(ErrorKind::EarlyIssue)?
             }
+            
+            schema.increase_user_balance(&user, ISSUE_AMOUNT, Some(ts));
+            Ok(())
         }
     }
 
@@ -445,25 +445,29 @@ pub mod transactions {
         fn execute(&self, fork: &mut Fork) -> ExecutionResult {
             let ts = current_time(fork).unwrap();
 
-            // Fetch data and check preconditions.
             let mut schema = schema::CryptoOwlsSchema::new(fork);
             let auction = self.auction();
+            
+            // Reject if such user is not registered.
             let user = schema
                 .users()
                 .get(auction.public_key())
-                .ok_or_else(|| ErrorKind::Todo)?;
+                .ok_or_else(|| ErrorKind::UserIsNotRegistered)?;
 
+            // Reject if such owl does not exist.
             let owl = schema
                 .owls_state()
                 .get(auction.owl_id())
-                .ok_or_else(|| ErrorKind::Todo)?;
+                .ok_or_else(|| ErrorKind::OwlNotFound)?;
 
+            // Reject if the user does not own the owl.
             if owl.owner() != user.public_key() {
-                Err(ErrorKind::Todo)?;
+                Err(ErrorKind::OwlNotOwned)?;
             }
 
+            // Reject if owl is already auctioned.
             if schema.owl_auction().get(auction.owl_id()).is_some() {
-                Err(ErrorKind::Todo)?;
+                Err(ErrorKind::OwlAlreadyAuctioned)?;
             }
 
             // Establish a new auction.
@@ -485,50 +489,61 @@ pub mod transactions {
 
         fn execute(&self, fork: &mut Fork) -> ExecutionResult {
             let mut schema = schema::CryptoOwlsSchema::new(fork);
-            // Check preconditions and fetch data
+            
+            // Check if such user is registered.
             let user = schema
                 .users()
                 .get(self.public_key())
-                .ok_or_else(|| ErrorKind::Todo)?;
+                .ok_or_else(|| ErrorKind::UserIsNotRegistered)?;
+            
+            // Check such auction exists.    
             let auction_state = schema
                 .auctions()
                 .get(self.auction_id())
-                .ok_or_else(|| ErrorKind::Todo)?;
+                .ok_or_else(|| ErrorKind::AuctionNotFound)?;
+                
             let auction = auction_state.auction();
 
+            // Check if the auction is open.
             if auction_state.closed() {
-                Err(ErrorKind::Todo)?;
+                Err(ErrorKind::AuctionClosed)?;
             }
 
-            if auction.start_price() >= self.value() {
-                Err(ErrorKind::Todo)?;
-            }
-
+            // Verify the user has enough funds.
             if user.balance() < self.value() {
-                Err(ErrorKind::Todo)?;
+                Err(ErrorKind::InsufficientFunds)?;
             }
 
+            // Bidding in own auction is prohibited.
             if user.public_key() == auction.public_key() {
-                Err(ErrorKind::Todo)?;
+                Err(ErrorKind::NoSelfBidding)?;
+            }
+            
+            // Get the bid to beat and the bidder if any.
+            let min_bid = match schema.auction_bids(auction_state.id()).last() {
+                Some(bid) => bid.value(),
+                None => auction.start_price(),
+            };
+            
+            // Verify the bid is higher than the min bid.
+            if min_bid >= self.value() {
+                 Err(ErrorKind::BidTooLow)?;
             }
 
-            // Release balance in previous bid
-            if let Some(last_bid) = schema.auction_bids(auction_state.id()).last() {
-                if last_bid.value() >= self.value() {
-                    Err(ErrorKind::Todo)?;
-                }
-
-                let prev_bid_user = schema.users().get(last_bid.public_key()).unwrap();
-                schema.release_user_balance(&prev_bid_user, last_bid.value());
+            // Release balance of the previous bidder if any.
+            if let Some(b) = schema.auction_bids(auction_state.id()).last() {
+                let prev_bid_user = schema.users().get(b.public_key()).unwrap();
+                schema.release_user_balance(&prev_bid_user, min_bid);
             }
 
-            // Reserve value in user wallet
+            // Reserve value in user wallet.
             schema.reserve_user_balance(&user, self.value());
 
-            // Make bid
+            // Make a bid.
             let bid = Bid::new(self.public_key(), self.value());
             schema.auction_bids_mut(self.auction_id()).push(bid);
-            // Refresh auction state
+            
+            // Refresh the auction state.
             let bids_merkle_root = schema.auction_bids(self.auction_id()).merkle_root();
             schema.auctions_mut().set(
                 auction_state.id(),
@@ -554,11 +569,13 @@ pub mod transactions {
             let ts = current_time(fork).unwrap();
 
             let mut schema = schema::CryptoOwlsSchema::new(fork);
-            // Check preconditions and fetch data
+            
+            // Check auction exists.
             let auction_state = schema
                 .auctions()
                 .get(self.auction_id())
-                .ok_or_else(|| ErrorKind::Todo)?;
+                .ok_or_else(|| ErrorKind::AuctionNotFound)?;
+                
             let auction = auction_state.auction();
 
             assert!(!auction_state.closed());
@@ -566,13 +583,15 @@ pub mod transactions {
             assert!(ts >= auction_end_at);
 
             if let Some(winner_bid) = schema.auction_bids(auction_state.id()).last() {
-                // Decrease winner balance
+                // Decrease winner balance.
                 let user = schema.users().get(winner_bid.public_key()).unwrap();
                 schema.confirm_user_bid(&user, winner_bid.value());
-                // Increase seller balance
+                
+                // Increase seller balance.
                 let user = schema.users().get(auction.public_key()).unwrap();
                 schema.increase_user_balance(&user, winner_bid.value(), None);
-                // Change owl owner
+                
+                // Change owl owner.
                 let owl_state = schema.owls_state().get(auction.owl_id()).unwrap();
                 schema.refresh_owls(
                     winner_bid.public_key(),
@@ -580,6 +599,7 @@ pub mod transactions {
                     owl_state.last_breeding(),
                 );
             };
+            
             schema.owl_auction_mut().remove(auction.owl_id());
 
             // Close auction
@@ -768,16 +788,49 @@ pub mod transactions {
     pub enum ErrorKind {
         #[display(fmt = "Too early for breeding.")]
         EarlyBreeding = 1,
+        //
         #[display(fmt = "Too early for balance refill.")]
         EarlyIssue = 2,
+        //
         #[display(fmt = "Insufficient funds.")]
         InsufficientFunds = 3,
+        //
         #[display(fmt = "Not your property.")]
         AccessViolation = 4,
-        #[display(fmt = "Perversion.")]
+        //
+        #[display(fmt = "You need two different owls.")]
         SelfBreeding = 5,
-        #[display(fmt = "Todo.")]
-        Todo = 6,
+        //
+        #[display(fmt = "User is already registered")]
+        UserAlreadyRegistered = 6,
+        //
+        #[display(fmt = "Participant is not registered")]
+        UserIsNotRegistered = 7,
+        //
+        #[display(fmt = "Owl does not exist")]
+        OwlNotFound = 8,
+        //
+        #[display(fmt = "You do not own of the item")]
+        OwlNotOwned = 9,
+        //
+        #[display(fmt = "Owl is already auctioned")]
+        OwlAlreadyAuctioned = 10,
+        //
+        #[display(fmt = "Auction does not exist")]
+        AuctionNotFound = 11,
+        //
+        #[display(fmt = "Auction is closed")]
+        AuctionClosed = 12,
+        //
+        #[display(fmt = "Bid is below the current highest bid")]
+        BidTooLow = 13,
+        
+        // TxCloseAuction may only be performed by the validator nodes.
+        #[display(fmt = "Transaction is not authorized.")]
+        UnauthorizedTransaction = 14,
+        //
+        #[display(fmt = "You may not bid on your own item.")]
+        NoSelfBidding = 15,
     }
 
     impl ErrorKind {
