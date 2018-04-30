@@ -431,7 +431,7 @@ pub mod transactions {
                 // Issue timeout is not expired
                 Err(ErrorKind::EarlyIssue)?
             }
-            
+
             schema.increase_user_balance(&user, ISSUE_AMOUNT, Some(ts));
             Ok(())
         }
@@ -447,7 +447,7 @@ pub mod transactions {
 
             let mut schema = schema::CryptoOwlsSchema::new(fork);
             let auction = self.auction();
-            
+
             // Reject if such user is not registered.
             let user = schema
                 .users()
@@ -489,19 +489,19 @@ pub mod transactions {
 
         fn execute(&self, fork: &mut Fork) -> ExecutionResult {
             let mut schema = schema::CryptoOwlsSchema::new(fork);
-            
+
             // Check if such user is registered.
             let user = schema
                 .users()
                 .get(self.public_key())
                 .ok_or_else(|| ErrorKind::UserIsNotRegistered)?;
-            
-            // Check such auction exists.    
+
+            // Check such auction exists.
             let auction_state = schema
                 .auctions()
                 .get(self.auction_id())
                 .ok_or_else(|| ErrorKind::AuctionNotFound)?;
-                
+
             let auction = auction_state.auction();
 
             // Check if the auction is open.
@@ -518,16 +518,16 @@ pub mod transactions {
             if user.public_key() == auction.public_key() {
                 Err(ErrorKind::NoSelfBidding)?;
             }
-            
+
             // Get the bid to beat and the bidder if any.
             let min_bid = match schema.auction_bids(auction_state.id()).last() {
                 Some(bid) => bid.value(),
                 None => auction.start_price(),
             };
-            
+
             // Verify the bid is higher than the min bid.
             if min_bid >= self.value() {
-                 Err(ErrorKind::BidTooLow)?;
+                Err(ErrorKind::BidTooLow)?;
             }
 
             // Release balance of the previous bidder if any.
@@ -542,7 +542,7 @@ pub mod transactions {
             // Make a bid.
             let bid = Bid::new(self.public_key(), self.value());
             schema.auction_bids_mut(self.auction_id()).push(bid);
-            
+
             // Refresh the auction state.
             let bids_merkle_root = schema.auction_bids(self.auction_id()).merkle_root();
             schema.auctions_mut().set(
@@ -569,13 +569,13 @@ pub mod transactions {
             let ts = current_time(fork).unwrap();
 
             let mut schema = schema::CryptoOwlsSchema::new(fork);
-            
+
             // Check auction exists.
             let auction_state = schema
                 .auctions()
                 .get(self.auction_id())
                 .ok_or_else(|| ErrorKind::AuctionNotFound)?;
-                
+
             let auction = auction_state.auction();
 
             assert!(!auction_state.closed());
@@ -586,11 +586,11 @@ pub mod transactions {
                 // Decrease winner balance.
                 let user = schema.users().get(winner_bid.public_key()).unwrap();
                 schema.confirm_user_bid(&user, winner_bid.value());
-                
+
                 // Increase seller balance.
                 let user = schema.users().get(auction.public_key()).unwrap();
                 schema.increase_user_balance(&user, winner_bid.value(), None);
-                
+
                 // Change owl owner.
                 let owl_state = schema.owls_state().get(auction.owl_id()).unwrap();
                 schema.refresh_owls(
@@ -599,7 +599,7 @@ pub mod transactions {
                     owl_state.last_breeding(),
                 );
             };
-            
+
             schema.owl_auction_mut().remove(auction.owl_id());
 
             // Close auction
@@ -824,7 +824,7 @@ pub mod transactions {
         //
         #[display(fmt = "Bid is below the current highest bid")]
         BidTooLow = 13,
-        
+
         // TxCloseAuction may only be performed by the validator nodes.
         #[display(fmt = "Transaction is not authorized.")]
         UnauthorizedTransaction = 14,
