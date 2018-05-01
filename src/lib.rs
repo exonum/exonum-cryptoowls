@@ -910,6 +910,10 @@ mod api {
             };
 
             let self_ = self.clone();
+            let get_auctions =
+                move |_req: &mut Request| self_.ok_response(&json!(self_.get_auctions()));
+
+            let self_ = self.clone();
             let get_owl = move |req: &mut Request| {
                 let owl_hash = self_.url_fragment(req, "owl_hash")?;
                 if let Some(owl) = self_.get_owl(&owl_hash) {
@@ -961,6 +965,7 @@ mod api {
                 get_auction_bids,
                 "get_auction_bids",
             );
+            router.get("/v1/auctions", get_auctions, "get_auctions");
 
             router.get("/v1/user/:pub_key/owls", get_user_owls, "get_user_owls");
 
@@ -1043,6 +1048,14 @@ mod api {
             let auction_bids = schema.auction_bids(auction_state.id());
             let bids = auction_bids.into_iter().collect();
             Some(bids)
+        }
+
+        fn get_auctions(&self) -> Vec<AuctionState> {
+            let snapshot = self.blockchain.snapshot();
+            let schema = schema::CryptoOwlsSchema::new(snapshot);
+            let auctions = schema.auctions();
+            let auctions = auctions.into_iter().collect::<Vec<_>>();
+            auctions
         }
 
         fn post_transaction(&self, transaction: Transactions) -> Result<Hash, ApiError> {
