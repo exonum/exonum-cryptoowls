@@ -1150,12 +1150,7 @@ pub mod service {
                 let auction_state = schema.auctions().get(auction_id).unwrap();
                 let (closing_party, sec_key) = (*ctx.public_key(), ctx.secret_key().clone());
                 if auction_state.ends_at() > current_time {
-                    let tx = CloseAuction::new(
-                        auction_id,
-                        &closing_party,
-                        current_time,
-                        &sec_key,
-                    );
+                    let tx = CloseAuction::new(auction_id, &closing_party, current_time, &sec_key);
                     if let Err(e) = ctx.transaction_sender().send(tx.into()) {
                         error!(
                             "Unable to send `CloseAuction` transaction, an error occurred. {}",
