@@ -5,9 +5,9 @@
         <div class="col-sm-12">
           <h1>Owl</h1>
 
-          <div class="row">
+          <div class="row mt-5">
             <div class="col-sm-6">
-              <h2 class="mt-5">Profile</h2>
+              <h2>Profile</h2>
               <ul class="list-group mt-3">
                 <li class="list-group-item">
                   <div class="row">
@@ -48,7 +48,7 @@
               </ul>
             </div>
             <div class="col-sm-6">
-              <owl-icon v-if="owl.dna" v-bind:dna="owl.dna" class="mt-5"/>
+              <owl-icon v-if="owl.dna" v-bind:dna="owl.dna"/>
             </div>
           </div>
         </div>
@@ -91,8 +91,8 @@
           const data = await this.$blockchain.getOwl(this.hash)
           this.owl = data.owl
           this.owner = data.owner
-          this.isSpinnerVisible = false
           this.lastBreeding = data.last_breeding
+          this.isSpinnerVisible = false
         } catch (error) {
           this.isSpinnerVisible = false
           this.$notify('error', error.toString())
