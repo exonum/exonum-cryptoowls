@@ -314,6 +314,8 @@ pub mod transactions {
             struct CloseAuction {
                 /// Auction to close.
                 auction_id: u64,
+                //Key of the closing party.
+                closing_party: &PublicKey,
                 /// Timestamp. Is required to create transactions owls with the same fields.
                 seed: DateTime<Utc>,
             }
@@ -560,12 +562,27 @@ pub mod transactions {
         }
     }
 
+    impl CloseAuction {
+        fn check_signed_by_validator(&self, snapshot: &Snapshot) -> ExecutionResult {
+            let keys = Schema::new(&snapshot).actual_configuration().validator_keys;
+            let signed = keys.iter().any(|k| k.service_key == *self.closing_party());
+            if !signed {
+                Err(ErrorKind::UnauthorizedTransaction)?
+            } else {
+                Ok(())
+            }
+        }
+    }
+
     impl Transaction for CloseAuction {
         fn verify(&self) -> bool {
             true
         }
 
         fn execute(&self, fork: &mut Fork) -> ExecutionResult {
+            // Check that the auction is being closed by one of the validator nodes.
+            self.check_signed_by_validator(fork.as_ref())?;
+
             let ts = current_time(fork).unwrap();
 
             let mut schema = schema::CryptoOwlsSchema::new(fork);
@@ -824,8 +841,7 @@ pub mod transactions {
         //
         #[display(fmt = "Bid is below the current highest bid")]
         BidTooLow = 13,
-
-        // TxCloseAuction may only be performed by the validator nodes.
+        // CloseAuction may only be performed by the validator nodes.
         #[display(fmt = "Transaction is not authorized.")]
         UnauthorizedTransaction = 14,
         //
@@ -1073,7 +1089,7 @@ pub mod service {
     use router::Router;
 
     use exonum::api::Api;
-    use exonum::crypto::{Hash, Signature};
+    use exonum::crypto::Hash;
     use exonum::encoding;
     use exonum::storage::Snapshot;
     use exonum::blockchain::{ApiContext, Service, ServiceContext, Transaction, TransactionSet};
@@ -1132,11 +1148,13 @@ pub mod service {
             // Check open auctions
             open_auctions.into_iter().for_each(|(_, auction_id)| {
                 let auction_state = schema.auctions().get(auction_id).unwrap();
+                let (closing_party, sec_key) = (*ctx.public_key(), ctx.secret_key().clone());
                 if auction_state.ends_at() > current_time {
-                    let tx = CloseAuction::new_with_signature(
+                    let tx = CloseAuction::new(
                         auction_id,
+                        &closing_party,
                         current_time,
-                        &Signature::zero(),
+                        &sec_key,
                     );
                     if let Err(e) = ctx.transaction_sender().send(tx.into()) {
                         error!(
