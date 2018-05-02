@@ -579,8 +579,8 @@ pub mod transactions {
             let auction = auction_state.auction();
 
             assert!(!auction_state.closed());
-            let auction_end_at = auction_state.end_at();
-            assert!(ts >= auction_end_at);
+            let auction_ends_at = auction_state.ends_at();
+            assert!(ts >= auction_ends_at);
 
             if let Some(winner_bid) = schema.auction_bids(auction_state.id()).last() {
                 // Decrease winner balance.
@@ -773,7 +773,7 @@ pub mod transactions {
     }
 
     impl AuctionState {
-        pub fn end_at(&self) -> DateTime<Utc> {
+        pub fn ends_at(&self) -> DateTime<Utc> {
             self.started_at() + Duration::seconds(self.auction().duration() as i64)
         }
     }
@@ -1132,7 +1132,7 @@ pub mod service {
             // Check open auctions
             open_auctions.into_iter().for_each(|(_, auction_id)| {
                 let auction_state = schema.auctions().get(auction_id).unwrap();
-                if auction_state.end_at() > current_time {
+                if auction_state.ends_at() > current_time {
                     let tx = CloseAuction::new_with_signature(
                         auction_id,
                         current_time,
