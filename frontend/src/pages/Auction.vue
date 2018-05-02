@@ -20,7 +20,7 @@
     components: {
       Spinner
     },
-    props: ['hash'],
+    props: ['id'],
     data() {
       return {
         auction: {},
@@ -35,7 +35,35 @@
         this.isSpinnerVisible = true
 
         try {
-          await this.$blockchain.getAuction(this.hash)
+          await this.$blockchain.getAuction(this.id)
+        } catch (error) {
+          this.isSpinnerVisible = false
+          this.$notify('error', error.toString())
+        }
+      },
+
+      async makeBid() {
+        this.isSpinnerVisible = true
+
+        try {
+          await this.$blockchain.makeBid(this.keyPair, this.id, this.price)
+          this.isSpinnerVisible = false
+          this.$notify('success', 'Transaction accepted')
+          this.loadUser()
+        } catch (error) {
+          this.isSpinnerVisible = false
+          this.$notify('error', error.toString())
+        }
+      },
+
+      async closeAuction() {
+        this.isSpinnerVisible = true
+
+        try {
+          await this.$blockchain.closeAuction(this.keyPair, this.id)
+          this.isSpinnerVisible = false
+          this.$notify('success', 'Transaction accepted')
+          this.loadUser()
         } catch (error) {
           this.isSpinnerVisible = false
           this.$notify('error', error.toString())

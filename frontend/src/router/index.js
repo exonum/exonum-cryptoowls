@@ -6,6 +6,7 @@ import UsersPage from '../pages/Users.vue'
 import UserPage from '../pages/User.vue'
 import OwlsPage from '../pages/Owls.vue'
 import OwlPage from '../pages/Owl.vue'
+import AuctionsPage from '../pages/Auctions.vue'
 import AuctionPage from '../pages/Auction.vue'
 import BlockchainPage from '../pages/Blockchain.vue'
 import BlockPage from '../pages/Block.vue'
@@ -48,7 +49,12 @@ export default new Router({
       props: true
     },
     {
-      path: '/auction/:hash',
+      path: '/auctions',
+      name: 'auctions',
+      component: AuctionsPage
+    },
+    {
+      path: '/auction/:id',
       name: 'auction',
       component: AuctionPage,
       props: true

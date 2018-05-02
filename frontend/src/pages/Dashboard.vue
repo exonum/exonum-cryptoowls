@@ -6,12 +6,12 @@
           <h1>My cabinet</h1>
 
           <div class="row mt-5">
-            <div class="col-sm-6">
+            <div class="col-sm-6 col-md-4">
               <h2>My profile</h2>
               <user-summary v-bind:user="user" class="mt-3"/>
               <button class="btn btn-lg btn-block btn-primary mt-3" @click.prevent="issue">Issue funds</button>
             </div>
-            <div class="col-sm-6">
+            <div class="col-sm-6 col-md-4">
               <h2>Incubator</h2>
               <form class="mt-3" @submit.prevent="makeOwl">
                 <div class="form-group">
@@ -33,6 +33,26 @@
                 <button type="submit" class="btn btn-lg btn-block btn-primary">Incubate</button>
               </form>
             </div>
+            <div class="col-sm-6 col-md-4">
+              <h2>Create auction</h2>
+              <form class="mt-3" @submit.prevent="createAuction">
+                <div class="form-group">
+                  <label class="control-label">Owl:</label>
+                  <select v-model="owl" class="form-control" required>
+                    <option v-for="owl in owls" class="form-control" :value="$blockchain.getOwlHash(owl.owl)">{{ owl.owl.name }}</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="control-label">Price:</label>
+                  <input v-model="price" type="number" class="form-control" placeholder="Enter price" min="0" required>
+                </div>
+                <div class="form-group">
+                  <label class="control-label">Duration, seconds:</label>
+                  <input v-model="duration" type="number" class="form-control" placeholder="Enter duration" min="0" required>
+                </div>
+                <button type="submit" class="btn btn-lg btn-block btn-primary">Create</button>
+              </form>
+            </div>
           </div>
 
           <h2 class="mt-5">My owls</h2>
@@ -48,11 +68,11 @@
                 <div class="col-sm-3">Duration</div>
               </div>
             </li>
-            <li v-for="auction in auctions" class="list-group-item">
+            <li v-for="auction in auctions" class="list-group-item" :key="auction.id">
               <div class="row">
                 <div class="col-sm-3">
                   <code>
-                    <router-link :to="{ name: 'auction', params: { hash: auction.id } }" class="break-word">{{ auction.id }}</router-link>
+                    <router-link :to="{ name: 'auction', params: { id: auction.id } }" class="break-word">{{ auction.id }}</router-link>
                   </code>
                 </div>
                 <div class="col-sm-3">
@@ -162,6 +182,20 @@
 
         try {
           await this.$blockchain.makeOwl(this.keyPair, this.name, this.mother, this.father)
+          this.isSpinnerVisible = false
+          this.$notify('success', 'Transaction accepted')
+          this.loadUser()
+        } catch (error) {
+          this.isSpinnerVisible = false
+          this.$notify('error', error.toString())
+        }
+      },
+
+      async createAuction() {
+        this.isSpinnerVisible = true
+
+        try {
+          await this.$blockchain.createAuction(this.keyPair, this.owl, this.price, this.duration)
           this.isSpinnerVisible = false
           this.$notify('success', 'Transaction accepted')
           this.loadUser()

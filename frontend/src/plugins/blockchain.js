@@ -310,8 +310,12 @@ module.exports = {
         return axios.get(`/api/services/cryptoowls/v1/user/${publicKey}/auctions`).then(response => response.data)
       },
 
-      getAuction: hash => {
-        return axios.get(`/api/services/cryptoowls/v1/auctions/${hash}`).then(response => response.data)
+      getAuctions:() => {
+        return axios.get('/api/services/cryptoowls/v1/auctions').then(response => response.data)
+      },
+
+      getAuction: id => {
+        return axios.get(`/api/services/cryptoowls/v1/auctions/${id}`).then(response => response.data)
       },
 
       getOwls: () => {
