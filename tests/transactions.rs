@@ -26,7 +26,7 @@ use chrono::{Duration, Utc};
 use std::collections::{HashMap, HashSet};
 use exonum_time::{MockTimeProvider, TimeService};
 
-use exonum::crypto::{self, CryptoHash, Signature};
+use exonum::crypto::{self, CryptoHash};
 use exonum_testkit::{TestKit, TestKitBuilder};
 use exonum::helpers::Height;
 
@@ -270,9 +270,11 @@ fn test_sell_owl() {
         assert_eq!(schema.owl_auction().get(&alice_owl).unwrap(), 0);
     }
     // Try to close auction immediately
+    let validators = testkit.network().validators().to_vec();
+    let (closing_party, sec_key) = validators[0].service_keypair();
     testkit
         .create_block_with_transactions(txvec![
-            CloseAuction::new_with_signature(0, Utc::now(), &Signature::zero()),
+            CloseAuction::new(0, &closing_party, Utc::now(), &sec_key),
         ])
         .transactions
         .into_iter()
@@ -284,9 +286,11 @@ fn test_sell_owl() {
     time_machine.add_time(Duration::seconds(1_001));
     testkit.create_blocks_until(Height(16));
     // Close auction
+    let validators = testkit.network().validators().to_vec();
+    let (closing_party, sec_key) = validators[0].service_keypair();
     testkit
         .create_block_with_transactions(txvec![
-            CloseAuction::new_with_signature(0, Utc::now(), &Signature::zero()),
+            CloseAuction::new(0, &closing_party, Utc::now(), &sec_key),
         ])
         .transactions
         .into_iter()
