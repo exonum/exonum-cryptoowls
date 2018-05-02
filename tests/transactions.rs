@@ -274,7 +274,7 @@ fn test_sell_owl() {
     let (closing_party, sec_key) = validators[0].service_keypair();
     testkit
         .create_block_with_transactions(txvec![
-            CloseAuction::new(0, &closing_party, Utc::now(), &sec_key),
+            CloseAuction::new(0, closing_party, Utc::now(), sec_key),
         ])
         .transactions
         .into_iter()
@@ -290,7 +290,7 @@ fn test_sell_owl() {
     let (closing_party, sec_key) = validators[0].service_keypair();
     testkit
         .create_block_with_transactions(txvec![
-            CloseAuction::new(0, &closing_party, Utc::now(), &sec_key),
+            CloseAuction::new(0, closing_party, Utc::now(), sec_key),
         ])
         .transactions
         .into_iter()
