@@ -53,13 +53,7 @@
           </div>
 
           <div class="row mt-5">
-            <div v-if="owner === keyPair.publicKey" class="col-sm-6">
-              <h2>Close auction</h2>
-              <form class="mt-3" @submit.prevent="closeAuction">
-                <button type="submit" class="btn btn-lg btn-block btn-primary">Close</button>
-              </form>
-            </div>
-            <div v-else class="col-sm-6">
+            <div v-if="owner !== keyPair.publicKey" class="col-sm-6">
               <h2>Make bid</h2>
               <form class="mt-3" @submit.prevent="makeBid">
                 <div class="form-group">
@@ -137,20 +131,6 @@
 
         try {
           await this.$blockchain.makeBid(this.keyPair, this.auction.id, this.price)
-          this.isSpinnerVisible = false
-          this.$notify('success', 'Transaction accepted')
-          this.loadUser()
-        } catch (error) {
-          this.isSpinnerVisible = false
-          this.$notify('error', error.toString())
-        }
-      },
-
-      async closeAuction() {
-        this.isSpinnerVisible = true
-
-        try {
-          await this.$blockchain.closeAuction(this.keyPair, this.auction.id)
           this.isSpinnerVisible = false
           this.$notify('success', 'Transaction accepted')
           this.loadUser()
