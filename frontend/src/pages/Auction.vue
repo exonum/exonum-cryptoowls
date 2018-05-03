@@ -167,9 +167,20 @@
         this.isSpinnerVisible = true
 
         try {
-          const data = await this.$blockchain.getAuction(this.id)
-          this.auction = data.auction_data
-          this.bids = data.bids
+          this.auction = await this.$blockchain.getAuction(this.id)
+          this.isSpinnerVisible = false
+          this.loadBids()
+        } catch (error) {
+          this.isSpinnerVisible = false
+          this.$notify('error', error.toString())
+        }
+      },
+
+      async loadBids() {
+        this.isSpinnerVisible = true
+
+        try {
+          this.auction = await this.$blockchain.getBids(this.id)
           this.isSpinnerVisible = false
           this.loadOwl()
         } catch (error) {
