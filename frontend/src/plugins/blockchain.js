@@ -262,37 +262,6 @@ module.exports = {
         }).then(waitForAcceptance)
       },
 
-      closeAuction: (keyPair, auction) => {
-        // Describe transaction to close auction
-        const TxCloseAuction = Exonum.newMessage({
-          protocol_version: PROTOCOL_VERSION,
-          service_id: SERVICE_ID,
-          message_id: CLOSE_AUCTION_TX_ID,
-          fields: [
-            { name: 'auction_id', type: Exonum.Uint64 },
-            { name: 'seed', type: SystemTime }
-          ]
-        })
-
-        // Transaction data
-        const data = {
-          auction_id: auction,
-          seed: getSystemTime()
-        }
-
-        // Sign transaction with user's secret key
-        const signature = TxCloseAuction.sign(keyPair.secretKey, data)
-
-        // Send transaction into blockchain
-        return axios.post('/api/services/cryptoowls/v1/transaction', {
-          protocol_version: PROTOCOL_VERSION,
-          service_id: SERVICE_ID,
-          message_id: CLOSE_AUCTION_TX_ID,
-          body: data,
-          signature: signature
-        }).then(waitForAcceptance)
-      },
-
       getUsers: () => {
         return axios.get('/api/services/cryptoowls/v1/users').then(response => response.data)
       },
