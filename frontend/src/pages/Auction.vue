@@ -117,7 +117,7 @@
                 </li>
               </ul>
             </div>
-            <div v-if="owner !== keyPair.publicKey && !auction.closed" class="col-sm-6">
+            <div v-if="!auction.closed && owner !== keyPair.publicKey" class="col-sm-6">
               <h2>Make bid</h2>
               <form class="mt-3" @submit.prevent="makeBid">
                 <div class="form-group">
@@ -167,10 +167,9 @@
         this.isSpinnerVisible = true
 
         try {
-          const data = await this.$blockchain.getAuctions()
-          this.auction = data.find(auction => {
-            return auction.id === this.id
-          })
+          const data = await this.$blockchain.getAuction(this.id)
+          this.auction = data.auction_data
+          this.bids = data.bids
           this.isSpinnerVisible = false
           this.loadOwl()
         } catch (error) {
@@ -187,19 +186,6 @@
           this.owl = data.owl
           this.owner = data.owner
           this.lastBreeding = data.last_breeding
-          this.isSpinnerVisible = false
-          this.loadBids()
-        } catch (error) {
-          this.isSpinnerVisible = false
-          this.$notify('error', error.toString())
-        }
-      },
-
-      async loadBids() {
-        this.isSpinnerVisible = true
-
-        try {
-          this.bids = await this.$blockchain.getAuctionBids(this.id)
           this.isSpinnerVisible = false
         } catch (error) {
           this.isSpinnerVisible = false
