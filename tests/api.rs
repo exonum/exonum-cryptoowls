@@ -34,7 +34,6 @@ use exonum::helpers::Height;
 
 use cryptoowls::CRYPTOOWLS_SERVICE_NAME;
 use cryptoowls::service::CryptoOwlsService;
-use cryptoowls::data_layout::*;
 use cryptoowls::transactions::*;
 
 fn init_testkit() -> (TestKit, TestKitApi) {

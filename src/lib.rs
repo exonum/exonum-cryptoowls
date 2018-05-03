@@ -419,7 +419,7 @@ pub mod transactions {
             let owls_to_update = vec![son, mother, father];
             schema.refresh_owls(user.public_key(), owls_to_update, ts);
 
-            schema.decrease_user_balance(&user, BREEDING_PRICE);
+            schema.decrease_user_balance(user.public_key(), BREEDING_PRICE);
 
             Ok(())
         }
@@ -442,7 +442,7 @@ pub mod transactions {
                 Err(ErrorKind::EarlyIssue)?
             }
 
-            schema.increase_user_balance(&user, ISSUE_AMOUNT, Some(ts));
+            schema.increase_user_balance(user.public_key(), ISSUE_AMOUNT, Some(ts));
             Ok(())
         }
     }
@@ -549,11 +549,11 @@ pub mod transactions {
             // Release balance of the previous bidder if any.
             if let Some(b) = schema.auction_bids(auction_state.id()).last() {
                 let prev_bid_user = schema.users().get(b.public_key()).unwrap();
-                schema.release_user_balance(&prev_bid_user, min_bid);
+                schema.release_user_balance(prev_bid_user.public_key(), min_bid);
             }
 
             // Reserve value in user wallet.
-            schema.reserve_user_balance(&user, self.value());
+            schema.reserve_user_balance(user.public_key(), self.value());
 
             // Make a bid.
             let bid = Bid::new(self.public_key(), self.value());
@@ -616,11 +616,11 @@ pub mod transactions {
             if let Some(winner_bid) = schema.auction_bids(auction_state.id()).last() {
                 // Decrease winner balance.
                 let user = schema.users().get(winner_bid.public_key()).unwrap();
-                schema.confirm_user_bid(&user, winner_bid.value());
+                schema.confirm_user_bid(user.public_key(), winner_bid.value());
 
                 // Increase seller balance.
                 let user = schema.users().get(auction.public_key()).unwrap();
-                schema.increase_user_balance(&user, winner_bid.value(), None);
+                schema.increase_user_balance(user.public_key(), winner_bid.value(), None);
 
                 // Change owl owner.
                 let owl_state = schema.owls_state().get(auction.owl_id()).unwrap();
@@ -729,10 +729,11 @@ pub mod transactions {
         /// Helper method to increase user balance
         pub fn increase_user_balance(
             &mut self,
-            user: &User,
+            user_id: &PublicKey,
             balance: u64,
             last_fillup: Option<DateTime<Utc>>,
         ) {
+            let user = self.users().get(user_id).expect("User should be exist.");
             let last_fillup = last_fillup.unwrap_or_else(|| user.last_fillup());
             self.users_mut().put(
                 user.public_key(),
@@ -747,7 +748,8 @@ pub mod transactions {
         }
 
         /// Helper method to decrease user balance
-        pub fn decrease_user_balance(&mut self, user: &User, balance: u64) {
+        pub fn decrease_user_balance(&mut self, user_id: &PublicKey, balance: u64) {
+            let user = self.users().get(user_id).expect("User should be exist.");
             self.users_mut().put(
                 user.public_key(),
                 User::new(
@@ -761,7 +763,8 @@ pub mod transactions {
         }
 
         /// Helper method to decrease user reserved balance
-        pub fn reserve_user_balance(&mut self, user: &User, reserve: u64) {
+        pub fn reserve_user_balance(&mut self, user_id: &PublicKey, reserve: u64) {
+            let user = self.users().get(user_id).expect("User should be exist.");
             self.users_mut().put(
                 user.public_key(),
                 User::new(
@@ -775,7 +778,8 @@ pub mod transactions {
         }
 
         /// Helper method to decrease user reserved balance
-        pub fn release_user_balance(&mut self, user: &User, reserve: u64) {
+        pub fn release_user_balance(&mut self, user_id: &PublicKey, reserve: u64) {
+            let user = self.users().get(user_id).expect("User should be exist.");
             self.users_mut().put(
                 user.public_key(),
                 User::new(
@@ -789,7 +793,8 @@ pub mod transactions {
         }
 
         /// Helper method to decrease user bid with value
-        pub fn confirm_user_bid(&mut self, user: &User, bid_value: u64) {
+        pub fn confirm_user_bid(&mut self, user_id: &PublicKey, bid_value: u64) {
+            let user = self.users().get(user_id).expect("User should be exist.");
             self.users_mut().put(
                 user.public_key(),
                 User::new(
@@ -905,7 +910,7 @@ mod api {
         fn wire(&self, router: &mut Router) {
             let self_ = self.clone();
             let get_user = move |req: &mut Request| {
-                let public_key: PublicKey = self_.url_fragment(req, "pub_key")?;
+                let public_key: PublicKey = self_.url_fragment(req, "public_key")?;
                 if let Some(user) = self_.get_user(&public_key) {
                     self_.ok_response(&json!(user))
                 } else {
@@ -921,7 +926,7 @@ mod api {
 
             let self_ = self.clone();
             let get_users_auctions = move |req: &mut Request| {
-                let public_key: PublicKey = self_.url_fragment(req, "pub_key")?;
+                let public_key: PublicKey = self_.url_fragment(req, "public_key")?;
                 if let Some(orders) = self_.get_users_auctions(&public_key) {
                     self_.ok_response(&json!(orders))
                 } else {
@@ -940,18 +945,18 @@ mod api {
             };
 
             let self_ = self.clone();
-            let get_auction = move |req: &mut Request| {
-                let auction_id = self_.url_fragment(req, "auction_id")?;
-                if let Some((auction, bids)) = self_.get_auction(auction_id) {
-                    self_.ok_response(&json!({"auction_data": auction, "bids": bids}))
-                } else {
-                    self_.not_found_response(&json!("Auction not found"))
-                }
-            };
-
-            let self_ = self.clone();
             let get_auctions =
                 move |_req: &mut Request| self_.ok_response(&json!(self_.get_auctions()));
+
+            let self_ = self.clone();
+            let get_auction_with_bids = move |req: &mut Request| {
+                let auction_id = self_.url_fragment(req, "auction_id")?;
+                if let Some(orders) = self_.get_auction_with_bids(auction_id) {
+                    self_.ok_response(&json!(orders))
+                } else {
+                    self_.not_found_response(&json!("User not found"))
+                }
+            };
 
             let self_ = self.clone();
             let get_owl = move |req: &mut Request| {
@@ -971,7 +976,7 @@ mod api {
 
             let self_ = self.clone();
             let get_user_owls = move |req: &mut Request| {
-                let public_key: PublicKey = self_.url_fragment(req, "pub_key")?;
+                let public_key: PublicKey = self_.url_fragment(req, "public_key")?;
                 if let Some(orders) = self_.get_user_owls(&public_key) {
                     self_.ok_response(&json!(orders))
                 } else {
@@ -993,22 +998,26 @@ mod api {
 
             // View-only handlers
             router.get("/v1/users", get_users, "get_users");
-            router.get("/v1/user/:pub_key", get_user, "get_user");
+            router.get("/v1/user/:public_key", get_user, "get_user");
 
             router.get(
-                "/v1/user/:pub_key/auctions",
+                "/v1/user/:public_key/auctions",
                 get_users_auctions,
                 "get_users_auctions",
             );
             router.get(
-                "/v1/auctions/:auction_id",
+                "/v1/auction-bids/:auction_id",
                 get_auction_bids,
                 "get_auction_bids",
             );
-            router.get("/v1/auction/:auction_id", get_auction, "get_auction");
+            router.get(
+                "/v1/auctions/:auction_id",
+                get_auction_with_bids,
+                "get_auction_with_bids",
+            );
             router.get("/v1/auctions", get_auctions, "get_auctions");
 
-            router.get("/v1/user/:pub_key/owls", get_user_owls, "get_user_owls");
+            router.get("/v1/user/:public_key/owls", get_user_owls, "get_user_owls");
 
             router.get("/v1/owl/:owl_hash", get_owl, "get_owl");
             router.get("/v1/owls", get_owls, "get_owls");
@@ -1081,7 +1090,7 @@ mod api {
             Some(auctions)
         }
 
-        fn get_auction(&self, auction_id: u64) -> Option<(AuctionState, Vec<Bid>)> {
+        fn get_auction_with_bids(&self, auction_id: u64) -> Option<(AuctionState, Vec<Bid>)> {
             let snapshot = self.blockchain.snapshot();
             let schema = schema::CryptoOwlsSchema::new(snapshot);
 
