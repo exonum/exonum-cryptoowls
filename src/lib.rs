@@ -475,10 +475,12 @@ pub mod transactions {
             // Establish a new auction.
             let auction_id = schema.auctions().len();
             let owl_id = *auction.owl_id();
+            let user_id = *auction.public_key();
             let state = AuctionState::new(auction_id, auction, ts, &Hash::zero(), false);
 
             schema.auctions_mut().push(state);
             schema.owl_auction_mut().put(&owl_id, auction_id);
+            schema.user_auctions_mut(&user_id).push(auction_id);
 
             Ok(())
         }
