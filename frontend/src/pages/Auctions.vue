@@ -3,15 +3,8 @@
     <div class="container mt-5">
       <div class="row">
         <div class="col-sm-12">
-          <h1>User</h1>
+          <h1>All auctions</h1>
 
-          <h2 class="mt-5">Profile</h2>
-          <user-summary v-bind:user="user" class="mt-3"/>
-
-          <h2 class="mt-5">Owls</h2>
-          <owl-list v-bind:owls="owls"/>
-
-          <h2 class="mt-5">User auctions</h2>
           <ul class="list-group mt-3">
             <li class="list-group-item font-weight-bold">
               <div class="row">
@@ -48,44 +41,23 @@
 
 <script>
   import Spinner from '../components/Spinner.vue'
-  import UserSummary from '../components/UserSummary.vue'
-  import OwlList from '../components/OwlList.vue'
 
   module.exports = {
     components: {
-      Spinner,
-      UserSummary,
-      OwlList
+      Spinner
     },
-    props: ['publicKey'],
     data() {
       return {
-        user: [],
-        owls: [],
         auctions: [],
         isSpinnerVisible: false
       }
     },
     methods: {
-      async loadUser() {
-        this.isSpinnerVisible = true
-
-        try {
-          this.user = await this.$blockchain.getUser(this.publicKey)
-          this.owls = await this.$blockchain.getUserOwls(this.publicKey)
-          this.isSpinnerVisible = false
-          this.loadAuctions()
-        } catch (error) {
-          this.isSpinnerVisible = false
-          this.$notify('error', error.toString())
-        }
-      },
-
       async loadAuctions() {
         this.isSpinnerVisible = true
 
         try {
-          this.auctions = await this.$blockchain.getUserAuctions(this.publicKey)
+          this.auctions = await this.$blockchain.getAuctions()
           this.isSpinnerVisible = false
         } catch (error) {
           this.isSpinnerVisible = false
@@ -95,7 +67,7 @@
     },
     mounted() {
       this.$nextTick(function() {
-        this.loadUser()
+        this.loadAuctions()
       })
     }
   }
