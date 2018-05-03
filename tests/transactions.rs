@@ -14,6 +14,8 @@
 
 #[macro_use]
 extern crate exonum_testkit;
+#[macro_use]
+extern crate pretty_assertions;
 
 extern crate chrono;
 extern crate exonum;
@@ -281,20 +283,9 @@ fn test_sell_owl() {
         .for_each(|tx| {
             tx.status().unwrap_err();
         });
-
     // Some time should pass
     time_machine.add_time(Duration::seconds(1_001));
     testkit.create_blocks_until(Height(16));
-    // Close auction
-    let validators = testkit.network().validators().to_vec();
-    let (closing_party, sec_key) = validators[0].service_keypair();
-    testkit
-        .create_block_with_transactions(txvec![
-            CloseAuction::new(0, closing_party, Utc::now(), sec_key),
-        ])
-        .transactions
-        .into_iter()
-        .for_each(|tx| tx.status().unwrap());
     // Check results
     {
         let snapshot = testkit.snapshot();
