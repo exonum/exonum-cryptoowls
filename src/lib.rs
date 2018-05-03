@@ -480,6 +480,7 @@ pub mod transactions {
 
             schema.auctions_mut().push(state);
             schema.owl_auction_mut().put(&owl_id, auction_id);
+            schema.user_auctions_mut(&user.public_key()).push(auction_id);
 
             Ok(())
         }
