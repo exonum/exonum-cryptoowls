@@ -9,7 +9,6 @@ const MAKE_OWL_TX_ID = 1
 const ISSUE_TX_ID = 2
 const CREATE_AUCTION_TX_ID = 3
 const MAKE_BID_TX_ID = 4
-const CLOSE_AUCTION_TX_ID = 5
 
 const ATTEMPTS = 10
 const ATTEMPT_TIMEOUT = 500
@@ -270,7 +269,11 @@ module.exports = {
       },
 
       getAuction: id => {
-        return axios.get(`/api/services/cryptoowls/v1/auction/${id}`).then(response => response.data)
+        return axios.get(`/api/services/cryptoowls/v1/auctions/${id}`).then(response => response.data)
+      },
+
+      getBids: id => {
+        return axios.get(`/api/services/cryptoowls/v1/auction-bids/${id}`).then(response => response.data)
       },
 
       getOwls: () => {

@@ -168,8 +168,8 @@
 
         try {
           const data = await this.$blockchain.getAuction(this.id)
-          this.auction = data.auction_data
-          this.bids = data.bids
+          this.auction = data[0]
+          this.bids = data[1]
           this.isSpinnerVisible = false
           this.loadOwl()
         } catch (error) {
