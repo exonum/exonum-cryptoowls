@@ -35,7 +35,6 @@ use exonum::helpers::Height;
 use cryptoowls::ISSUE_AMOUNT;
 use cryptoowls::schema::CryptoOwlsSchema;
 use cryptoowls::service::CryptoOwlsService;
-use cryptoowls::data_layout::*;
 use cryptoowls::transactions::*;
 
 fn init_testkit() -> (TestKit, MockTimeProvider) {
@@ -236,7 +235,7 @@ fn test_sell_owl() {
     // Create auction
     testkit
         .create_block_with_transactions(txvec![
-            CreateAuction::new(Auction::new(&pubkey, &alice_owl, 10, 1_000), &key)
+            CreateAuction::new(&pubkey, &alice_owl, 10, 1_000, &key)
         ])
         .transactions
         .into_iter()
@@ -310,5 +309,50 @@ fn test_sell_owl() {
             schema.owls_state().get(&alice_owl).unwrap().owner(),
             &pubkey_2
         );
+    }
+}
+
+#[test]
+fn test_two_bids_same_user() {
+    let (mut testkit, _) = init_testkit();
+    let bob_keys = crypto::gen_keypair();
+    let jane_keys = crypto::gen_keypair();
+
+    testkit.create_block_with_transactions(txvec![
+        CreateUser::new(&bob_keys.0, "Bob", &bob_keys.1),
+        CreateUser::new(&jane_keys.0, "Jane", &jane_keys.1),
+    ]);
+
+    let snapshot = testkit.snapshot();
+    let schema = CryptoOwlsSchema::new(&snapshot);
+
+    let bob_owls = schema.user_owls(&bob_keys.0);
+    let bob_owl = bob_owls.iter().map(|x| x.1).next().unwrap();
+    // Create auction
+    testkit
+        .create_block_with_transactions(txvec![
+            CreateAuction::new(&bob_keys.0, &bob_owl, 10, 1_000, &bob_keys.1)
+        ])
+        .transactions
+        .into_iter()
+        .for_each(|tx| tx.status().unwrap());
+    // Make bids
+    testkit
+        .create_block_with_transactions(txvec![
+            MakeBid::new(&jane_keys.0, 0, 20, &jane_keys.1),
+            MakeBid::new(&jane_keys.0, 0, 30, &jane_keys.1),
+        ])
+        .transactions
+        .into_iter()
+        .for_each(|tx| tx.status().unwrap());
+    // Check reserved balances
+    {
+        let snapshot = testkit.snapshot();
+        let schema = CryptoOwlsSchema::new(&snapshot);
+
+        let jane = schema.users().get(&jane_keys.0).unwrap();
+
+        assert_eq!(jane.balance(), ISSUE_AMOUNT - 30);
+        assert_eq!(jane.reserved(), 30);
     }
 }
