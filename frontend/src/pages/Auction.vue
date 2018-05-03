@@ -6,7 +6,7 @@
           <h1>Auction</h1>
 
           <div class="row mt-5">
-            <div class="col-sm-6 col-md-4">
+            <div v-if="auction.auction" class="col-sm-6 col-md-4">
               <h2>Summary</h2>
               <ul class="list-group mt-3">
                 <li class="list-group-item">
@@ -18,33 +18,33 @@
                 <li class="list-group-item">
                   <div class="row">
                     <div class="col-sm-3"><strong>Started at:</strong></div>
-                    <div class="col-sm-9">{{ $moment.getDate(startedAt) }}</div>
+                    <div class="col-sm-9">{{ $moment.getDate(auction.started_at) }}</div>
                   </div>
                 </li>
                 <li class="list-group-item">
                   <div class="row">
-                    <div class="col-sm-3"><strong>Is closed:</strong></div>
-                    <div class="col-sm-9">{{ closed }}</div>
+                    <div class="col-sm-3"><strong>Closed:</strong></div>
+                    <div class="col-sm-9">{{ auction.closed }}</div>
                   </div>
                 </li>
                 <li class="list-group-item">
                   <div class="row">
                     <div class="col-sm-3"><strong>Bidding Merkle root:</strong></div>
                     <div class="col-sm-9">
-                      <code>{{ biddingMerkleRoot }}</code>
+                      <code>{{ auction.bidding_merkle_root }}</code>
                     </div>
                   </div>
                 </li>
                 <li class="list-group-item">
                   <div class="row">
                     <div class="col-sm-3"><strong>Duration:</strong></div>
-                    <div class="col-sm-9">{{ auction.duration }}</div>
+                    <div class="col-sm-9">{{ auction.auction.duration }}</div>
                   </div>
                 </li>
                 <li class="list-group-item">
                   <div class="row">
                     <div class="col-sm-3"><strong>Start price:</strong></div>
-                    <div class="col-sm-9">{{ auction.start_price }}</div>
+                    <div class="col-sm-9">{{ auction.auction.start_price }}</div>
                   </div>
                 </li>
               </ul>
@@ -96,7 +96,28 @@
           </div>
 
           <div class="row mt-5">
-            <div v-if="owner !== keyPair.publicKey" class="col-sm-6">
+            <div class="col-sm-6">
+              <h2>Bids</h2>
+              <ul class="list-group mt-3">
+                <li class="list-group-item font-weight-bold">
+                  <div class="row">
+                    <div class="col-sm-6">User</div>
+                    <div class="col-sm-6">Price</div>
+                  </div>
+                </li>
+                <li v-for="bid in bids" class="list-group-item">
+                  <div class="row">
+                    <div class="col-sm-6">
+                      <code>
+                        <router-link :to="{ name: 'user', params: { publicKey: bid.public_key } }" class="break-word">{{ bid.public_key }}</router-link>
+                      </code>
+                    </div>
+                    <div class="col-sm-3">{{ bid.value }}</div>
+                  </div>
+                </li>
+              </ul>
+            </div>
+            <div v-if="owner !== keyPair.publicKey && !auction.closed" class="col-sm-6">
               <h2>Make bid</h2>
               <form class="mt-3" @submit.prevent="makeBid">
                 <div class="form-group">
@@ -131,13 +152,10 @@
     data() {
       return {
         auction: {},
-        biddingMerkleRoot: '',
-        closed: false,
-        id: '',
-        startedAt: {},
         owl: {},
         owner: '',
         lastBreeding: {},
+        bids: [],
         isSpinnerVisible: false
       }
     },
@@ -149,12 +167,10 @@
         this.isSpinnerVisible = true
 
         try {
-          const data = await this.$blockchain.getAuction(this.id)
-          this.auction = data.auction
-          this.biddingMerkleRoot = data.bidding_merkle_root
-          this.closed = data.closed
-          this.id = data.id
-          this.startedAt = data.started_at
+          const data = await this.$blockchain.getAuctions()
+          this.auction = data.find(auction => {
+            return auction.id === this.id
+          })
           this.isSpinnerVisible = false
           this.loadOwl()
         } catch (error) {
@@ -167,10 +183,23 @@
         this.isSpinnerVisible = true
 
         try {
-          const data = await this.$blockchain.getOwl(this.auction.owl_id)
+          const data = await this.$blockchain.getOwl(this.auction.auction.owl_id)
           this.owl = data.owl
           this.owner = data.owner
           this.lastBreeding = data.last_breeding
+          this.isSpinnerVisible = false
+          this.loadBids()
+        } catch (error) {
+          this.isSpinnerVisible = false
+          this.$notify('error', error.toString())
+        }
+      },
+
+      async loadBids() {
+        this.isSpinnerVisible = true
+
+        try {
+          this.bids = await this.$blockchain.getAuctionBids(this.id)
           this.isSpinnerVisible = false
         } catch (error) {
           this.isSpinnerVisible = false
@@ -182,10 +211,10 @@
         this.isSpinnerVisible = true
 
         try {
-          await this.$blockchain.makeBid(this.keyPair, this.auction.id, this.price)
+          await this.$blockchain.makeBid(this.keyPair, this.id, this.price)
           this.isSpinnerVisible = false
           this.$notify('success', 'Transaction accepted')
-          this.loadUser()
+          this.loadAuction()
         } catch (error) {
           this.isSpinnerVisible = false
           this.$notify('error', error.toString())

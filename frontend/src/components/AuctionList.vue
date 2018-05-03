@@ -7,7 +7,7 @@
         <div class="col-sm-2">Started at</div>
         <div class="col-sm-2">Start price</div>
         <div class="col-sm-2">Duration</div>
-        <div class="col-sm-2">Is closed</div>
+        <div class="col-sm-2">Closed</div>
       </div>
     </li>
     <li v-for="auction in auctions" class="list-group-item" :key="auction.id">

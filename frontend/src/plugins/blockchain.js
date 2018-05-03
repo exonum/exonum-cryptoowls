@@ -31,27 +31,12 @@ const Owl = Exonum.newType({
     { name: 'dna', type: Exonum.Uint32 }
   ]
 })
-const Bid = Exonum.newType({
-  fields: [
-    { name: 'public_key', type: Exonum.PublicKey },
-    { name: 'value', type: Exonum.Uint64 }
-  ]
-})
 const Auction = Exonum.newType({
   fields: [
     { name: 'public_key', type: Exonum.PublicKey },
     { name: 'owl_id', type: Exonum.Hash },
     { name: 'start_price', type: Exonum.Uint64 },
     { name: 'duration', type: Exonum.Uint64 }
-  ]
-})
-const AuctionState = Exonum.newType({
-  fields: [
-    { name: 'id', type: Exonum.Uint64 },
-    { name: 'auction', type: Auction },
-    { name: 'started_at', type: SystemTime },
-    { name: 'bidding_merkle_root', type: Exonum.Hash },
-    { name: 'closed', type: Exonum.Bool }
   ]
 })
 
@@ -202,18 +187,19 @@ module.exports = {
           service_id: SERVICE_ID,
           message_id: CREATE_AUCTION_TX_ID,
           fields: [
-            { name: 'auction', type: Auction }
+            { name: 'public_key', type: Exonum.PublicKey },
+            { name: 'owl_id', type: Exonum.Hash },
+            { name: 'start_price', type: Exonum.Uint64 },
+            { name: 'duration', type: Exonum.Uint64 }
           ]
         })
 
         // Transaction data
         const data = {
-          auction: {
-            public_key: keyPair.publicKey,
-            owl_id: owl,
-            start_price: price,
-            duration: duration
-          }
+          public_key: keyPair.publicKey,
+          owl_id: owl,
+          start_price: price,
+          duration: duration
         }
 
         // Sign transaction with user's secret key
@@ -275,15 +261,15 @@ module.exports = {
         })
       },
 
-      getUserAuctions: publicKey => {
-        return axios.get(`/api/services/cryptoowls/v1/user/${publicKey}/auctions`).then(response => response.data)
-      },
-
       getAuctions:() => {
         return axios.get('/api/services/cryptoowls/v1/auctions').then(response => response.data)
       },
 
-      getAuction: id => {
+      getUserAuctions: publicKey => {
+        return axios.get(`/api/services/cryptoowls/v1/user/${publicKey}/auctions`).then(response => response.data)
+      },
+
+      getAuctionBids: id => {
         return axios.get(`/api/services/cryptoowls/v1/auctions/${id}`).then(response => response.data)
       },
 
