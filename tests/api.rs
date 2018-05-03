@@ -13,9 +13,9 @@
 // limitations under the License.
 
 #[macro_use]
-extern crate serde_json;
-#[macro_use]
 extern crate pretty_assertions;
+#[macro_use]
+extern crate serde_json;
 
 extern crate chrono;
 extern crate exonum;
@@ -24,15 +24,15 @@ extern crate exonum_testkit;
 extern crate exonum_time;
 extern crate rand;
 
-use chrono::{Utc};
+use chrono::Utc;
 
-use exonum_time::{TimeService};
+use exonum_time::TimeService;
 
 use exonum::crypto::{self, CryptoHash};
 use exonum_testkit::{ApiKind, TestKit, TestKitApi, TestKitBuilder};
 use exonum::helpers::Height;
 
-use cryptoowls::{CRYPTOOWLS_SERVICE_NAME};
+use cryptoowls::CRYPTOOWLS_SERVICE_NAME;
 use cryptoowls::service::CryptoOwlsService;
 use cryptoowls::data_layout::*;
 use cryptoowls::transactions::*;
@@ -57,31 +57,32 @@ fn test_tx_create_user() {
     let tx = CreateUser::new(&keypair.0, "user", &keypair.1);
 
     let response: serde_json::Value = api.post(
-            ApiKind::Service(CRYPTOOWLS_SERVICE_NAME),
-            "/v1/transaction",
-            &tx
-        );
-    assert_eq!(
-        response,
-        json!({ "tx_hash": tx.hash() })
+        ApiKind::Service(CRYPTOOWLS_SERVICE_NAME),
+        "/v1/transaction",
+        &tx,
     );
+    assert_eq!(response, json!({ "tx_hash": tx.hash() }));
 }
 
 #[test]
 fn test_tx_make_owl() {
     let (_testkit, api) = init_testkit();
     let keypair = crypto::gen_keypair();
-    let tx = MakeOwl::new(&keypair.0, "owl", &crypto::Hash::zero(), &crypto::Hash::zero(), Utc::now(), &keypair.1);
+    let tx = MakeOwl::new(
+        &keypair.0,
+        "owl",
+        &crypto::Hash::zero(),
+        &crypto::Hash::zero(),
+        Utc::now(),
+        &keypair.1,
+    );
 
     let response: serde_json::Value = api.post(
-            ApiKind::Service(CRYPTOOWLS_SERVICE_NAME),
-            "/v1/transaction",
-            &tx
-        );
-    assert_eq!(
-        response,
-        json!({ "tx_hash": tx.hash() })
+        ApiKind::Service(CRYPTOOWLS_SERVICE_NAME),
+        "/v1/transaction",
+        &tx,
     );
+    assert_eq!(response, json!({ "tx_hash": tx.hash() }));
 }
 
 #[test]
@@ -91,32 +92,25 @@ fn test_tx_issue() {
     let tx = Issue::new(&keypair.0, Utc::now(), &keypair.1);
 
     let response: serde_json::Value = api.post(
-            ApiKind::Service(CRYPTOOWLS_SERVICE_NAME),
-            "/v1/transaction",
-            &tx
-        );
-    assert_eq!(
-        response,
-        json!({ "tx_hash": tx.hash() })
+        ApiKind::Service(CRYPTOOWLS_SERVICE_NAME),
+        "/v1/transaction",
+        &tx,
     );
+    assert_eq!(response, json!({ "tx_hash": tx.hash() }));
 }
 
 #[test]
 fn test_tx_create_auction() {
     let (_testkit, api) = init_testkit();
     let keypair = crypto::gen_keypair();
-    let auction = Auction::new(&keypair.0, &crypto::Hash::zero(), 0, 10);
-    let tx = CreateAuction::new(auction, &keypair.1);
+    let tx = CreateAuction::new(&keypair.0, &crypto::Hash::zero(), 0, 10, &keypair.1);
 
     let response: serde_json::Value = api.post(
-            ApiKind::Service(CRYPTOOWLS_SERVICE_NAME),
-            "/v1/transaction",
-            &tx
-        );
-    assert_eq!(
-        response,
-        json!({ "tx_hash": tx.hash() })
+        ApiKind::Service(CRYPTOOWLS_SERVICE_NAME),
+        "/v1/transaction",
+        &tx,
     );
+    assert_eq!(response, json!({ "tx_hash": tx.hash() }));
 }
 
 #[test]
@@ -126,12 +120,9 @@ fn test_tx_make_bid() {
     let tx = MakeBid::new(&keypair.0, 0, 1, &keypair.1);
 
     let response: serde_json::Value = api.post(
-            ApiKind::Service(CRYPTOOWLS_SERVICE_NAME),
-            "/v1/transaction",
-            &tx
-        );
-    assert_eq!(
-        response,
-        json!({ "tx_hash": tx.hash() })
+        ApiKind::Service(CRYPTOOWLS_SERVICE_NAME),
+        "/v1/transaction",
+        &tx,
     );
+    assert_eq!(response, json!({ "tx_hash": tx.hash() }));
 }

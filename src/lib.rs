@@ -297,8 +297,16 @@ pub mod transactions {
 
             /// Transaction type for adding a new item.
             struct CreateAuction {
-                /// Auction information
-                auction: Auction,
+                /// Participant selling the item.
+                public_key: &PublicKey,
+                /// Item with item_id is auctioned.
+                owl_id: &Hash,
+                /// Start price
+                start_price: u64,
+                /// Bids are during the `duration` seconds starting from `started_at`.
+                /// Type `Duration` is not used because
+                /// the trait `exonum::encoding::SegmentField<'_>` is not implemented for `chrono::Duration`
+                duration: u64,
             }
 
             struct MakeBid {
@@ -441,15 +449,19 @@ pub mod transactions {
 
     impl Transaction for CreateAuction {
         fn verify(&self) -> bool {
-            //self.verify_signature(self.auction().public_key())
-            true
+            self.verify_signature(self.public_key())
         }
 
         fn execute(&self, fork: &mut Fork) -> ExecutionResult {
             let ts = current_time(fork).unwrap();
 
             let mut schema = schema::CryptoOwlsSchema::new(fork);
-            let auction = self.auction();
+            let auction = Auction::new(
+                self.public_key(),
+                self.owl_id(),
+                self.start_price(),
+                self.duration(),
+            );
 
             // Reject if such user is not registered.
             let user = schema
