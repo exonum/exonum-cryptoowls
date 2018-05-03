@@ -7,8 +7,9 @@ const SERVICE_ID = 521
 const CREATE_USER_TX_ID = 0
 const MAKE_OWL_TX_ID = 1
 const ISSUE_TX_ID = 2
-const CREATE_ORDER_TX_ID = 3
-const ACCEPT_ORDER_TX_ID = 4
+const CREATE_AUCTION_TX_ID = 3
+const MAKE_BID_TX_ID = 4
+const CLOSE_AUCTION_TX_ID = 5
 
 const ATTEMPTS = 10
 const ATTEMPT_TIMEOUT = 500
@@ -30,12 +31,27 @@ const Owl = Exonum.newType({
     { name: 'dna', type: Exonum.Uint32 }
   ]
 })
-const Order = Exonum.newType({
+const Bid = Exonum.newType({
+  fields: [
+    { name: 'public_key', type: Exonum.PublicKey },
+    { name: 'value', type: Exonum.Uint64 }
+  ]
+})
+const Auction = Exonum.newType({
   fields: [
     { name: 'public_key', type: Exonum.PublicKey },
     { name: 'owl_id', type: Exonum.Hash },
-    { name: 'status', type: Exonum.String },
-    { name: 'price', type: Exonum.Uint64 }
+    { name: 'start_price', type: Exonum.Uint64 },
+    { name: 'duration', type: Exonum.Uint64 }
+  ]
+})
+const AuctionState = Exonum.newType({
+  fields: [
+    { name: 'id', type: Exonum.Uint64 },
+    { name: 'auction', type: Auction },
+    { name: 'started_at', type: SystemTime },
+    { name: 'bidding_merkle_root', type: Exonum.Hash },
+    { name: 'closed', type: Exonum.Bool }
   ]
 })
 
@@ -179,67 +195,99 @@ module.exports = {
         }).then(waitForAcceptance)
       },
 
-      createOrder: (keyPair, owl, price) => {
-        // Describe transaction to place new order
-        const TxCreateOrder = Exonum.newMessage({
+      createAuction: (keyPair, owl, price, duration) => {
+        // Describe transaction to create auction
+        const TxCreateAuction = Exonum.newMessage({
           protocol_version: PROTOCOL_VERSION,
           service_id: SERVICE_ID,
-          message_id: CREATE_ORDER_TX_ID,
+          message_id: CREATE_AUCTION_TX_ID,
+          fields: [
+            { name: 'auction', type: Auction }
+          ]
+        })
+
+        // Transaction data
+        const data = {
+          auction: {
+            public_key: keyPair.publicKey,
+            owl_id: owl,
+            start_price: price,
+            duration: duration
+          }
+        }
+
+        // Sign transaction with user's secret key
+        const signature = TxCreateAuction.sign(keyPair.secretKey, data)
+
+        // Send transaction into blockchain
+        return axios.post('/api/services/cryptoowls/v1/transaction', {
+          protocol_version: PROTOCOL_VERSION,
+          service_id: SERVICE_ID,
+          message_id: CREATE_AUCTION_TX_ID,
+          body: data,
+          signature: signature
+        }).then(waitForAcceptance)
+      },
+
+      makeBid: (keyPair, auction, price) => {
+        // Describe transaction to make bid
+        const TxMakeBid = Exonum.newMessage({
+          protocol_version: PROTOCOL_VERSION,
+          service_id: SERVICE_ID,
+          message_id: MAKE_BID_TX_ID,
           fields: [
             { name: 'public_key', type: Exonum.PublicKey },
-            { name: 'owl_id', type: Exonum.Hash },
-            { name: 'price', type: Exonum.Uint64 },
+            { name: 'auction_id', type: Exonum.Uint64 },
+            { name: 'value', type: Exonum.Uint64 }
+          ]
+        })
+
+        // Transaction data
+        const data = {
+          public_key: keyPair.publicKey,
+          auction_id: auction,
+          value: price
+        }
+
+        // Sign transaction with user's secret key
+        const signature = TxMakeBid.sign(keyPair.secretKey, data)
+
+        // Send transaction into blockchain
+        return axios.post('/api/services/cryptoowls/v1/transaction', {
+          protocol_version: PROTOCOL_VERSION,
+          service_id: SERVICE_ID,
+          message_id: MAKE_BID_TX_ID,
+          body: data,
+          signature: signature
+        }).then(waitForAcceptance)
+      },
+
+      closeAuction: (keyPair, auction) => {
+        // Describe transaction to close auction
+        const TxCloseAuction = Exonum.newMessage({
+          protocol_version: PROTOCOL_VERSION,
+          service_id: SERVICE_ID,
+          message_id: CLOSE_AUCTION_TX_ID,
+          fields: [
+            { name: 'auction_id', type: Exonum.Uint64 },
             { name: 'seed', type: SystemTime }
           ]
         })
 
         // Transaction data
         const data = {
-          public_key: keyPair.publicKey,
-          owl_id: owl,
-          price: price,
+          auction_id: auction,
           seed: getSystemTime()
         }
 
         // Sign transaction with user's secret key
-        const signature = TxCreateOrder.sign(keyPair.secretKey, data)
+        const signature = TxCloseAuction.sign(keyPair.secretKey, data)
 
         // Send transaction into blockchain
         return axios.post('/api/services/cryptoowls/v1/transaction', {
           protocol_version: PROTOCOL_VERSION,
           service_id: SERVICE_ID,
-          message_id: CREATE_ORDER_TX_ID,
-          body: data,
-          signature: signature
-        }).then(waitForAcceptance)
-      },
-
-      acceptOrder: (keyPair, order) => {
-        // Describe transaction to accept order
-        const TxAcceptOrder = Exonum.newMessage({
-          protocol_version: PROTOCOL_VERSION,
-          service_id: SERVICE_ID,
-          message_id: ACCEPT_ORDER_TX_ID,
-          fields: [
-            {name: 'public_key', type: Exonum.PublicKey },
-            {name: 'order_id', type: Exonum.Hash }
-          ]
-        })
-
-        // Transaction data
-        const data = {
-          public_key: keyPair.publicKey,
-          order_id: order
-        }
-
-        // Sign transaction with user's secret key
-        const signature = TxAcceptOrder.sign(keyPair.secretKey, data)
-
-        // Send transaction into blockchain
-        return axios.post('/api/services/cryptoowls/v1/transaction', {
-          protocol_version: PROTOCOL_VERSION,
-          service_id: SERVICE_ID,
-          message_id: ACCEPT_ORDER_TX_ID,
+          message_id: CLOSE_AUCTION_TX_ID,
           body: data,
           signature: signature
         }).then(waitForAcceptance)
@@ -258,8 +306,16 @@ module.exports = {
         })
       },
 
-      getUserOrders: publicKey => {
-        return axios.get(`/api/services/cryptoowls/v1/user/${publicKey}/orders`).then(response => response.data)
+      getUserAuctions: publicKey => {
+        return axios.get(`/api/services/cryptoowls/v1/user/${publicKey}/auctions`).then(response => response.data)
+      },
+
+      getAuctions:() => {
+        return axios.get('/api/services/cryptoowls/v1/auctions').then(response => response.data)
+      },
+
+      getAuction: id => {
+        return axios.get(`/api/services/cryptoowls/v1/auctions/${id}`).then(response => response.data)
       },
 
       getOwls: () => {
@@ -272,10 +328,6 @@ module.exports = {
 
       getOwl: hash => {
         return axios.get(`/api/services/cryptoowls/v1/owl/${hash}`).then(response => response.data)
-      },
-
-      getOrders: hash => {
-        return axios.get(`/api/services/cryptoowls/v1/owl/${hash}/orders`).then(response => response.data)
       },
 
       getBlocks: latest => {
@@ -325,7 +377,7 @@ module.exports = {
 
       getOwlHash: owl => Owl.hash(owl),
 
-      getOrderHash: order => Order.hash(order)
+      getAuctionHash: auction => Auction.hash(auction)
     }
   }
 }

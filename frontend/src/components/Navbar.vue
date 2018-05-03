@@ -11,6 +11,9 @@
       <div class="collapse navbar-collapse" id="navbar">
         <ul class="navbar-nav">
           <li class="nav-item">
+            <router-link :to="{ name: 'auctions' }" class="nav-link">Auctions</router-link>
+          </li>
+          <li class="nav-item">
             <router-link :to="{ name: 'users' }" class="nav-link">Users</router-link>
           </li>
           <li class="nav-item">
