@@ -935,7 +935,17 @@ mod api {
                 if let Some(orders) = self_.get_auction_bids(auction_id) {
                     self_.ok_response(&json!(orders))
                 } else {
-                    self_.not_found_response(&json!("User not found"))
+                    self_.not_found_response(&json!("Auction not found"))
+                }
+            };
+
+            let self_ = self.clone();
+            let get_auction = move |req: &mut Request| {
+                let auction_id = self_.url_fragment(req, "auction_id")?;
+                if let Some((auction, bids)) = self_.get_auction(auction_id) {
+                    self_.ok_response(&json!({"auction_data": auction, "bids": bids}))
+                } else {
+                    self_.not_found_response(&json!("Auction not found"))
                 }
             };
 
@@ -995,6 +1005,7 @@ mod api {
                 get_auction_bids,
                 "get_auction_bids",
             );
+            router.get("/v1/auction/:auction_id", get_auction, "get_auction");
             router.get("/v1/auctions", get_auctions, "get_auctions");
 
             router.get("/v1/user/:pub_key/owls", get_user_owls, "get_user_owls");
@@ -1068,6 +1079,16 @@ mod api {
                 .map(|auction_id| schema.auctions().get(auction_id).unwrap())
                 .collect();
             Some(auctions)
+        }
+
+        fn get_auction(&self, auction_id: u64) -> Option<(AuctionState, Vec<Bid>)> {
+            let snapshot = self.blockchain.snapshot();
+            let schema = schema::CryptoOwlsSchema::new(snapshot);
+
+            let auction_state = schema.auctions().get(auction_id)?;
+            let auction_bids = schema.auction_bids(auction_state.id());
+            let bids = auction_bids.into_iter().collect();
+            Some((auction_state, bids))
         }
 
         fn get_auction_bids(&self, auction_id: u64) -> Option<Vec<Bid>> {
