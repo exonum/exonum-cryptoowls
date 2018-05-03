@@ -617,11 +617,9 @@ pub mod transactions {
                 // Decrease winner balance.
                 let user = schema.users().get(winner_bid.public_key()).unwrap();
                 schema.confirm_user_bid(user.public_key(), winner_bid.value());
-
                 // Increase seller balance.
                 let user = schema.users().get(auction.public_key()).unwrap();
                 schema.increase_user_balance(user.public_key(), winner_bid.value(), None);
-
                 // Change owl owner.
                 let owl_state = schema.owls_state().get(auction.owl_id()).unwrap();
                 schema.refresh_owls(
@@ -629,10 +627,11 @@ pub mod transactions {
                     vec![owl_state.owl()],
                     owl_state.last_breeding(),
                 );
+                schema
+                    .user_owls_mut(auction.public_key())
+                    .remove(auction.owl_id());
             };
-
             schema.owl_auction_mut().remove(auction.owl_id());
-
             // Close auction
             schema.auctions_mut().set(
                 auction_state.id(),
@@ -644,7 +643,6 @@ pub mod transactions {
                     true,
                 ),
             );
-
             Ok(())
         }
     }

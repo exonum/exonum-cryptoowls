@@ -216,26 +216,26 @@ fn test_breeding() {
 #[test]
 fn test_sell_owl() {
     let (mut testkit, time_machine) = init_testkit();
-    let (pubkey, key) = crypto::gen_keypair();
-    let (pubkey_1, key_1) = crypto::gen_keypair();
-    let (pubkey_2, key_2) = crypto::gen_keypair();
+    let alice_keys = crypto::gen_keypair();
+    let bob_keys = crypto::gen_keypair();
+    let jane_keys = crypto::gen_keypair();
 
     testkit.create_block_with_transactions(txvec![
-        CreateUser::new(&pubkey, "Alice", &key),
-        CreateUser::new(&pubkey_1, "Bob", &key_1),
-        CreateUser::new(&pubkey_2, "Jane", &key_2),
+        CreateUser::new(&alice_keys.0, "Alice", &alice_keys.1),
+        CreateUser::new(&bob_keys.0, "Bob", &bob_keys.1),
+        CreateUser::new(&jane_keys.0, "Jane", &jane_keys.1),
     ]);
 
     let snapshot = testkit.snapshot();
     let schema = CryptoOwlsSchema::new(&snapshot);
 
-    let alice_owls = schema.user_owls(&pubkey);
+    let alice_owls = schema.user_owls(&alice_keys.0);
     let alice_owl = alice_owls.iter().map(|x| x.1).next().unwrap();
 
     // Create auction
     testkit
         .create_block_with_transactions(txvec![
-            CreateAuction::new(&pubkey, &alice_owl, 10, 1_000, &key)
+            CreateAuction::new(&alice_keys.0, &alice_owl, 10, 1_000, &alice_keys.1)
         ])
         .transactions
         .into_iter()
@@ -243,8 +243,8 @@ fn test_sell_owl() {
     // Make bids
     testkit
         .create_block_with_transactions(txvec![
-            MakeBid::new(&pubkey_1, 0, 20, &key_1),
-            MakeBid::new(&pubkey_2, 0, 30, &key_2),
+            MakeBid::new(&bob_keys.0, 0, 20, &bob_keys.1),
+            MakeBid::new(&jane_keys.0, 0, 30, &jane_keys.1),
         ])
         .transactions
         .into_iter()
@@ -255,8 +255,8 @@ fn test_sell_owl() {
         let schema = CryptoOwlsSchema::new(&snapshot);
 
         let auction = schema.auctions().get(0).unwrap();
-        let bob = schema.users().get(&pubkey_1).unwrap();
-        let jane = schema.users().get(&pubkey_2).unwrap();
+        let bob = schema.users().get(&bob_keys.0).unwrap();
+        let jane = schema.users().get(&jane_keys.0).unwrap();
 
         assert_eq!(bob.balance(), ISSUE_AMOUNT);
         assert_eq!(bob.reserved(), 0);
@@ -291,9 +291,9 @@ fn test_sell_owl() {
         let schema = CryptoOwlsSchema::new(&snapshot);
 
         let auction = schema.auctions().get(0).unwrap();
-        let alice = schema.users().get(&pubkey).unwrap();
-        let bob = schema.users().get(&pubkey_1).unwrap();
-        let jane = schema.users().get(&pubkey_2).unwrap();
+        let alice = schema.users().get(&alice_keys.0).unwrap();
+        let bob = schema.users().get(&bob_keys.0).unwrap();
+        let jane = schema.users().get(&jane_keys.0).unwrap();
 
         assert_eq!(bob.balance(), ISSUE_AMOUNT);
         assert_eq!(bob.reserved(), 0);
@@ -304,10 +304,11 @@ fn test_sell_owl() {
 
         assert!(auction.closed());
         assert!(schema.owl_auction().get(&alice_owl).is_none());
-        assert!(schema.user_owls(&pubkey_2).contains_by_hash(&alice_owl));
+        assert!(schema.user_owls(&jane_keys.0).contains_by_hash(&alice_owl));
+        assert!(!schema.user_owls(&alice_keys.0).contains_by_hash(&alice_owl));
         assert_eq!(
             schema.owls_state().get(&alice_owl).unwrap().owner(),
-            &pubkey_2
+            &jane_keys.0
         );
     }
 }
