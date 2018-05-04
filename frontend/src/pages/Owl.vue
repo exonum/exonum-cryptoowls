@@ -42,13 +42,13 @@
                 <li v-if="owner === keyPair.publicKey && lastBreeding" class="list-group-item">
                   <div class="row">
                     <div class="col-sm-3"><strong>Ready for breeding:</strong></div>
-                    <div class="col-sm-9"><countdown v-bind:date="lastBreeding"/></div>
+                    <div class="col-sm-9"><countdown :from="$moment.toTimestamp(lastBreeding)" :timeout="60" :text="'right now'"/></div>
                   </div>
                 </li>
               </ul>
             </div>
             <div class="col-sm-6">
-              <owl-icon v-if="owl.dna" v-bind:dna="owl.dna"/>
+              <owl-icon v-if="owl.dna" :dna="owl.dna"/>
             </div>
           </div>
         </div>

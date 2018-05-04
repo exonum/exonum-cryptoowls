@@ -5,7 +5,7 @@
         <div class="col-sm-12">
           <h1>All auctions</h1>
 
-          <auction-list v-bind:auctions="auctions" class="mt-3"/>
+          <auction-list :auctions="auctions" class="mt-3"/>
         </div>
       </div>
     </div>

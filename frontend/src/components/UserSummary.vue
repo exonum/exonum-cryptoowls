@@ -36,7 +36,7 @@
       <div class="row">
         <div class="col-sm-3"><strong>Available to issue:</strong></div>
         <div class="col-sm-9">
-          <countdown v-bind:date="user.last_fillup"/>
+          <countdown :from="$moment.toTimestamp(user.last_fillup)" :timeout="60" :text="'right now!'"/>
         </div>
       </div>
     </li>

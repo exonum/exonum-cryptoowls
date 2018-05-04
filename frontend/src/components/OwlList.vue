@@ -3,7 +3,7 @@
     <div class="col-sm-6 col-md-4 col-lg-3" v-for="owl in owls" :key="$blockchain.getOwlHash(owl.owl)">
       <div class="card mt-3">
         <router-link :to="{ name: 'owl', params: { hash: $blockchain.getOwlHash(owl.owl) } }" class="break-word">
-          <owl-icon v-bind:dna="owl.owl.dna" class="card-img-top"/>
+          <owl-icon :dna="owl.owl.dna" class="card-img-top"/>
         </router-link>
         <div class="card-body">
           <h5 class="card-title">
@@ -14,7 +14,7 @@
         </div>
         <div v-if="owl.last_breeding" class="card-footer">
           <div class="text-muted">Last breeding was on {{ $moment.getDate(owl.last_breeding) }}</div>
-          <div v-if="owl.owner === keyPair.publicKey" class="text-muted mt-2">Ready for breeding: <countdown v-bind:date="owl.last_breeding"/></div>
+          <div v-if="owl.owner === keyPair.publicKey" class="text-muted mt-2">Ready for breeding: <countdown :from="$moment.toTimestamp(owl.last_breeding)" :timeout="60" :text="'right now!'"/></div>
         </div>
       </div>
     </div>
