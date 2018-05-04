@@ -623,10 +623,25 @@ pub mod transactions {
                 schema.increase_user_balance(seller.public_key(), winner_bid.value(), None);
 
                 // Remove posession from the seller.
-                schema.user_owls_mut(seller.public_key()).remove(auction.owl_id());
+                schema
+                    .user_owls_mut(seller.public_key())
+                    .remove(auction.owl_id());
 
                 // Pass it to the winner.
-                schema.user_owls_mut(winner.public_key()).insert(*auction.owl_id());
+                schema
+                    .user_owls_mut(winner.public_key())
+                    .insert(*auction.owl_id());
+
+                // Change owl owner.
+                let owl_state = schema.owls_state().get(auction.owl_id()).unwrap();
+                schema.owls_state_mut().put(
+                    auction.owl_id(),
+                    CryptoOwlState::new(
+                        owl_state.owl(),
+                        winner.public_key(),
+                        owl_state.last_breeding(),
+                    ),
+                );
             };
 
             schema.owl_auction_mut().remove(auction.owl_id());
