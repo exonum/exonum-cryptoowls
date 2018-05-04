@@ -23,8 +23,23 @@
                 </li>
                 <li class="list-group-item">
                   <div class="row">
-                    <div class="col-sm-3"><strong>Closed:</strong></div>
-                    <div class="col-sm-9">{{ auction.closed }}</div>
+                    <div class="col-sm-3"><strong>Duration:</strong></div>
+                    <div class="col-sm-9">{{ auction.auction.duration }} seconds</div>
+                  </div>
+                </li>
+                <li class="list-group-item">
+                  <div class="row">
+                    <div class="col-sm-3"><strong>Close in:</strong></div>
+                    <div v-if="auction.closed" class="col-sm-9">Closed</div>
+                    <div v-else class="col-sm-9">
+                      <countdown :from="$moment.toTimestamp(auction.started_at) + parseInt(auction.auction.duration)" :timeout="auction.auction.duration" :text="'Closed'"/>
+                    </div>
+                  </div>
+                </li>
+                <li class="list-group-item">
+                  <div class="row">
+                    <div class="col-sm-3"><strong>Start price:</strong></div>
+                    <div class="col-sm-9">{{ auction.auction.start_price }}</div>
                   </div>
                 </li>
                 <li class="list-group-item">
@@ -33,18 +48,6 @@
                     <div class="col-sm-9">
                       <code>{{ auction.bidding_merkle_root }}</code>
                     </div>
-                  </div>
-                </li>
-                <li class="list-group-item">
-                  <div class="row">
-                    <div class="col-sm-3"><strong>Duration:</strong></div>
-                    <div class="col-sm-9">{{ auction.auction.duration }}</div>
-                  </div>
-                </li>
-                <li class="list-group-item">
-                  <div class="row">
-                    <div class="col-sm-3"><strong>Start price:</strong></div>
-                    <div class="col-sm-9">{{ auction.auction.start_price }}</div>
                   </div>
                 </li>
               </ul>
@@ -85,13 +88,13 @@
                 <li v-if="owner === keyPair.publicKey && lastBreeding" class="list-group-item">
                   <div class="row">
                     <div class="col-sm-3"><strong>Ready for breeding:</strong></div>
-                    <div class="col-sm-9"><countdown v-bind:date="lastBreeding"/></div>
+                    <div class="col-sm-9"><countdown :from="$moment.toTimestamp(lastBreeding)" :timeout="60" :text="'right now'"/></div>
                   </div>
                 </li>
               </ul>
             </div>
             <div class="col-sm-6 col-md-4">
-              <owl-icon v-if="owl.dna" v-bind:dna="owl.dna"/>
+              <owl-icon v-if="owl.dna" :dna="owl.dna"/>
             </div>
           </div>
 

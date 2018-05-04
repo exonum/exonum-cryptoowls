@@ -8,7 +8,7 @@
           <div class="row mt-5">
             <div class="col-sm-6 col-md-4">
               <h2>My profile</h2>
-              <user-summary v-bind:user="user" class="mt-3"/>
+              <user-summary :user="user" class="mt-3"/>
               <button class="btn btn-lg btn-block btn-primary mt-3" @click.prevent="issue">Issue funds</button>
             </div>
             <div class="col-sm-6 col-md-4">
@@ -56,10 +56,10 @@
           </div>
 
           <h2 class="mt-5">My owls</h2>
-          <owl-list v-bind:owls="owls"/>
+          <owl-list :owls="owls"/>
 
           <h2 class="mt-5">My auctions</h2>
-          <auction-list v-bind:auctions="auctions" class="mt-3"/>
+          <auction-list :auctions="auctions" class="mt-3"/>
         </div>
       </div>
     </div>

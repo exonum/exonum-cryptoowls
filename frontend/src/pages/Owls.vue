@@ -5,7 +5,7 @@
         <div class="col-sm-12">
           <h1>All owls</h1>
 
-          <owl-list v-bind:owls="owls"/>
+          <owl-list :owls="owls"/>
         </div>
       </div>
     </div>

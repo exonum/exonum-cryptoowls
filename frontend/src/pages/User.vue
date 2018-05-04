@@ -6,13 +6,13 @@
           <h1>User</h1>
 
           <h2 class="mt-5">Profile</h2>
-          <user-summary v-bind:user="user" class="mt-3"/>
+          <user-summary :user="user" class="mt-3"/>
 
           <h2 class="mt-5">Owls</h2>
-          <owl-list v-bind:owls="owls"/>
+          <owl-list :owls="owls"/>
 
-          <h2 class="mt-5">User auctions</h2>
-          <auction-list v-bind:auctions="auctions" class="mt-3"/>
+          <h2 class="mt-5">Auctions</h2>
+          <auction-list :auctions="auctions" class="mt-3"/>
         </div>
       </div>
     </div>
