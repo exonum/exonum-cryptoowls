@@ -6,38 +6,13 @@
           <h1>User</h1>
 
           <h2 class="mt-5">Profile</h2>
-          <user-summary v-bind:user="user" class="mt-3"/>
+          <user-summary :user="user" class="mt-3"/>
 
           <h2 class="mt-5">Owls</h2>
-          <owl-list v-bind:owls="owls"/>
+          <owl-list :owls="owls"/>
 
-          <h2 class="mt-5">User orders</h2>
-          <ul class="list-group mt-3">
-            <li class="list-group-item font-weight-bold">
-              <div class="row">
-                <div class="col-sm-3">Owl</div>
-                <div class="col-sm-3">User</div>
-                <div class="col-sm-3">Status</div>
-                <div class="col-sm-3">Price</div>
-              </div>
-            </li>
-            <li v-for="order in orders" class="list-group-item">
-              <div class="row">
-                <div class="col-sm-3">
-                  <code>
-                    <router-link :to="{ name: 'owl', params: { hash: order.owl_id } }" class="break-word">{{ order.owl_id }}</router-link>
-                  </code>
-                </div>
-                <div class="col-sm-3">
-                  <code>
-                    <router-link :to="{ name: 'user', params: { publicKey: order.public_key } }" class="break-word">{{ order.public_key }}</router-link>
-                  </code>
-                </div>
-                <div class="col-sm-3">{{ order.status }}</div>
-                <div class="col-sm-3">{{ order.price }}</div>
-              </div>
-            </li>
-          </ul>
+          <h2 class="mt-5">Auctions</h2>
+          <auction-list :auctions="auctions" class="mt-3"/>
         </div>
       </div>
     </div>
@@ -50,19 +25,21 @@
   import Spinner from '../components/Spinner.vue'
   import UserSummary from '../components/UserSummary.vue'
   import OwlList from '../components/OwlList.vue'
+  import AuctionList from '../components/AuctionList.vue'
 
   module.exports = {
     components: {
       Spinner,
       UserSummary,
-      OwlList
+      OwlList,
+      AuctionList
     },
     props: ['publicKey'],
     data() {
       return {
         user: [],
         owls: [],
-        orders: [],
+        auctions: [],
         isSpinnerVisible: false
       }
     },
@@ -74,18 +51,18 @@
           this.user = await this.$blockchain.getUser(this.publicKey)
           this.owls = await this.$blockchain.getUserOwls(this.publicKey)
           this.isSpinnerVisible = false
-          this.loadOrders()
+          this.loadAuctions()
         } catch (error) {
           this.isSpinnerVisible = false
           this.$notify('error', error.toString())
         }
       },
 
-      async loadOrders() {
+      async loadAuctions() {
         this.isSpinnerVisible = true
 
         try {
-          this.orders = await this.$blockchain.getUserOrders(this.publicKey)
+          this.auctions = await this.$blockchain.getUserAuctions(this.publicKey)
           this.isSpinnerVisible = false
         } catch (error) {
           this.isSpinnerVisible = false

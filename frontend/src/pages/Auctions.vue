@@ -3,9 +3,9 @@
     <div class="container mt-5">
       <div class="row">
         <div class="col-sm-12">
-          <h1>All owls</h1>
+          <h1>All auctions</h1>
 
-          <owl-list :owls="owls"/>
+          <auction-list :auctions="auctions" class="mt-3"/>
         </div>
       </div>
     </div>
@@ -16,25 +16,25 @@
 
 <script>
   import Spinner from '../components/Spinner.vue'
-  import OwlList from '../components/OwlList.vue'
+  import AuctionList from '../components/AuctionList.vue'
 
   module.exports = {
     components: {
       Spinner,
-      OwlList
+      AuctionList
     },
     data() {
       return {
-        owls: [],
+        auctions: [],
         isSpinnerVisible: false
       }
     },
     methods: {
-      async loadOwls() {
+      async loadAuctions() {
         this.isSpinnerVisible = true
 
         try {
-          this.owls = await this.$blockchain.getOwls()
+          this.auctions = await this.$blockchain.getAuctions()
           this.isSpinnerVisible = false
         } catch (error) {
           this.isSpinnerVisible = false
@@ -44,7 +44,7 @@
     },
     mounted() {
       this.$nextTick(function() {
-        this.loadOwls()
+        this.loadAuctions()
       })
     }
   }

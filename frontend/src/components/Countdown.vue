@@ -1,19 +1,18 @@
 <template>
   <span v-if="countdown > 0">in a {{ countdown }} seconds</span>
-  <span v-else>Ready!</span>
+  <span v-else>{{ text }}</span>
 </template>
 
 <script>
   const TICK = 1000
-  const TIMEOUT = 60000
 
   module.exports = {
     name: 'countdown',
-    props: ['date'],
+    props: ['from', 'timeout', 'text'],
     data() {
       return {
         now: new Date().getTime(),
-        expires: this.$moment.toTimestamp(this.date) + TIMEOUT
+        expires: this.from + this.timeout * 1000
       }
     },
     computed: {
@@ -22,10 +21,10 @@
       }
     },
     watch: {
-      date() {
+      from() {
         this.stopCountdown()
         this.now = new Date().getTime(),
-        this.expires = this.$moment.toTimestamp(this.date) + TIMEOUT
+        this.expires = this.from + this.timeout
         this.startCountdown()
       }
     },
