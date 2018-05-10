@@ -622,7 +622,7 @@ pub mod transactions {
                 let seller = schema.users().get(auction.public_key()).unwrap();
                 schema.increase_user_balance(seller.public_key(), winner_bid.value(), None);
 
-                // Remove posession from the seller.
+                // Remove possession from the seller.
                 schema
                     .user_owls_mut(seller.public_key())
                     .remove(auction.owl_id());
