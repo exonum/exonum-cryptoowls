@@ -2,6 +2,8 @@
 
 Demo created with [Exonum blockchain](https://github.com/exonum/exonum).
 
+![Exonum cryptoowl](cryptoowl.png)
+
 ## Getting started
 
 Be sure you installed necessary packages:
