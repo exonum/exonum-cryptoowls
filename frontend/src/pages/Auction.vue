@@ -4,8 +4,9 @@
       <div class="row">
         <div class="col-sm-12">
           <h1>Auction</h1>
+          <hr>
 
-          <div class="row mt-5">
+          <div class="row mt-3">
             <div v-if="auction.auction" class="col-sm-6 col-md-4">
               <h2>Summary</h2>
               <ul class="list-group mt-3">

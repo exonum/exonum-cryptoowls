@@ -2,9 +2,23 @@
 
 Demo created with [Exonum blockchain](https://github.com/exonum/exonum).
 
+![Exonum cryptoowl](cryptoowl.png)
+
+## Demo summary
+
+* Register a new user and get an initial owls;
+* Breed your owls and get a new unique owls;
+* Sell your owls using auction model;
+* Buy owls from other users.
+
 ## Getting started
 
-Be sure you installed necessary packages:
+Demo is supported by MacOS, Linux and Windows platforms.
+
+Check prerequisites for your operating system
+at [Exonum Documentation](https://exonum.com/doc/get-started/install/).
+
+Then install following necessary packages:
 
 * [git](https://git-scm.com/downloads)
 * [Rust](https://rustup.rs/)

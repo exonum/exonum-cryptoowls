@@ -4,8 +4,9 @@
       <div class="row">
         <div class="col-sm-12">
           <h1>Block {{ height }}</h1>
+          <hr>
 
-          <h2 class="mt-5">Transactions</h2>
+          <h2 class="mt-3">Transactions</h2>
           <ul class="list-group mt-3">
             <li class="list-group-item font-weight-bold">
               <div class="row">
