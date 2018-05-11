@@ -4,8 +4,9 @@
       <div class="row">
         <div class="col-sm-12">
           <h1>User</h1>
+          <hr>
 
-          <h2 class="mt-5">Profile</h2>
+          <h2 class="mt-3">Profile</h2>
           <user-summary :user="user" class="mt-3"/>
 
           <h2 class="mt-5">Owls</h2>

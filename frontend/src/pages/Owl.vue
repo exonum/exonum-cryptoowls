@@ -4,8 +4,9 @@
       <div class="row">
         <div class="col-sm-12">
           <h1>Owl</h1>
+          <hr>
 
-          <div class="row mt-5">
+          <div class="row mt-3">
             <div class="col-sm-6">
               <h2>Profile</h2>
               <ul class="list-group mt-3">

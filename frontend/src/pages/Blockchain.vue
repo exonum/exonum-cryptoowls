@@ -5,7 +5,7 @@
         <div class="col-sm-12">
           <h1>Latest blocks</h1>
 
-          <ul class="list-group mt-5">
+          <ul class="list-group mt-3">
             <li class="list-group-item font-weight-bold">
               <div class="row">
                 <div class="col-sm-6">Height</div>
