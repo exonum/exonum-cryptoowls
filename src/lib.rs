@@ -250,7 +250,7 @@ pub mod transactions {
     use exonum::storage::{Fork, Snapshot};
     use exonum::blockchain::{ExecutionError, ExecutionResult, Schema, Transaction};
     use exonum::messages::Message;
-    use exonum_time::TimeSchema;
+    use exonum_time::schema::TimeSchema;
 
     use std::io::Cursor;
 
@@ -1195,7 +1195,7 @@ pub mod service {
         }
 
         // Check open auctions state after each block's commit.
-        fn handle_commit(&self, ctx: &ServiceContext) {
+        fn after_commit(&self, ctx: &ServiceContext) {
             let current_time = if let Some(time) = transactions::current_time(ctx.snapshot()) {
                 time
             } else {

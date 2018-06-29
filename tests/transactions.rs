@@ -26,7 +26,7 @@ extern crate rand;
 use chrono::{Duration, Utc};
 
 use std::collections::{HashMap, HashSet};
-use exonum_time::{MockTimeProvider, TimeService};
+use exonum_time::{time_provider::MockTimeProvider, TimeService};
 
 use exonum::crypto::{self, CryptoHash};
 use exonum_testkit::{TestKit, TestKitBuilder};
