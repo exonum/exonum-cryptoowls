@@ -25,17 +25,17 @@ extern crate rand;
 
 use chrono::{Duration, Utc};
 
-use std::collections::{HashMap, HashSet};
 use exonum_time::{time_provider::MockTimeProvider, TimeService};
+use std::collections::{HashMap, HashSet};
 
 use exonum::crypto::{self, CryptoHash};
-use exonum_testkit::{TestKit, TestKitBuilder};
 use exonum::helpers::Height;
+use exonum_testkit::{TestKit, TestKitBuilder};
 
-use cryptoowls::ISSUE_AMOUNT;
 use cryptoowls::schema::CryptoOwlsSchema;
 use cryptoowls::service::CryptoOwlsService;
 use cryptoowls::transactions::*;
+use cryptoowls::ISSUE_AMOUNT;
 
 fn init_testkit() -> (TestKit, MockTimeProvider) {
     let mock_provider = MockTimeProvider::default();
@@ -102,9 +102,11 @@ fn test_issue() {
         time_machine.add_time(Duration::seconds(200));
         testkit.create_blocks_until(Height(8));
 
-        testkit.create_block_with_transactions(txvec![
-            Issue::new(&pubkey, Utc::now() + Duration::seconds(100), &key),
-        ]);
+        testkit.create_block_with_transactions(txvec![Issue::new(
+            &pubkey,
+            Utc::now() + Duration::seconds(100),
+            &key
+        ),]);
 
         let snapshot = testkit.snapshot();
         let schema = CryptoOwlsSchema::new(&snapshot);
@@ -132,16 +134,14 @@ fn test_breeding() {
     let user_owls_idx = schema.user_owls(&pubkey);
     let user_owls: Vec<_> = user_owls_idx.iter().map(|o| o.1).collect();
 
-    testkit.create_block_with_transactions(txvec![
-        MakeOwl::new(
-            &pubkey,
-            "Abel",
-            &user_owls[0],
-            &user_owls[1],
-            Utc::now(),
-            &key,
-        ),
-    ]);
+    testkit.create_block_with_transactions(txvec![MakeOwl::new(
+        &pubkey,
+        "Abel",
+        &user_owls[0],
+        &user_owls[1],
+        Utc::now(),
+        &key,
+    ),]);
 
     let snapshot = testkit.snapshot();
     let schema = CryptoOwlsSchema::new(&snapshot);
@@ -156,16 +156,14 @@ fn test_breeding() {
     testkit.create_blocks_until(Height(8));
 
     // So, now they grew up enough to breed
-    testkit.create_block_with_transactions(txvec![
-        MakeOwl::new(
-            &pubkey,
-            "Abel",
-            &user_owls[0],
-            &user_owls[1],
-            Utc::now(),
-            &key,
-        ),
-    ]);
+    testkit.create_block_with_transactions(txvec![MakeOwl::new(
+        &pubkey,
+        "Abel",
+        &user_owls[0],
+        &user_owls[1],
+        Utc::now(),
+        &key,
+    ),]);
 
     let snapshot = testkit.snapshot();
     let schema = CryptoOwlsSchema::new(&snapshot);
@@ -194,16 +192,14 @@ fn test_breeding() {
     testkit.create_blocks_until(Height(16));
 
     // Shouldn't be able to make owl from one parent
-    testkit.create_block_with_transactions(txvec![
-        MakeOwl::new(
-            &pubkey,
-            "Bastard",
-            &user_owls[0],
-            &user_owls[0],
-            Utc::now(),
-            &key,
-        ),
-    ]);
+    testkit.create_block_with_transactions(txvec![MakeOwl::new(
+        &pubkey,
+        "Bastard",
+        &user_owls[0],
+        &user_owls[0],
+        Utc::now(),
+        &key,
+    ),]);
 
     let snapshot = testkit.snapshot();
     let schema = CryptoOwlsSchema::new(&snapshot);
@@ -234,9 +230,13 @@ fn test_sell_owl() {
 
     // Create auction
     testkit
-        .create_block_with_transactions(txvec![
-            CreateAuction::new(&alice_keys.0, &alice_owl, 10, 1_000, &alice_keys.1)
-        ])
+        .create_block_with_transactions(txvec![CreateAuction::new(
+            &alice_keys.0,
+            &alice_owl,
+            10,
+            1_000,
+            &alice_keys.1
+        )])
         .transactions
         .into_iter()
         .for_each(|tx| tx.status().unwrap());
@@ -274,9 +274,12 @@ fn test_sell_owl() {
     let validators = testkit.network().validators().to_vec();
     let (closing_party, sec_key) = validators[0].service_keypair();
     testkit
-        .create_block_with_transactions(txvec![
-            CloseAuction::new(0, closing_party, Utc::now(), sec_key),
-        ])
+        .create_block_with_transactions(txvec![CloseAuction::new(
+            0,
+            closing_party,
+            Utc::now(),
+            sec_key
+        ),])
         .transactions
         .into_iter()
         .for_each(|tx| {
@@ -331,9 +334,13 @@ fn test_two_bids_same_user() {
     let bob_owl = bob_owls.iter().map(|x| x.1).next().unwrap();
     // Create auction
     testkit
-        .create_block_with_transactions(txvec![
-            CreateAuction::new(&bob_keys.0, &bob_owl, 10, 1_000, &bob_keys.1)
-        ])
+        .create_block_with_transactions(txvec![CreateAuction::new(
+            &bob_keys.0,
+            &bob_owl,
+            10,
+            1_000,
+            &bob_keys.1
+        )])
         .transactions
         .into_iter()
         .for_each(|tx| tx.status().unwrap());

@@ -142,9 +142,10 @@ pub mod data_layout {
 
 /// Database schema.
 pub mod schema {
-    use exonum::storage::{Fork, ListIndex, MapIndex, ProofListIndex, ProofMapIndex, Snapshot,
-                          ValueSetIndex};
     use exonum::crypto::{Hash, PublicKey};
+    use exonum::storage::{
+        Fork, ListIndex, MapIndex, ProofListIndex, ProofMapIndex, Snapshot, ValueSetIndex,
+    };
 
     use data_layout::{AuctionState, Bid, CryptoOwlState, User};
 
@@ -242,14 +243,14 @@ pub mod schema {
 pub mod transactions {
     use byteorder::{BigEndian, ReadBytesExt};
     use chrono::{DateTime, Duration, Utc};
-    use rand::{IsaacRng, Rng, SeedableRng};
-    use rand::distributions::{Sample, Weighted, WeightedChoice};
     use num_traits::ToPrimitive;
+    use rand::distributions::{Sample, Weighted, WeightedChoice};
+    use rand::{IsaacRng, Rng, SeedableRng};
 
-    use exonum::crypto::{CryptoHash, Hash, PublicKey};
-    use exonum::storage::{Fork, Snapshot};
     use exonum::blockchain::{ExecutionError, ExecutionResult, Schema, Transaction};
+    use exonum::crypto::{CryptoHash, Hash, PublicKey};
     use exonum::messages::Message;
+    use exonum::storage::{Fork, Snapshot};
     use exonum_time::schema::TimeSchema;
 
     use std::io::Cursor;
@@ -904,11 +905,11 @@ mod api {
     use exonum::api::{Api, ApiError};
     use exonum::crypto::{Hash, PublicKey};
 
-    use exonum::node::{ApiSender, TransactionSend};
     use exonum::blockchain::{Blockchain, Transaction};
+    use exonum::node::{ApiSender, TransactionSend};
 
-    use schema;
     use data_layout::{AuctionState, Bid, CryptoOwlState, User};
+    use schema;
     use transactions::Transactions;
 
     #[derive(Clone)]
@@ -996,16 +997,16 @@ mod api {
             };
 
             let self_ = self.clone();
-            let transaction =
-                move |req: &mut Request| match req.get::<bodyparser::Struct<Transactions>>() {
-                    Ok(Some(transaction)) => {
-                        let tx_hash = self_.post_transaction(transaction).map_err(ApiError::from)?;
-                        let json = json!({ "tx_hash": tx_hash });
-                        self_.ok_response(&json)
-                    }
-                    Ok(None) => Err(ApiError::BadRequest("Empty request body".into()))?,
-                    Err(e) => Err(ApiError::BadRequest(e.to_string()))?,
-                };
+            let transaction = move |req: &mut Request| match req.get::<bodyparser::Struct<Transactions>>(
+            ) {
+                Ok(Some(transaction)) => {
+                    let tx_hash = self_.post_transaction(transaction).map_err(ApiError::from)?;
+                    let json = json!({ "tx_hash": tx_hash });
+                    self_.ok_response(&json)
+                }
+                Ok(None) => Err(ApiError::BadRequest("Empty request body".into()))?,
+                Err(e) => Err(ApiError::BadRequest(e.to_string()))?,
+            };
 
             // View-only handlers.
             router.get("/v1/users", get_users, "get_users");
@@ -1148,12 +1149,12 @@ pub mod service {
     use router::Router;
 
     use exonum::api::Api;
+    use exonum::blockchain::{ApiContext, Service, ServiceContext, Transaction, TransactionSet};
     use exonum::crypto::Hash;
     use exonum::encoding;
-    use exonum::storage::Snapshot;
-    use exonum::blockchain::{ApiContext, Service, ServiceContext, Transaction, TransactionSet};
     use exonum::helpers::fabric::{Context, ServiceFactory};
     use exonum::messages::RawTransaction;
+    use exonum::storage::Snapshot;
 
     use api::CryptoOwlsApi;
     use schema::CryptoOwlsSchema;

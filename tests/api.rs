@@ -29,12 +29,12 @@ use chrono::Utc;
 use exonum_time::TimeService;
 
 use exonum::crypto::{self, CryptoHash};
-use exonum_testkit::{ApiKind, TestKit, TestKitApi, TestKitBuilder};
 use exonum::helpers::Height;
+use exonum_testkit::{ApiKind, TestKit, TestKitApi, TestKitBuilder};
 
-use cryptoowls::CRYPTOOWLS_SERVICE_NAME;
 use cryptoowls::service::CryptoOwlsService;
 use cryptoowls::transactions::*;
+use cryptoowls::CRYPTOOWLS_SERVICE_NAME;
 
 fn init_testkit() -> (TestKit, TestKitApi) {
     let mut testkit = TestKitBuilder::validator()

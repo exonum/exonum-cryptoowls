@@ -18,11 +18,11 @@ extern crate exonum_time;
 
 extern crate exonum_cryptoowls as cryptoowls;
 
+use cryptoowls::service::CryptoOwlsServiceFactory;
 use exonum::helpers;
 use exonum::helpers::fabric::NodeBuilder;
-use exonum_time::TimeServiceFactory;
 use exonum_configuration::ServiceFactory as ConfigurationServiceFactory;
-use cryptoowls::service::CryptoOwlsServiceFactory;
+use exonum_time::TimeServiceFactory;
 
 fn main() {
     exonum::crypto::init();

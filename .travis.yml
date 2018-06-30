@@ -9,7 +9,7 @@ addons:
     - librocksdb
 
 rust:
-  - 1.25.0
+  - 1.27.0
 
 matrix:
   allow_failures:
