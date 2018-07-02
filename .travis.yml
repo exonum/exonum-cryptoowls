@@ -9,7 +9,7 @@ addons:
     - librocksdb
 
 rust:
-  - 1.25.0
+  - 1.27.0
 
 matrix:
   allow_failures:
@@ -26,7 +26,7 @@ sudo: required
 
 env:
   global:
-  - CLIPPY_VERS=0.0.186
+  - CLIPPY_VERS=0.0.209
   - DEADLINKS_VERS=0.3.0
   - OUTDATED_VERS=0.7.0
   - SODIUM_VERS=1.0.16
@@ -72,7 +72,7 @@ jobs:
 
   # Clippy linting
   - env: FEATURE=clippy
-    rust: nightly-2018-02-12
+    rust: nightly-2018-06-20
     install:
     - cargo clippy --version | grep $CLIPPY_VERS || cargo install clippy --force --vers $CLIPPY_VERS
     script:
