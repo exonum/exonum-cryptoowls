@@ -100,15 +100,13 @@ module.exports = {
 
         // Sign transaction with user's secret key
         const signature = TxCreateWallet.sign(keyPair.secretKey, data)
-
+        TxCreateWallet.signature = signature
+        const hash = TxCreateWallet.hash(data)
+      
         // Send transaction into blockchain
-        return axios.post('/api/services/cryptoowls/v1/transaction', {
-          protocol_version: PROTOCOL_VERSION,
-          service_id: SERVICE_ID,
-          message_id: CREATE_USER_TX_ID,
-          body: data,
-          signature: signature
-        }).then(waitForAcceptance).then(() => keyPair)
+        return TxCreateWallet.send('/api/services/cryptoowls/v1/transaction', '/api/explorer/v1/transactions/', data, signature)
+        .then(() => keyPair)
+       
       },
 
       makeOwl: (keyPair, name, father, mother) => {
@@ -139,13 +137,7 @@ module.exports = {
         const signature = TxMakeOwl.sign(keyPair.secretKey, data)
 
         // Send transaction into blockchain
-        return axios.post('/api/services/cryptoowls/v1/transaction', {
-          protocol_version: PROTOCOL_VERSION,
-          service_id: SERVICE_ID,
-          message_id: MAKE_OWL_TX_ID,
-          body: data,
-          signature: signature
-        }).then(waitForAcceptance)
+        return TxMakeOwl.send('/api/services/cryptoowls/v1/transaction', '/api/explorer/v1/transactions/', data, signature)
       },
 
       issue: (keyPair) => {
@@ -170,13 +162,7 @@ module.exports = {
         const signature = TxIssue.sign(keyPair.secretKey, data)
 
         // Send transaction into blockchain
-        return axios.post('/api/services/cryptoowls/v1/transaction', {
-          protocol_version: PROTOCOL_VERSION,
-          service_id: SERVICE_ID,
-          message_id: ISSUE_TX_ID,
-          body: data,
-          signature: signature
-        }).then(waitForAcceptance)
+        return TxIssue.send('/api/services/cryptoowls/v1/transaction', '/api/explorer/v1/transactions/', data, signature)
       },
 
       createAuction: (keyPair, owl, price, duration) => {
@@ -205,13 +191,7 @@ module.exports = {
         const signature = TxCreateAuction.sign(keyPair.secretKey, data)
 
         // Send transaction into blockchain
-        return axios.post('/api/services/cryptoowls/v1/transaction', {
-          protocol_version: PROTOCOL_VERSION,
-          service_id: SERVICE_ID,
-          message_id: CREATE_AUCTION_TX_ID,
-          body: data,
-          signature: signature
-        }).then(waitForAcceptance)
+        return TxCreateAuction.send('/api/services/cryptoowls/v1/transaction', '/api/explorer/v1/transactions/', data, signature)
       },
 
       makeBid: (keyPair, auction, price) => {
@@ -238,13 +218,7 @@ module.exports = {
         const signature = TxMakeBid.sign(keyPair.secretKey, data)
 
         // Send transaction into blockchain
-        return axios.post('/api/services/cryptoowls/v1/transaction', {
-          protocol_version: PROTOCOL_VERSION,
-          service_id: SERVICE_ID,
-          message_id: MAKE_BID_TX_ID,
-          body: data,
-          signature: signature
-        }).then(waitForAcceptance)
+        return TxMakeBid.send('/api/services/cryptoowls/v1/transaction', '/api/explorer/v1/transactions/', data, signature)
       },
 
       getUsers: () => {
