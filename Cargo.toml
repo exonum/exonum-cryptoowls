@@ -10,17 +10,17 @@ publish = false
 
 [dependencies]
 display_derive = "0.0.0"
-exonum = "0.8"
-exonum-time = "0.8"
-exonum-configuration = "0.8"
+# We'll have to use concrete revision until 0.9 is released.
+# exonum = "0.8"
+# exonum-time = "0.8"
+# exonum-configuration = "0.8"
+exonum = { git = "https://github.com/exonum/exonum", rev = "0c432cb0cb5123490f5c01e1b442d34ed5f67165" }
+exonum-time = { git = "https://github.com/exonum/exonum", rev = "0c432cb0cb5123490f5c01e1b442d34ed5f67165" }
+exonum-configuration = { git = "https://github.com/exonum/exonum", rev = "0c432cb0cb5123490f5c01e1b442d34ed5f67165" }
 failure = "0.1.1"
 failure_derive = "0.1.1"
-iron = "0.6"
-bodyparser = "0.8"
 log = "0.4"
-mount = "0.4"
 rand = "0.4.2"
-router = "0.6.0"
 serde = "1.0"
 serde_derive = "1.0"
 serde_json = "1.0"
@@ -30,5 +30,6 @@ num-traits = "0.2.2"
 chrono = "0.4"
 
 [dev-dependencies]
-exonum-testkit = "0.8"
+# exonum-testkit = "0.8"
+exonum-testkit = { git = "https://github.com/exonum/exonum", rev = "0c432cb0cb5123490f5c01e1b442d34ed5f67165" }
 pretty_assertions = "0.5.1"
