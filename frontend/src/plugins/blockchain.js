@@ -58,7 +58,7 @@ function waitForAcceptance(response) {
   }
 
   return (function makeAttempt() {
-    return axios.get(`/api/explorer/v1/transactions/${response.data.tx_hash}`).then(response => {
+    return axios.get(`/api/explorer/v1/transactions?hash=${response.data.tx_hash}`).then(response => {
       if (response.data.type === 'committed') {
         return response.data
       } else {
@@ -104,7 +104,7 @@ module.exports = {
         const hash = TxCreateWallet.hash(data)
       
         // Send transaction into blockchain
-        return TxCreateWallet.send('/api/services/cryptoowls/v1/transaction', '/api/explorer/v1/transactions/', data, signature)
+        return TxCreateWallet.send('/api/services/cryptoowls/v1/transaction', '/api/explorer/v1/transactions?hash=', data, signature)
         .then(() => keyPair)
        
       },
@@ -137,7 +137,7 @@ module.exports = {
         const signature = TxMakeOwl.sign(keyPair.secretKey, data)
 
         // Send transaction into blockchain
-        return TxMakeOwl.send('/api/services/cryptoowls/v1/transaction', '/api/explorer/v1/transactions/', data, signature)
+        return TxMakeOwl.send('/api/services/cryptoowls/v1/transaction', '/api/explorer/v1/transactions?hash=', data, signature)
       },
 
       issue: (keyPair) => {
@@ -162,7 +162,7 @@ module.exports = {
         const signature = TxIssue.sign(keyPair.secretKey, data)
 
         // Send transaction into blockchain
-        return TxIssue.send('/api/services/cryptoowls/v1/transaction', '/api/explorer/v1/transactions/', data, signature)
+        return TxIssue.send('/api/services/cryptoowls/v1/transaction', '/api/explorer/v1/transactions?hash=', data, signature)
       },
 
       createAuction: (keyPair, owl, price, duration) => {
@@ -191,7 +191,7 @@ module.exports = {
         const signature = TxCreateAuction.sign(keyPair.secretKey, data)
 
         // Send transaction into blockchain
-        return TxCreateAuction.send('/api/services/cryptoowls/v1/transaction', '/api/explorer/v1/transactions/', data, signature)
+        return TxCreateAuction.send('/api/services/cryptoowls/v1/transaction', '/api/explorer/v1/transactions?hash=', data, signature)
       },
 
       makeBid: (keyPair, auction, price) => {
@@ -218,7 +218,7 @@ module.exports = {
         const signature = TxMakeBid.sign(keyPair.secretKey, data)
 
         // Send transaction into blockchain
-        return TxMakeBid.send('/api/services/cryptoowls/v1/transaction', '/api/explorer/v1/transactions/', data, signature)
+        return TxMakeBid.send('/api/services/cryptoowls/v1/transaction', '/api/explorer/v1/transactions?hash=', data, signature)
       },
 
       getUsers: () => {
@@ -226,7 +226,7 @@ module.exports = {
       },
 
       getUser: publicKey => {
-        return axios.get(`/api/services/cryptoowls/v1/user/${publicKey}`).then(response => {
+        return axios.get(`/api/services/cryptoowls/v1/user?pub_key=${publicKey}`).then(response => {
           if (response.data === 'User not found') {
             throw new Error(response.data)
           }
@@ -239,15 +239,15 @@ module.exports = {
       },
 
       getUserAuctions: publicKey => {
-        return axios.get(`/api/services/cryptoowls/v1/user/${publicKey}/auctions`).then(response => response.data)
+        return axios.get(`/api/services/cryptoowls/v1/user/auctions?pub_key=${publicKey}`).then(response => response.data)
       },
 
       getAuction: id => {
-        return axios.get(`/api/services/cryptoowls/v1/auctions/${id}`).then(response => response.data)
+        return axios.get(`/api/services/cryptoowls/v1/auction?id=${id}`).then(response => response.data)
       },
 
       getBids: id => {
-        return axios.get(`/api/services/cryptoowls/v1/auction-bids/${id}`).then(response => response.data)
+        return axios.get(`/api/services/cryptoowls/v1/auction/bids?id=${id}`).then(response => response.data)
       },
 
       getOwls: () => {
@@ -255,11 +255,11 @@ module.exports = {
       },
 
       getUserOwls: publicKey => {
-        return axios.get(`/api/services/cryptoowls/v1/user/${publicKey}/owls`).then(response => response.data)
+        return axios.get(`/api/services/cryptoowls/v1/user/owls?pub_key=${publicKey}`).then(response => response.data)
       },
 
       getOwl: hash => {
-        return axios.get(`/api/services/cryptoowls/v1/owl/${hash}`).then(response => response.data)
+        return axios.get(`/api/services/cryptoowls/v1/owl?id=${hash}`).then(response => response.data)
       },
 
       getBlocks: latest => {
@@ -269,11 +269,11 @@ module.exports = {
       },
 
       getBlock: height => {
-        return axios.get(`/api/explorer/v1/blocks/${height}`).then(response => response.data)
+        return axios.get(`/api/explorer/v1/block?height=${height}`).then(response => response.data)
       },
 
       getTransaction: hash => {
-        return axios.get(`/api/explorer/v1/transactions/${hash}`).then(response => response.data)
+        return axios.get(`/api/explorer/v1/transactions?hash=${hash}`).then(response => response.data)
       },
 
       /**

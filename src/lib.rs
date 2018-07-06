@@ -910,17 +910,17 @@ mod api {
 
     #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
     pub struct OwlQuery {
-        pub owl_id: Hash,
+        pub id: Hash,
     }
 
     #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
     pub struct UserQuery {
-        pub user_key: PublicKey,
+        pub pub_key: PublicKey,
     }
 
     #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
     pub struct AuctionQuery {
-        pub auction_id: u64,
+        pub id: u64,
     }
 
     impl CryptoOwlsApi {
@@ -928,7 +928,7 @@ mod api {
         fn get_user(state: &ServiceApiState, query: UserQuery) -> api::Result<Option<User>> {
             let snapshot = state.snapshot();
             let schema = schema::CryptoOwlsSchema::new(snapshot);
-            Ok(schema.users().get(&query.user_key))
+            Ok(schema.users().get(&query.pub_key))
         }
 
         /// All users.
@@ -947,7 +947,7 @@ mod api {
         ) -> api::Result<Option<CryptoOwlState>> {
             let snapshot = state.snapshot();
             let schema = schema::CryptoOwlsSchema::new(snapshot);
-            Ok(schema.owls_state().get(&query.owl_id))
+            Ok(schema.owls_state().get(&query.id))
         }
 
         /// All owls.
@@ -967,8 +967,8 @@ mod api {
             let snapshot = state.snapshot();
             let schema = schema::CryptoOwlsSchema::new(snapshot);
 
-            Ok(schema.users().get(&query.user_key).and({
-                let idx = schema.user_owls(&query.user_key);
+            Ok(schema.users().get(&query.pub_key).and({
+                let idx = schema.user_owls(&query.pub_key);
                 // Attention, iterator type is ValueSetIndexIter<'_, Hash> !!!
                 let owls = idx.iter()
                     .map(|h| schema.owls_state().get(&h.1))
@@ -986,7 +986,7 @@ mod api {
             let snapshot = state.snapshot();
             let schema = schema::CryptoOwlsSchema::new(snapshot);
 
-            Ok(schema.users().get(&query.user_key).map(|user| {
+            Ok(schema.users().get(&query.pub_key).map(|user| {
                 let user_auctions = schema.user_auctions(user.public_key());
                 let auctions = user_auctions
                     .into_iter()
@@ -1006,7 +1006,7 @@ mod api {
 
             Ok(schema
                 .auctions()
-                .get(query.auction_id)
+                .get(query.id)
                 .map(|auction_state| {
                     let auction_bids = schema.auction_bids(auction_state.id());
                     let bids = auction_bids.into_iter().collect();
@@ -1024,7 +1024,7 @@ mod api {
 
             Ok(schema
                 .auctions()
-                .get(query.auction_id)
+                .get(query.id)
                 .map(|auction_state| {
                     let auction_bids = schema.auction_bids(auction_state.id());
                     let bids = auction_bids.into_iter().collect();
