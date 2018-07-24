@@ -23,17 +23,15 @@ extern crate enum_primitive_derive;
 extern crate exonum;
 #[macro_use]
 extern crate log;
-#[macro_use]
 extern crate serde_json;
+#[macro_use]
+extern crate serde_derive;
 
-extern crate bodyparser;
 extern crate byteorder;
 extern crate chrono;
 extern crate exonum_time;
-extern crate iron;
 extern crate num_traits;
 extern crate rand;
-extern crate router;
 extern crate serde;
 
 /// Unique service identifier.
@@ -897,259 +895,185 @@ pub mod transactions {
 
 /// Module with API implementation.
 mod api {
-    use bodyparser;
-    use iron::prelude::*;
-
-    use router::Router;
-
-    use exonum::api::{Api, ApiError};
+    use exonum::api::{self, ServiceApiBuilder, ServiceApiState};
     use exonum::crypto::{Hash, PublicKey};
 
-    use exonum::blockchain::{Blockchain, Transaction};
-    use exonum::node::{ApiSender, TransactionSend};
+    use exonum::blockchain::{Transaction};
+    use exonum::node::{TransactionSend};
 
     use data_layout::{AuctionState, Bid, CryptoOwlState, User};
     use schema;
     use transactions::Transactions;
 
-    #[derive(Clone)]
-    pub struct CryptoOwlsApi {
-        pub channel: ApiSender,
-        pub blockchain: Blockchain,
+    #[derive(Debug)]
+    pub struct CryptoOwlsApi;
+
+    #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+    pub struct OwlQuery {
+        pub id: Hash,
     }
 
-    impl Api for CryptoOwlsApi {
-        fn wire(&self, router: &mut Router) {
-            let self_ = self.clone();
-            let get_user = move |req: &mut Request| {
-                let public_key: PublicKey = self_.url_fragment(req, "public_key")?;
-                if let Some(user) = self_.get_user(&public_key) {
-                    self_.ok_response(&json!(user))
-                } else {
-                    self_.not_found_response(&json!("User not found"))
-                }
-            };
+    #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+    pub struct UserQuery {
+        pub pub_key: PublicKey,
+    }
 
-            let self_ = self.clone();
-            let get_users = move |_: &mut Request| {
-                let users = self_.get_users();
-                self_.ok_response(&json!(&users))
-            };
-
-            let self_ = self.clone();
-            let get_users_auctions = move |req: &mut Request| {
-                let public_key: PublicKey = self_.url_fragment(req, "public_key")?;
-                if let Some(orders) = self_.get_users_auctions(&public_key) {
-                    self_.ok_response(&json!(orders))
-                } else {
-                    self_.not_found_response(&json!("User not found"))
-                }
-            };
-
-            let self_ = self.clone();
-            let get_auction_bids = move |req: &mut Request| {
-                let auction_id = self_.url_fragment(req, "auction_id")?;
-                if let Some(orders) = self_.get_auction_bids(auction_id) {
-                    self_.ok_response(&json!(orders))
-                } else {
-                    self_.not_found_response(&json!("Auction not found"))
-                }
-            };
-
-            let self_ = self.clone();
-            let get_auctions =
-                move |_req: &mut Request| self_.ok_response(&json!(self_.get_auctions()));
-
-            let self_ = self.clone();
-            let get_auction_with_bids = move |req: &mut Request| {
-                let auction_id = self_.url_fragment(req, "auction_id")?;
-                if let Some(orders) = self_.get_auction_with_bids(auction_id) {
-                    self_.ok_response(&json!(orders))
-                } else {
-                    self_.not_found_response(&json!("User not found"))
-                }
-            };
-
-            let self_ = self.clone();
-            let get_owl = move |req: &mut Request| {
-                let owl_hash = self_.url_fragment(req, "owl_hash")?;
-                if let Some(owl) = self_.get_owl(&owl_hash) {
-                    self_.ok_response(&json!(owl))
-                } else {
-                    self_.not_found_response(&json!("Owl not found"))
-                }
-            };
-
-            let self_ = self.clone();
-            let get_owls = move |_: &mut Request| {
-                let owls = self_.get_owls();
-                self_.ok_response(&json!(&owls))
-            };
-
-            let self_ = self.clone();
-            let get_user_owls = move |req: &mut Request| {
-                let public_key: PublicKey = self_.url_fragment(req, "public_key")?;
-                if let Some(orders) = self_.get_user_owls(&public_key) {
-                    self_.ok_response(&json!(orders))
-                } else {
-                    self_.not_found_response(&json!("User not found"))
-                }
-            };
-
-            let self_ = self.clone();
-            let transaction = move |req: &mut Request| match req.get::<bodyparser::Struct<Transactions>>(
-            ) {
-                Ok(Some(transaction)) => {
-                    let tx_hash = self_.post_transaction(transaction).map_err(ApiError::from)?;
-                    let json = json!({ "tx_hash": tx_hash });
-                    self_.ok_response(&json)
-                }
-                Ok(None) => Err(ApiError::BadRequest("Empty request body".into()))?,
-                Err(e) => Err(ApiError::BadRequest(e.to_string()))?,
-            };
-
-            // View-only handlers.
-            router.get("/v1/users", get_users, "get_users");
-            router.get("/v1/user/:public_key", get_user, "get_user");
-
-            router.get(
-                "/v1/user/:public_key/auctions",
-                get_users_auctions,
-                "get_users_auctions",
-            );
-            router.get(
-                "/v1/auction-bids/:auction_id",
-                get_auction_bids,
-                "get_auction_bids",
-            );
-            router.get(
-                "/v1/auctions/:auction_id",
-                get_auction_with_bids,
-                "get_auction_with_bids",
-            );
-            router.get("/v1/auctions", get_auctions, "get_auctions");
-
-            router.get("/v1/user/:public_key/owls", get_user_owls, "get_user_owls");
-
-            router.get("/v1/owl/:owl_hash", get_owl, "get_owl");
-            router.get("/v1/owls", get_owls, "get_owls");
-
-            // Transactions.
-            router.post("/v1/transaction", transaction, "post_transaction");
-        }
+    #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+    pub struct AuctionQuery {
+        pub id: u64,
     }
 
     impl CryptoOwlsApi {
         /// User profile.
-        fn get_user(&self, public_key: &PublicKey) -> Option<User> {
-            let snapshot = self.blockchain.snapshot();
+        fn get_user(state: &ServiceApiState, query: UserQuery) -> api::Result<Option<User>> {
+            let snapshot = state.snapshot();
             let schema = schema::CryptoOwlsSchema::new(snapshot);
-            schema.users().get(public_key)
+            Ok(schema.users().get(&query.pub_key))
         }
 
         /// All users.
-        fn get_users(&self) -> Vec<User> {
-            let snapshot = self.blockchain.snapshot();
+        fn get_users(state: &ServiceApiState, _query: ()) -> api::Result<Vec<User>> {
+            let snapshot = state.snapshot();
             let schema = schema::CryptoOwlsSchema::new(snapshot);
             let idx = schema.users();
             let users: Vec<User> = idx.values().collect();
-            users
+            Ok(users)
         }
 
         /// Owl profile.
-        fn get_owl(&self, owl_id: &Hash) -> Option<CryptoOwlState> {
-            let snapshot = self.blockchain.snapshot();
+        fn get_owl(
+            state: &ServiceApiState,
+            query: OwlQuery,
+        ) -> api::Result<Option<CryptoOwlState>> {
+            let snapshot = state.snapshot();
             let schema = schema::CryptoOwlsSchema::new(snapshot);
-            schema.owls_state().get(owl_id)
+            Ok(schema.owls_state().get(&query.id))
         }
 
         /// All owls.
-        fn get_owls(&self) -> Vec<CryptoOwlState> {
-            let snapshot = self.blockchain.snapshot();
+        fn get_owls(state: &ServiceApiState, _query: ()) -> api::Result<Vec<CryptoOwlState>> {
+            let snapshot = state.snapshot();
             let schema = schema::CryptoOwlsSchema::new(snapshot);
             let idx = schema.owls_state();
             let owls: Vec<CryptoOwlState> = idx.values().collect();
-            owls
+            Ok(owls)
         }
 
         /// User owls list.
-        fn get_user_owls(&self, public_key: &PublicKey) -> Option<Vec<CryptoOwlState>> {
-            let snapshot = self.blockchain.snapshot();
+        fn get_user_owls(
+            state: &ServiceApiState,
+            query: UserQuery,
+        ) -> api::Result<Option<Vec<CryptoOwlState>>> {
+            let snapshot = state.snapshot();
             let schema = schema::CryptoOwlsSchema::new(snapshot);
 
-            schema.users().get(public_key).and({
-                let idx = schema.user_owls(public_key);
+            Ok(schema.users().get(&query.pub_key).and({
+                let idx = schema.user_owls(&query.pub_key);
                 // Attention, iterator type is ValueSetIndexIter<'_, Hash> !!!
                 let owls = idx.iter()
                     .map(|h| schema.owls_state().get(&h.1))
                     .collect::<Option<Vec<CryptoOwlState>>>()
                     .or_else(|| Some(Vec::new()));
                 owls
-            })
+            }))
         }
 
         /// Auctions made by user.
-        fn get_users_auctions(&self, users_key: &PublicKey) -> Option<Vec<AuctionState>> {
-            let snapshot = self.blockchain.snapshot();
+        fn get_users_auctions(
+            state: &ServiceApiState,
+            query: UserQuery,
+        ) -> api::Result<Option<Vec<AuctionState>>> {
+            let snapshot = state.snapshot();
             let schema = schema::CryptoOwlsSchema::new(snapshot);
 
-            let user = schema.users().get(users_key)?;
-            let user_auctions = schema.user_auctions(user.public_key());
-            let auctions = user_auctions
-                .into_iter()
-                .map(|auction_id| schema.auctions().get(auction_id).unwrap())
-                .collect();
-            Some(auctions)
+            Ok(schema.users().get(&query.pub_key).map(|user| {
+                let user_auctions = schema.user_auctions(user.public_key());
+                let auctions = user_auctions
+                    .into_iter()
+                    .map(|auction_id| schema.auctions().get(auction_id).unwrap())
+                    .collect();
+                auctions
+            }))
         }
 
         /// Auctions and bids by auction identifier.
-        fn get_auction_with_bids(&self, auction_id: u64) -> Option<(AuctionState, Vec<Bid>)> {
-            let snapshot = self.blockchain.snapshot();
+        fn get_auction_with_bids(
+            state: &ServiceApiState,
+            query: AuctionQuery,
+        ) -> api::Result<Option<(AuctionState, Vec<Bid>)>> {
+            let snapshot = state.snapshot();
             let schema = schema::CryptoOwlsSchema::new(snapshot);
 
-            let auction_state = schema.auctions().get(auction_id)?;
-            let auction_bids = schema.auction_bids(auction_state.id());
-            let bids = auction_bids.into_iter().collect();
-            Some((auction_state, bids))
+            Ok(schema
+                .auctions()
+                .get(query.id)
+                .map(|auction_state| {
+                    let auction_bids = schema.auction_bids(auction_state.id());
+                    let bids = auction_bids.into_iter().collect();
+                    (auction_state, bids)
+                }))
         }
 
         /// Auction bids by its identifier.
-        fn get_auction_bids(&self, auction_id: u64) -> Option<Vec<Bid>> {
-            let snapshot = self.blockchain.snapshot();
+        fn get_auction_bids(
+            state: &ServiceApiState,
+            query: AuctionQuery,
+        ) -> api::Result<Option<Vec<Bid>>> {
+            let snapshot = state.snapshot();
             let schema = schema::CryptoOwlsSchema::new(snapshot);
 
-            let auction_state = schema.auctions().get(auction_id)?;
-            let auction_bids = schema.auction_bids(auction_state.id());
-            let bids = auction_bids.into_iter().collect();
-            Some(bids)
+            Ok(schema
+                .auctions()
+                .get(query.id)
+                .map(|auction_state| {
+                    let auction_bids = schema.auction_bids(auction_state.id());
+                    let bids = auction_bids.into_iter().collect();
+                    bids
+                }))
         }
 
         /// All auctions.
-        fn get_auctions(&self) -> Vec<AuctionState> {
-            let snapshot = self.blockchain.snapshot();
+        fn get_auctions(state: &ServiceApiState, _query: ()) -> api::Result<Vec<AuctionState>> {
+            let snapshot = state.snapshot();
             let schema = schema::CryptoOwlsSchema::new(snapshot);
             let auctions = schema.auctions();
             let auctions = auctions.into_iter().collect::<Vec<_>>();
-            auctions
+            Ok(auctions)
         }
 
         /// Send new transaction into the blockchain.
-        fn post_transaction(&self, transaction: Transactions) -> Result<Hash, ApiError> {
+        fn post_transaction(
+            state: &ServiceApiState,
+            transaction: Transactions,
+        ) -> api::Result<Hash> {
             let transaction: Box<Transaction> = transaction.into();
             let tx_hash = transaction.hash();
-            self.channel.send(transaction)?;
+            state.sender().send(transaction)?;
             Ok(tx_hash)
+        }
+
+        // Links the service api implementation to the Exonum.
+        pub fn wire(builder: &mut ServiceApiBuilder) {
+            builder
+                .public_scope()
+                .endpoint("v1/users", Self::get_users)
+                .endpoint("v1/user", Self::get_user)
+                .endpoint("v1/owls", Self::get_owls)
+                .endpoint("v1/owl", Self::get_owl)
+                .endpoint("v1/user/owls", Self::get_user_owls)
+                .endpoint("v1/user/auctions", Self::get_users_auctions)
+                .endpoint("v1/auction/bids", Self::get_auction_bids)
+                .endpoint("v1/auction", Self::get_auction_with_bids)
+                .endpoint("v1/auctions", Self::get_auctions)
+                .endpoint_mut("v1/transaction", Self::post_transaction);
         }
     }
 }
 
 /// Collecting everything together.
 pub mod service {
-    use iron::Handler;
-    use router::Router;
-
-    use exonum::api::Api;
-    use exonum::blockchain::{ApiContext, Service, ServiceContext, Transaction, TransactionSet};
+    use exonum::api::ServiceApiBuilder;
+    use exonum::blockchain::{Service, ServiceContext, Transaction, TransactionSet};
     use exonum::crypto::Hash;
     use exonum::encoding;
     use exonum::helpers::fabric::{Context, ServiceFactory};
@@ -1160,7 +1084,7 @@ pub mod service {
     use schema::CryptoOwlsSchema;
     use transactions::{self, CloseAuction, Transactions};
 
-    use CRYPTOOWLS_SERVICE_ID;
+    use {CRYPTOOWLS_SERVICE_ID, CRYPTOOWLS_SERVICE_NAME};
 
     #[derive(Debug, Default)]
     pub struct CryptoOwlsService;
@@ -1169,6 +1093,10 @@ pub mod service {
     pub struct CryptoOwlsServiceFactory;
 
     impl ServiceFactory for CryptoOwlsServiceFactory {
+        fn service_name(&self) -> &str {
+            CRYPTOOWLS_SERVICE_NAME
+        }
+
         fn make_service(&mut self, _: &Context) -> Box<Service> {
             Box::new(CryptoOwlsService)
         }
@@ -1222,14 +1150,8 @@ pub mod service {
         }
 
         // Handling requests to a node.
-        fn public_api_handler(&self, ctx: &ApiContext) -> Option<Box<Handler>> {
-            let mut router = Router::new();
-            let api = CryptoOwlsApi {
-                channel: ctx.node_channel().clone(),
-                blockchain: ctx.blockchain().clone(),
-            };
-            api.wire(&mut router);
-            Some(Box::new(router))
+        fn wire_api(&self, builder: &mut ServiceApiBuilder) {
+            CryptoOwlsApi::wire(builder)
         }
     }
 }
