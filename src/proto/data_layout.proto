@@ -1,0 +1,86 @@
+// Copyright 2018 The Exonum Team
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package exonum.examples.cryptoowls;
+
+import "helpers.proto";
+import "google/protobuf/timestamp.proto";
+
+// CryptoOwl. Unique identifier of the owl is a hash of this data structure.
+message CryptoOwl {
+  // Name (should be unique).
+  string name = 1;
+  // DNA.
+  fixed32 dna = 2;
+}
+
+// Current owl state.
+message CryptoOwlState {
+  // Owl.
+  CryptoOwl owl = 1;
+  // Owner.
+  exonum.PublicKey owner = 2;
+  // Time of the last breeding.
+  google.protobuf.Timestamp last_breeding = 3;
+}
+
+// User
+message User {
+  // Public key.
+  exonum.PublicKey public_key = 1;
+  // Name.
+  string name = 2;
+  // Current balance.
+  uint64 balance = 3;
+  // Reserved money that participate in the auction.
+  uint64 reserved = 4;
+  // Time of the last issue of funds.
+  google.protobuf.Timestamp last_fillup = 5;
+}
+
+// Auction bid.
+message Bid {
+  // Bidder is some participant identified by their public key.
+  exonum.PublicKey public_key = 1;
+  // Value of the bid.
+  uint64 value = 2;
+}
+
+// Information about auction.
+message Auction {
+  // Participant selling the owl.
+  exonum.PublicKey public_key = 1;
+  // Owl with `owl_id` is auctioned.
+  exonum.Hash owl_id = 2;
+  // Start price.
+  uint64 start_price = 3;
+  // Bids are during the `duration` seconds starting from `started_at`.
+  uint64 duration = 4;
+}
+
+// Auction state.
+message AuctionState {
+  // Auction identifier.
+  uint64 id = 1;
+  // Auction information.
+  Auction auction = 2;
+  // Start time of the auction.
+  google.protobuf.Timestamp started_at = 3;
+  // Merkle root of history of bids. Last bid wins.
+  exonum.Hash bidding_merkle_root = 4;
+  // If closed => no auctions are accepted.
+  bool closed = 5;
+}

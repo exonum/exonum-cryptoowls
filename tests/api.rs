@@ -1,39 +1,30 @@
-// Copyright 2018 The Exonum Team
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//   http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
-#[macro_use]
-extern crate pretty_assertions;
-extern crate serde_json;
-
-extern crate chrono;
-extern crate exonum;
-extern crate exonum_cryptoowls as cryptoowls;
-extern crate exonum_testkit;
-extern crate exonum_time;
-extern crate rand;
+// // Copyright 2018 The Exonum Team
+// //
+// // Licensed under the Apache License, Version 2.0 (the "License");
+// // you may not use this file except in compliance with the License.
+// // You may obtain a copy of the License at
+// //
+// //   http://www.apache.org/licenses/LICENSE-2.0
+// //
+// // Unless required by applicable law or agreed to in writing, software
+// // distributed under the License is distributed on an "AS IS" BASIS,
+// // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// // See the License for the specific language governing permissions and
+// // limitations under the License.
 
 use chrono::Utc;
+use serde_json::json;
 
+use exonum::api::node::public::explorer::TransactionResponse;
+use exonum::crypto::{self, PublicKey, SecretKey};
+use exonum::helpers::Height;
+use exonum::messages::{to_hex_string, Message, ServiceTransaction};
+use exonum_testkit::{ApiKind, TestKit, TestKitApi, TestKitBuilder};
 use exonum_time::TimeService;
 
-use exonum::crypto::{self, CryptoHash, Hash};
-use exonum::helpers::Height;
-use exonum_testkit::{ApiKind, TestKit, TestKitApi, TestKitBuilder};
-
-use cryptoowls::service::CryptoOwlsService;
-use cryptoowls::transactions::*;
-use cryptoowls::CRYPTOOWLS_SERVICE_NAME;
+use exonum_cryptoowls::service::CryptoOwlsService;
+use exonum_cryptoowls::transactions::*;
+use exonum_cryptoowls::CRYPTOOWLS_SERVICE_ID;
 
 fn init_testkit() -> (TestKit, TestKitApi) {
     let mut testkit = TestKitBuilder::validator()
@@ -48,74 +39,87 @@ fn init_testkit() -> (TestKit, TestKitApi) {
     (testkit, api)
 }
 
+fn post_transaction(
+    api: &TestKitApi,
+    tx: impl Into<ServiceTransaction>,
+    pk: PublicKey,
+    sk: &SecretKey,
+) {
+    let signed = Message::sign_transaction(tx, CRYPTOOWLS_SERVICE_ID, pk, sk);
+    let data = to_hex_string(&signed);
+    let response: TransactionResponse = api
+        .public(ApiKind::Explorer)
+        .query(&json!({ "tx_body": data }))
+        .post("v1/transactions")
+        .unwrap();
+    assert_eq!(response.tx_hash, signed.hash());
+}
+
 #[test]
 fn test_tx_create_user() {
     let (_testkit, api) = init_testkit();
     let keypair = crypto::gen_keypair();
-    let tx = CreateUser::new(&keypair.0, "user", &keypair.1);
-
-    let response: Hash = api.public(ApiKind::Service(CRYPTOOWLS_SERVICE_NAME))
-        .query(&tx)
-        .post("v1/transaction")
-        .unwrap();
-    assert_eq!(response, tx.hash());
+    post_transaction(
+        &api,
+        CreateUser {
+            name: "Alice".to_owned(),
+        },
+        keypair.0,
+        &keypair.1,
+    );
 }
 
 #[test]
 fn test_tx_make_owl() {
     let (_testkit, api) = init_testkit();
     let keypair = crypto::gen_keypair();
-    let tx = MakeOwl::new(
-        &keypair.0,
-        "owl",
-        &crypto::Hash::zero(),
-        &crypto::Hash::zero(),
-        Utc::now(),
+    post_transaction(
+        &api,
+        MakeOwl {
+            name: "owl".to_owned(),
+            father_id: crypto::Hash::zero(),
+            mother_id: crypto::Hash::zero(),
+            seed: Utc::now(),
+        },
+        keypair.0,
         &keypair.1,
     );
-
-    let response: Hash = api.public(ApiKind::Service(CRYPTOOWLS_SERVICE_NAME))
-        .query(&tx)
-        .post("v1/transaction")
-        .unwrap();
-    assert_eq!(response, tx.hash());
 }
 
 #[test]
 fn test_tx_issue() {
     let (_testkit, api) = init_testkit();
     let keypair = crypto::gen_keypair();
-    let tx = Issue::new(&keypair.0, Utc::now(), &keypair.1);
-
-    let response: Hash = api.public(ApiKind::Service(CRYPTOOWLS_SERVICE_NAME))
-        .query(&tx)
-        .post("v1/transaction")
-        .unwrap();
-    assert_eq!(response, tx.hash());
+    post_transaction(&api, Issue { seed: Utc::now() }, keypair.0, &keypair.1);
 }
 
 #[test]
 fn test_tx_create_auction() {
     let (_testkit, api) = init_testkit();
     let keypair = crypto::gen_keypair();
-    let tx = CreateAuction::new(&keypair.0, &crypto::Hash::zero(), 0, 10, &keypair.1);
-
-    let response: Hash = api.public(ApiKind::Service(CRYPTOOWLS_SERVICE_NAME))
-        .query(&tx)
-        .post("v1/transaction")
-        .unwrap();
-    assert_eq!(response, tx.hash());
+    post_transaction(
+        &api,
+        CreateAuction {
+            owl_id: crypto::Hash::zero(),
+            start_price: 0,
+            duration: 10,
+        },
+        keypair.0,
+        &keypair.1,
+    );
 }
 
 #[test]
 fn test_tx_make_bid() {
     let (_testkit, api) = init_testkit();
     let keypair = crypto::gen_keypair();
-    let tx = MakeBid::new(&keypair.0, 0, 1, &keypair.1);
-
-    let response: Hash = api.public(ApiKind::Service(CRYPTOOWLS_SERVICE_NAME))
-        .query(&tx)
-        .post("v1/transaction")
-        .unwrap();
-    assert_eq!(response, tx.hash());
+    post_transaction(
+        &api,
+        MakeBid {
+            auction_id: 0,
+            value: 1,
+        },
+        keypair.0,
+        &keypair.1,
+    );
 }

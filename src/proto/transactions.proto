@@ -1,0 +1,65 @@
+// Copyright 2018 The Exonum Team
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package exonum.examples.cryptoowls;
+
+import "helpers.proto";
+import "google/protobuf/timestamp.proto";
+import "data_layout.proto";
+
+// Transaction to create a new user.
+message CreateUser {
+  // Name.
+  string name = 1;
+}
+
+// Transaction to create an owl. A new random owl created if mother and father
+// are not defined (zero identifiers passed).
+message MakeOwl {
+  // Owl name.
+  string name = 1;
+  // Father identifier.
+  exonum.Hash father_id = 2;
+  // Mother identifier.
+  exonum.Hash mother_id = 3;
+  // Timestamp. Is required to breed owls with the same identifiers.
+  google.protobuf.Timestamp seed = 4;
+}
+
+// Transaction to issue funds.
+message Issue {
+  // Timestamp. Is required to repeat transaction.
+  google.protobuf.Timestamp seed = 1;
+}
+
+// Transaction type for adding a new item.
+message CreateAuction {
+  // Owl with `owl_id` is auctioned.
+  exonum.Hash owl_id = 1;
+  // Start price.
+  uint64 start_price = 2;
+  // Bids are during the `duration` seconds starting from `started_at`.
+  // Type `Duration` is not used because
+  // the trait `ProtobufConvert` is not implemented for `chrono::Duration`.
+  uint64 duration = 3;
+}
+
+message MakeBid {
+  // Auction ID where a bid must be made.
+  uint64 auction_id = 1;
+  // Bid value.
+  uint64 value = 2;
+}

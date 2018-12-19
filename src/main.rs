@@ -18,7 +18,7 @@ extern crate exonum_time;
 
 extern crate exonum_cryptoowls as cryptoowls;
 
-use cryptoowls::service::CryptoOwlsServiceFactory;
+// use cryptoowls::service::CryptoOwlsServiceFactory;
 use exonum::helpers;
 use exonum::helpers::fabric::NodeBuilder;
 use exonum_configuration::ServiceFactory as ConfigurationServiceFactory;
@@ -29,7 +29,7 @@ fn main() {
     helpers::init_logger().unwrap();
     let node = NodeBuilder::new()
         .with_service(Box::new(ConfigurationServiceFactory))
-        .with_service(Box::new(TimeServiceFactory))
-        .with_service(Box::new(CryptoOwlsServiceFactory));
+        .with_service(Box::new(TimeServiceFactory));
+    // .with_service(Box::new(CryptoOwlsServiceFactory));
     node.run();
 }
