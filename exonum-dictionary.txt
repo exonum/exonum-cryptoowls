@@ -17,9 +17,6 @@ clippy
 clonned
 compat
 concat
-protobuf
-proto
-protoc
 counterintuitive
 cryptocurrency
 cryptographically
@@ -82,6 +79,10 @@ precommits
 prevote
 prevotes
 println
+proto
+protobuf
+protoc
+protos
 pubkey
 pubkeys
 readonly
