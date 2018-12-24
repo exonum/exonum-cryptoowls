@@ -17,6 +17,9 @@ clippy
 clonned
 compat
 concat
+protobuf
+proto
+protoc
 counterintuitive
 cryptocurrency
 cryptographically

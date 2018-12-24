@@ -4,12 +4,32 @@ addons:
   apt:
     sources:
     - sourceline: 'ppa:giskou/librocksdb'
+    - sourceline: 'ppa:maarten-fonville/protobuf'
+    - sourceline: 'ppa:fsgmhoward/shadowsocks-libev'
     packages:
-    - libsnappy-dev
+    - binutils-dev
+    - build-essential
+    - cmake
+    - g++
+    - gcc
+    - libcurl4-openssl-dev
+    - libdw-dev
+    - libelf-dev
+    - libiberty-dev
+    - libprotobuf-dev
     - librocksdb
+    - libsnappy-dev
+    - libsodium-dev
+    - libssl-dev
+    - pkg-config
+    - protobuf-compiler
+    - unzip
+    - zlib1g-dev
 
 rust:
-  - 1.27.0
+  # Feel free to bump this version if you need features of newer Rust.
+  # Sync with badge in README.md
+  - 1.31.0
 
 matrix:
   allow_failures:
@@ -22,71 +42,57 @@ cache:
   - node_modules
 
 dist: trusty
-sudo: required
 
 env:
   global:
-  - CLIPPY_VERS=0.0.209
   - DEADLINKS_VERS=0.3.0
-  - OUTDATED_VERS=0.7.0
   - SODIUM_VERS=1.0.16
   - RUSTFLAGS="-D warnings"
   - ROCKSDB_LIB_DIR=/usr/lib/x86_64-linux-gnu
   - SNAPPY_LIB_DIR=/usr/lib/x86_64-linux-gnu
-  matrix:
-  - FEATURE=test
-
-# Separate jobs should use `install` hook in order not to override these common
-# instructions.
-before_install:
-- |
-  if [ ! -f "$HOME/.local/lib/libsodium.a" ]; then
-    wget "https://github.com/jedisct1/libsodium/releases/download/$SODIUM_VERS/libsodium-$SODIUM_VERS.tar.gz" -t 5 -O "libsodium.tar.gz"
-    tar xvf libsodium.tar.gz
-    cd libsodium-$SODIUM_VERS
-    ./configure --prefix=$HOME/.local
-    make
-    make install
-    cd ..
-  fi
-- export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$HOME/.local/lib
-- export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$HOME/.local/lib/pkgconfig
 
 jobs:
   include:
   # Formatting & other lints that do not require compilation
-  - env: FEATURE=lints
+  - name: lints
     install:
-    - rustup component add rustfmt-preview
-    - rustfmt --version
+    - rustup component add rustfmt
+    - rustfmt -V
     - nvm install 8 && nvm use 8
     - npm install cspell
     - ./node_modules/.bin/cspell --version
     - npm install markdownlint-cli
     - ./node_modules/.bin/markdownlint --version
     script:
-    - cargo fmt --all -- --write-mode=diff
-    - ./node_modules/.bin/cspell {src,tests}/**/*.rs
+    - cargo fmt -- --check
+    - find . -not -path "./target/**" -name "*.rs" | xargs ./node_modules/.bin/cspell
     - find . -not -path "./node_modules/*" -name "*.md" | xargs ./node_modules/.bin/cspell
     - find . -not -path "./node_modules/*" -name "*.md" | xargs ./node_modules/.bin/markdownlint --config .markdownlintrc
 
   # Clippy linting
-  - env: FEATURE=clippy
-    rust: nightly-2018-06-20
+  - name: clippy
     install:
-    - cargo clippy --version | grep $CLIPPY_VERS || cargo install clippy --force --vers $CLIPPY_VERS
+    - rustup component add clippy
+    - cargo clippy --version
     script:
     - cargo clippy --all -- -D warnings
 
   # Tests
-  - env: FEATURE=test
+  - name: linux-tests
     script:
     - cargo test --all
 
+  # Tests
+  - name: linux-benches
+    script:
+    - cargo bench --all --no-run
+
   # Non-fatal checks
-  - env: FEATURE=non-fatal-checks
+  - name: deadlinks
+    env: FEATURE=non-fatal-checks
     install:
     - cargo-deadlinks -V | grep $DEADLINKS_VERS || cargo install cargo-deadlinks --vers $DEADLINKS_VERS --force
     script:
     - cargo doc --no-deps
     - cargo deadlinks --dir target/doc
+    

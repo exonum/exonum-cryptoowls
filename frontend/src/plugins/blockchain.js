@@ -3,7 +3,6 @@ import * as proto from '../../proto/proto.js'
 import bigInt from 'big-integer'
 import axios from 'axios'
 
-const PROTOCOL_VERSION = 0
 const SERVICE_ID = 521
 const CREATE_USER_TX_ID = 0
 const MAKE_OWL_TX_ID = 1
@@ -97,10 +96,15 @@ module.exports = {
         }
 
         // Sign transaction with user's secret key
-        const signature = TxCreateWallet.sign(keyPair.secretKey, data)
-        TxCreateWallet.signature = signature
-        const hash = TxCreateWallet.hash(data)
+        //const signature = TxCreateWallet.sign(keyPair.secretKey, data)
+        //TxCreateWallet.signature = signature
+        //const hash = TxCreateWallet.hash(data)
 
+
+
+        //axios.post('/api/explorer/v1/transactions', {
+        //  "tx_body": "fa87b07fb0814027b716dc346719291e4a4b9e31e9fce4481d5c728ec74615a00000090200000a05416c6963651efde39d480fcc779e2da08d0fb52a178d90ad37bc2138cd9a34ceded149013618bd6b6d002df0f294cf3e1170e04fd924cbcfc5013da93c651a005a08b55504"
+        //})
         // Send transaction into blockchain
         return TxCreateWallet.send('/api/explorer/v1/transactions', data, keyPair.secretKey)
         .then(() => keyPair)
