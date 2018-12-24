@@ -1021,18 +1021,6 @@ mod api {
             Ok(auctions)
         }
 
-        // /// Send new transaction into the blockchain.
-        // fn post_transaction(
-        //     state: &ServiceApiState,
-        //     transaction: Transactions,
-        // ) -> api::Result<Hash> {
-        //     let transaction: Box<Transaction> = transaction.into();
-        //     let tx_hash = transaction.hash();
-        //     state.sender().broadcast_transaction(tx: Signed<RawTransaction>)
-        //     state.sender().send(transaction)?;
-        //     Ok(tx_hash)
-        // }
-
         // Links the service api implementation to the Exonum.
         pub fn wire(builder: &mut ServiceApiBuilder) {
             builder
@@ -1046,7 +1034,6 @@ mod api {
                 .endpoint("v1/auction/bids", Self::get_auction_bids)
                 .endpoint("v1/auction", Self::get_auction_with_bids)
                 .endpoint("v1/auctions", Self::get_auctions);
-            // .endpoint_mut("v1/transaction", Self::post_transaction);
         }
     }
 }
