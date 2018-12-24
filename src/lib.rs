@@ -319,7 +319,7 @@ pub mod transactions {
     }
 
     #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, TransactionSet)]
-    /// Crypto olws transactions.
+    /// Crypto owls transactions.
     pub enum Transactions {
         /// Create user transaction.
         CreateUser(CreateUser),
