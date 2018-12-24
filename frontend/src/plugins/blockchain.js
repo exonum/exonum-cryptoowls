@@ -5,39 +5,17 @@ import axios from 'axios'
 
 const SERVICE_ID = 521
 const CREATE_USER_TX_ID = 0
-const MAKE_OWL_TX_ID = 1
-const ISSUE_TX_ID = 2
-const CREATE_AUCTION_TX_ID = 3
-const MAKE_BID_TX_ID = 4
+const MAKE_OWL_TX_ID = 2
+const ISSUE_TX_ID = 4
+const CREATE_AUCTION_TX_ID = 1
+const MAKE_BID_TX_ID = 3
 
 const ATTEMPTS = 10
 const ATTEMPT_TIMEOUT = 500
 
-const SystemTime = Exonum.newType({
-  fields: [
-    { name: 'secs', type: Exonum.Uint64 },
-    { name: 'nanos', type: Exonum.Uint32 }
-  ]
-})
-const DNA = Exonum.newType({
-  fields: [
-    { name: 'dna', type: Exonum.Uint32 }
-  ]
-})
-const Owl = Exonum.newType({
-  fields: [
-    { name: 'name', type: Exonum.String },
-    { name: 'dna', type: Exonum.Uint32 }
-  ]
-})
-const Auction = Exonum.newType({
-  fields: [
-    { name: 'public_key', type: Exonum.PublicKey },
-    { name: 'owl_id', type: Exonum.Hash },
-    { name: 'start_price', type: Exonum.Uint64 },
-    { name: 'duration', type: Exonum.Uint64 }
-  ]
-})
+const DNA = Exonum.newType(proto.exonum.DNA)
+const Owl = Exonum.newType(proto.exonum.examples.cryptoowls.CryptoOwl)
+const Auction = Exonum.newType(proto.exonum.examples.cryptoowls.Auction)
 
 function getSystemTime() {
   const now = Date.now()
@@ -45,7 +23,7 @@ function getSystemTime() {
   const nanos = bigInt(now).minus(secs.multiply(1000)).multiply(1000000)
 
   return {
-    secs: secs.toString(),
+    seconds: secs.valueOf(),
     nanos: nanos.valueOf()
   }
 }
@@ -81,7 +59,6 @@ module.exports = {
         // Generate new signing key pair
         const keyPair = Exonum.keyPair()
 
-        console.log(proto.exonum.examples.cryptoowls.CreateUser)
         // Describe transaction to create new user
         const TxCreateWallet = Exonum.newTransaction({
           author: keyPair.publicKey,
@@ -95,16 +72,6 @@ module.exports = {
           name: name
         }
 
-        // Sign transaction with user's secret key
-        //const signature = TxCreateWallet.sign(keyPair.secretKey, data)
-        //TxCreateWallet.signature = signature
-        //const hash = TxCreateWallet.hash(data)
-
-
-
-        //axios.post('/api/explorer/v1/transactions', {
-        //  "tx_body": "fa87b07fb0814027b716dc346719291e4a4b9e31e9fce4481d5c728ec74615a00000090200000a05416c6963651efde39d480fcc779e2da08d0fb52a178d90ad37bc2138cd9a34ceded149013618bd6b6d002df0f294cf3e1170e04fd924cbcfc5013da93c651a005a08b55504"
-        //})
         // Send transaction into blockchain
         return TxCreateWallet.send('/api/explorer/v1/transactions', data, keyPair.secretKey)
         .then(() => keyPair)
@@ -118,28 +85,19 @@ module.exports = {
           service_id: SERVICE_ID,
           message_id: MAKE_OWL_TX_ID,
           schema: proto.exonum.examples.cryptoowls.MakeOwl
-          /*fields: [
-            { name: 'public_key', type: Exonum.PublicKey },
-            { name: 'name', type: Exonum.String },
-            { name: 'father_id', type: Exonum.Hash },
-            { name: 'mother_id', type: Exonum.Hash },
-            { name: 'seed', type: SystemTime }
-          ]*/
         })
+
 
         // Transaction data
         const data = {
           name: name,
-          father_id: {data: father},
-          mother_id: {data: mother},
+          father_id: {data: Exonum.hexadecimalToUint8Array(father)},
+          mother_id: {data: Exonum.hexadecimalToUint8Array(mother)},
           seed: getSystemTime()
         }
 
-        // Sign transaction with user's secret key
-        const signature = TxMakeOwl.sign(keyPair.secretKey, data)
-
         // Send transaction into blockchain
-        return TxMakeOwl.send('/api/services/cryptoowls/v1/transaction', '/api/explorer/v1/transactions?hash=', data, signature)
+        return TxMakeOwl.send('/api/explorer/v1/transactions', data, keyPair.secretKey)
       },
 
       issue: (keyPair) => {
@@ -149,10 +107,6 @@ module.exports = {
           author: keyPair.publicKey,
           message_id: ISSUE_TX_ID,
           schema: proto.exonum.examples.cryptoowls.Issue
-          /*fields: [
-            { name: 'public_key', type: Exonum.PublicKey },
-            { name: 'seed', type: SystemTime }
-          ]*/
         })
 
         // Transaction data
@@ -160,11 +114,8 @@ module.exports = {
           seed: getSystemTime()
         }
 
-        // Sign transaction with user's secret key
-        const signature = TxIssue.sign(keyPair.secretKey, data)
-
         // Send transaction into blockchain
-        return TxIssue.send('/api/services/cryptoowls/v1/transaction', '/api/explorer/v1/transactions?hash=', data, signature)
+        return TxIssue.send('/api/explorer/v1/transactions', data, keyPair.secretKey)
       },
 
       createAuction: (keyPair, owl, price, duration) => {
@@ -174,26 +125,17 @@ module.exports = {
           service_id: SERVICE_ID,
           message_id: CREATE_AUCTION_TX_ID,
           schema: proto.exonum.examples.cryptoowls.CreateAuction
-          /*fields: [
-            { name: 'public_key', type: Exonum.PublicKey },
-            { name: 'owl_id', type: Exonum.Hash },
-            { name: 'start_price', type: Exonum.Uint64 },
-            { name: 'duration', type: Exonum.Uint64 }
-          ]*/
         })
 
         // Transaction data
         const data = {
-          owl_id: {data: owl} ,
+          owl_id: { data: Exonum.hexadecimalToUint8Array(owl) },
           start_price: price,
           duration: duration
         }
 
-        // Sign transaction with user's secret key
-        const signature = TxCreateAuction.sign(keyPair.secretKey, data)
-
         // Send transaction into blockchain
-        return TxCreateAuction.send('/api/services/cryptoowls/v1/transaction', '/api/explorer/v1/transactions?hash=', data, signature)
+        return TxCreateAuction.send('/api/explorer/v1/transactions', data, keyPair.secretKey)
       },
 
       makeBid: (keyPair, auction, price) => {
@@ -202,12 +144,7 @@ module.exports = {
           service_id: SERVICE_ID,
           message_id: MAKE_BID_TX_ID,
           author: keyPair.publicKey,
-          schema: proto.exonum.examples.cryptoowls.MakeBid,
-          /*fields: [
-            { name: 'public_key', type: Exonum.PublicKey },
-            { name: 'auction_id', type: Exonum.Uint64 },
-            { name: 'value', type: Exonum.Uint64 }
-          ]*/
+          schema: proto.exonum.examples.cryptoowls.MakeBid
         })
 
         // Transaction data
@@ -216,11 +153,8 @@ module.exports = {
           value: price
         }
 
-        // Sign transaction with user's secret key
-        const signature = TxMakeBid.sign(keyPair.secretKey, data)
-
         // Send transaction into blockchain
-        return TxMakeBid.send('/api/services/cryptoowls/v1/transaction', '/api/explorer/v1/transactions?hash=', data, signature)
+        return TxMakeBid.send('/api/explorer/v1/transactions', data, keyPair.secretKey)
       },
 
       getUsers: () => {
@@ -309,8 +243,7 @@ module.exports = {
         }
       },
 
-      getOwlHash: owl => Owl.hash(owl),
-
+      getOwlHash: (owl) => Owl.hash(owl),
       getAuctionHash: auction => Auction.hash(auction)
     }
   }

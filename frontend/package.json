@@ -5,7 +5,7 @@
   "author": "Exonum Team <exonum@bitfury.com>",
   "license": "Apache-2.0",
   "scripts": {
-    "proto": "pbjs --keep-case -t static-module ./proto/helpers.proto ../src/proto/transactions.proto -o ./proto/proto.js",
+    "proto": "pbjs --keep-case -t static-module ./proto/helpers.proto ../src/proto/transactions.proto ../src/proto/data_layout.proto -o ./proto/proto.js",
     "build": "grunt",
     "start": "node server.js"
   },

@@ -26,3 +26,8 @@ message BitVec {
   bytes data = 1;
   uint64 len = 2;
 }
+
+message DNA {
+  // DNA.
+  fixed32 dna = 1;
+}
