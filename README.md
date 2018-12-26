@@ -95,6 +95,12 @@ cd frontend
 npm install
 ```
 
+Build proto files:
+
+```sh
+npm run proto
+```
+
 Build application:
 
 ```sh

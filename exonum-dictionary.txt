@@ -79,6 +79,10 @@ precommits
 prevote
 prevotes
 println
+proto
+protobuf
+protoc
+protos
 pubkey
 pubkeys
 readonly
