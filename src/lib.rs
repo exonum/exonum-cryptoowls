@@ -38,8 +38,8 @@ pub mod data_layout {
     use serde_derive::{Deserialize, Serialize};
 
     use exonum::crypto::{Hash, PublicKey};
-    use exonum_derive::ProtobufConvert;
     use exonum::exonum_merkledb;
+    use exonum_derive::ProtobufConvert;
 
     /// CryptoOwl. Unique identifier of the owl is a hash of this data structure.
     #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, ProtobufConvert)]
@@ -124,19 +124,18 @@ pub mod data_layout {
 
 /// Database schema.
 pub mod schema {
-    use exonum::crypto::{Hash, PublicKey, CryptoHash};
+    use exonum::crypto::{CryptoHash, Hash, PublicKey};
     use exonum::exonum_merkledb::{
-        IndexAccess, ObjectHash,
-        ListIndex, MapIndex, ProofListIndex, ProofMapIndex, ValueSetIndex,
+        IndexAccess, ListIndex, MapIndex, ObjectHash, ProofListIndex, ProofMapIndex, ValueSetIndex,
     };
 
-    use crate::data_layout::{AuctionState, Bid, CryptoOwlState, User, CryptoOwl};
-    use std::io::Cursor;
-    use byteorder::{BigEndian, ReadBytesExt};
-    use rand::{IsaacRng, SeedableRng, Rng};
-    use rand::distributions::{Weighted, WeightedChoice, Sample};
-    use chrono::{DateTime, Utc};
+    use crate::data_layout::{AuctionState, Bid, CryptoOwl, CryptoOwlState, User};
     use crate::transactions::current_time;
+    use byteorder::{BigEndian, ReadBytesExt};
+    use chrono::{DateTime, Utc};
+    use rand::distributions::{Sample, Weighted, WeightedChoice};
+    use rand::{IsaacRng, Rng, SeedableRng};
+    use std::io::Cursor;
 
     pub struct CryptoOwlsSchema<T> {
         access: T,
@@ -174,7 +173,11 @@ pub mod schema {
 
         /// Owl auction bids.
         pub fn auction_bids(&self, auction_id: u64) -> ProofListIndex<T, Bid> {
-            ProofListIndex::new_in_family("cryptoowls.auction_bids", &auction_id, self.access.clone())
+            ProofListIndex::new_in_family(
+                "cryptoowls.auction_bids",
+                &auction_id,
+                self.access.clone(),
+            )
         }
 
         /// Helper table for linking user and his owls.
@@ -432,7 +435,7 @@ pub mod transactions {
         ExecutionError, ExecutionResult, Schema, Transaction, TransactionContext,
     };
     use exonum::crypto::{CryptoHash, Hash};
-    use exonum::exonum_merkledb::{self, ObjectHash, IndexAccess};
+    use exonum::exonum_merkledb::{self, IndexAccess, ObjectHash};
     use exonum_derive::{ProtobufConvert, TransactionSet};
     use exonum_time::schema::TimeSchema;
 
@@ -996,9 +999,9 @@ pub mod service {
     use exonum::api::ServiceApiBuilder;
     use exonum::blockchain::{Service, Transaction, TransactionSet};
     use exonum::crypto::Hash;
+    use exonum::exonum_merkledb::{Fork, Snapshot};
     use exonum::helpers::fabric::{Context, ServiceFactory};
     use exonum::messages::RawTransaction;
-    use exonum::exonum_merkledb::{Fork, Snapshot};
 
     use crate::{
         api::CryptoOwlsApi,

@@ -15,8 +15,8 @@ use std::collections::{HashMap, HashSet};
 
 use chrono::{Duration, Utc};
 
-use exonum::exonum_merkledb::ObjectHash;
 use exonum::crypto::{self, CryptoHash};
+use exonum::exonum_merkledb::ObjectHash;
 use exonum::helpers::Height;
 use exonum::messages::Message;
 use exonum_testkit::{txvec, TestKit, TestKitBuilder};
