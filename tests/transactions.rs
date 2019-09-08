@@ -15,6 +15,7 @@ use std::collections::{HashMap, HashSet};
 
 use chrono::{Duration, Utc};
 
+use exonum::exonum_merkledb::ObjectHash;
 use exonum::crypto::{self, CryptoHash};
 use exonum::helpers::Height;
 use exonum::messages::Message;
@@ -329,7 +330,7 @@ fn test_sell_owl() {
         assert!(!auction.closed);
         assert_eq!(
             auction.bidding_merkle_root,
-            schema.auction_bids(0).merkle_root()
+            schema.auction_bids(0).object_hash()
         );
         assert_eq!(schema.owl_auction().get(&alice_owl).unwrap(), 0);
     }

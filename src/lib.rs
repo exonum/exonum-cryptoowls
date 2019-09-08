@@ -39,6 +39,7 @@ pub mod data_layout {
 
     use exonum::crypto::{Hash, PublicKey};
     use exonum_derive::ProtobufConvert;
+    use exonum::exonum_merkledb;
 
     /// CryptoOwl. Unique identifier of the owl is a hash of this data structure.
     #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, ProtobufConvert)]
@@ -123,121 +124,315 @@ pub mod data_layout {
 
 /// Database schema.
 pub mod schema {
-    use exonum::crypto::{Hash, PublicKey};
-    use exonum::storage::{
-        Fork, ListIndex, MapIndex, ProofListIndex, ProofMapIndex, Snapshot, ValueSetIndex,
+    use exonum::crypto::{Hash, PublicKey, CryptoHash};
+    use exonum::exonum_merkledb::{
+        IndexAccess, ObjectHash,
+        ListIndex, MapIndex, ProofListIndex, ProofMapIndex, ValueSetIndex,
     };
 
-    use crate::data_layout::{AuctionState, Bid, CryptoOwlState, User};
+    use crate::data_layout::{AuctionState, Bid, CryptoOwlState, User, CryptoOwl};
+    use std::io::Cursor;
+    use byteorder::{BigEndian, ReadBytesExt};
+    use rand::{IsaacRng, SeedableRng, Rng};
+    use rand::distributions::{Weighted, WeightedChoice, Sample};
+    use chrono::{DateTime, Utc};
+    use crate::transactions::current_time;
 
     pub struct CryptoOwlsSchema<T> {
-        pub view: T,
+        access: T,
+    }
+
+    impl<T> AsMut<T> for CryptoOwlsSchema<T> {
+        fn as_mut(&mut self) -> &mut T {
+            &mut self.access
+        }
     }
 
     /// Read-only tables.
     impl<T> CryptoOwlsSchema<T>
     where
-        T: AsRef<Snapshot>,
+        T: IndexAccess,
     {
-        pub fn new(view: T) -> Self {
-            CryptoOwlsSchema { view }
+        pub fn new(access: T) -> Self {
+            CryptoOwlsSchema { access }
         }
 
         /// Users.
-        pub fn users(&self) -> ProofMapIndex<&T, PublicKey, User> {
-            ProofMapIndex::new("cryptoowls.users", &self.view)
+        pub fn users(&self) -> ProofMapIndex<T, PublicKey, User> {
+            ProofMapIndex::new("cryptoowls.users", self.access.clone())
         }
 
         /// Owls and their states (see data_layout::CryptoOwlState).
-        pub fn owls_state(&self) -> ProofMapIndex<&T, Hash, CryptoOwlState> {
-            ProofMapIndex::new("cryptoowls.owls_state", &self.view)
+        pub fn owls_state(&self) -> ProofMapIndex<T, Hash, CryptoOwlState> {
+            ProofMapIndex::new("cryptoowls.owls_state", self.access.clone())
         }
 
         /// Owl auctions.
-        pub fn auctions(&self) -> ProofListIndex<&T, AuctionState> {
-            ProofListIndex::new("cryptoowls.auctions", &self.view)
+        pub fn auctions(&self) -> ProofListIndex<T, AuctionState> {
+            ProofListIndex::new("cryptoowls.auctions", self.access.clone())
         }
 
         /// Owl auction bids.
-        pub fn auction_bids(&self, auction_id: u64) -> ProofListIndex<&T, Bid> {
-            ProofListIndex::new_in_family("cryptoowls.auction_bids", &auction_id, &self.view)
+        pub fn auction_bids(&self, auction_id: u64) -> ProofListIndex<T, Bid> {
+            ProofListIndex::new_in_family("cryptoowls.auction_bids", &auction_id, self.access.clone())
         }
 
         /// Helper table for linking user and his owls.
-        pub fn user_owls(&self, public_key: &PublicKey) -> ValueSetIndex<&T, Hash> {
-            ValueSetIndex::new_in_family("cryptoowls.user_owls", public_key, &self.view)
+        pub fn user_owls(&self, public_key: &PublicKey) -> ValueSetIndex<T, Hash> {
+            ValueSetIndex::new_in_family("cryptoowls.user_owls", public_key, self.access.clone())
         }
 
         /// Helper table for linking user and his auctions.
-        pub fn user_auctions(&self, public_key: &PublicKey) -> ListIndex<&T, u64> {
-            ListIndex::new_in_family("cryptoowls.user_auctions", public_key, &self.view)
+        pub fn user_auctions(&self, public_key: &PublicKey) -> ListIndex<T, u64> {
+            ListIndex::new_in_family("cryptoowls.user_auctions", public_key, self.access.clone())
         }
 
         /// Helper table for linking owl and its open auction.
-        pub fn owl_auction(&self) -> MapIndex<&T, Hash, u64> {
-            MapIndex::new("cryptoowls.owl_auctions", &self.view)
+        pub fn owl_auction(&self) -> MapIndex<T, Hash, u64> {
+            MapIndex::new("cryptoowls.owl_auctions", self.access.clone())
         }
 
         /// Method to get state hash. Depends on `users`, `owls_state` and `auctions` tables.
         pub fn state_hash(&self) -> Vec<Hash> {
             vec![
-                self.users().merkle_root(),
-                self.owls_state().merkle_root(),
-                self.auctions().merkle_root(),
+                self.users().object_hash(),
+                self.owls_state().object_hash(),
+                self.auctions().object_hash(),
             ]
         }
-    }
 
-    /// Mutable accessors for all our tables.
-    impl<'a> CryptoOwlsSchema<&'a mut Fork> {
-        pub fn users_mut(&mut self) -> ProofMapIndex<&mut Fork, PublicKey, User> {
-            ProofMapIndex::new("cryptoowls.users", self.view)
+        // Method to generate new unique owl
+        pub fn make_uniq_owl(&self, genes: (u32, u32), name: &str, hash_seed: &Hash) -> CryptoOwl {
+            // Hash is a byte array [u8; 32]. To seed random number generator an array
+            // of 32-bit numbers &[u32] is required. So we use `std::io::Cursor` and build
+            // a new u32 number of each 4 bytes.
+
+            let hash_seed: &[u8] = hash_seed.as_ref();
+            let mut seed = [0u32; 4];
+            let mut cursor = Cursor::new(hash_seed);
+            for seed in seed.iter_mut().take(4) {
+                *seed = cursor.read_u32::<BigEndian>().unwrap();
+            }
+            let mut rng = IsaacRng::from_seed(&seed);
+
+            // Create a unique owl using infinite loop. Call `break` if resulted owl is unique.
+            loop {
+                let mut son_dna = 0u32;
+                // Checking every bit in parent DNAs.
+                for i in 0..32 {
+                    // Step by all `genes` and set them in accordance with parents genes.
+                    let mask = 2u32.pow(i);
+                    let (fg, mg) = (genes.0 & mask, genes.1 & mask);
+                    if fg == mg {
+                        // With a probability of 8/10 the child bits will be equal to parents bits
+                        // in the case if parents bits are equal.
+                        let mut possible_genes = vec![
+                            Weighted {
+                                weight: 8,
+                                item: fg,
+                            },
+                            Weighted {
+                                weight: 2,
+                                item: fg ^ mask,
+                            },
+                        ];
+
+                        let mut choices = WeightedChoice::new(&mut possible_genes);
+                        son_dna |= choices.sample(&mut rng);
+                    } else if rng.gen() {
+                        // If bits are different, the resulting bit will be selected
+                        // with probability 1/2.
+                        son_dna |= mask;
+                    }
+                }
+
+                // Create a new owls with given DNA.
+                // Break out of the loop if the resulted owl is unique.
+                // Otherwise, try again.
+                let newborn = CryptoOwl {
+                    name: name.to_owned(),
+                    dna: son_dna,
+                };
+                if self.owls_state().get(&newborn.hash()).is_none() {
+                    break newborn;
+                }
+            }
         }
 
-        pub fn owls_state_mut(&mut self) -> ProofMapIndex<&mut Fork, Hash, CryptoOwlState> {
-            ProofMapIndex::new("cryptoowls.owls_state", self.view)
+        /// Helper method to update owl state after breeding or creating.
+        pub fn refresh_owls(
+            &self,
+            owner_key: &PublicKey,
+            owls: Vec<CryptoOwl>,
+            last_breeding: DateTime<Utc>,
+        ) {
+            for owl in owls {
+                self.user_owls(owner_key).insert(owl.hash());
+                self.owls_state().put(
+                    &owl.hash(),
+                    CryptoOwlState {
+                        owl,
+                        owner: *owner_key,
+                        last_breeding,
+                    },
+                );
+            }
         }
 
-        pub fn auctions_mut(&mut self) -> ProofListIndex<&mut Fork, AuctionState> {
-            ProofListIndex::new("cryptoowls.auctions", self.view)
+        /// Helper method to increase user balance.
+        pub fn increase_user_balance(
+            &self,
+            user_id: &PublicKey,
+            balance: u64,
+            last_fillup: Option<DateTime<Utc>>,
+        ) {
+            let user = self.users().get(user_id).expect("User should be exist.");
+            let last_fillup = last_fillup.unwrap_or_else(|| user.last_fillup);
+            self.users().put(
+                &user.public_key,
+                User {
+                    public_key: user.public_key,
+                    name: user.name,
+                    balance: user.balance + balance,
+                    reserved: user.reserved,
+                    last_fillup,
+                },
+            );
         }
 
-        pub fn auction_bids_mut(&mut self, auction_id: u64) -> ProofListIndex<&mut Fork, Bid> {
-            ProofListIndex::new_in_family("cryptoowls.auction_bids", &auction_id, self.view)
+        /// Helper method to decrease user balance.
+        pub fn decrease_user_balance(&self, user_id: &PublicKey, balance: u64) {
+            let user = self.users().get(user_id).expect("User should be exist.");
+            self.users().put(
+                &user.public_key,
+                User {
+                    public_key: user.public_key,
+                    name: user.name,
+                    balance: user.balance - balance,
+                    reserved: user.reserved,
+                    last_fillup: user.last_fillup,
+                },
+            );
         }
 
-        pub fn user_owls_mut(&mut self, public_key: &PublicKey) -> ValueSetIndex<&mut Fork, Hash> {
-            ValueSetIndex::new_in_family("cryptoowls.user_owls", public_key, self.view)
+        /// Helper method to decrease user reserved balance.
+        pub fn reserve_user_balance(&self, user_id: &PublicKey, reserve: u64) {
+            let user = self.users().get(user_id).expect("User should be exist.");
+            self.users().put(
+                &user.public_key,
+                User {
+                    public_key: user.public_key,
+                    name: user.name,
+                    balance: user.balance - reserve,
+                    reserved: user.reserved + reserve,
+                    last_fillup: user.last_fillup,
+                },
+            );
         }
 
-        pub fn user_auctions_mut(&mut self, public_key: &PublicKey) -> ListIndex<&mut Fork, u64> {
-            ListIndex::new_in_family("cryptoowls.user_auctions", public_key, self.view)
+        /// Helper method to decrease user reserved balance.
+        pub fn release_user_balance(&self, user_id: &PublicKey, reserve: u64) {
+            let user = self.users().get(user_id).expect("User should be exist.");
+            self.users().put(
+                &user.public_key,
+                User {
+                    public_key: user.public_key,
+                    name: user.name,
+                    balance: user.balance + reserve,
+                    reserved: user.reserved - reserve,
+                    last_fillup: user.last_fillup,
+                },
+            );
         }
 
-        pub fn owl_auction_mut(&mut self) -> MapIndex<&mut Fork, Hash, u64> {
-            MapIndex::new("cryptoowls.owl_auctions", self.view)
+        /// Helper method to decrease user bid with value.
+        pub fn confirm_user_bid(&self, user_id: &PublicKey, bid_value: u64) {
+            let user = self.users().get(user_id).expect("User should be exist.");
+            self.users().put(
+                &user.public_key,
+                User {
+                    public_key: user.public_key,
+                    name: user.name,
+                    balance: user.balance,
+                    reserved: user.reserved - bid_value,
+                    last_fillup: user.last_fillup,
+                },
+            );
+        }
+
+        pub fn close_auction(&self, auction_id: u64) {
+            let ts = current_time(self.access.clone()).unwrap();
+            // Check if auction exists.
+            let auction_state = self
+                .auctions()
+                .get(auction_id)
+                .expect("Auction with the given id should be exist.");
+
+            assert!(!auction_state.closed);
+            let auction_ends_at = auction_state.ends_at();
+            assert!(ts >= auction_ends_at);
+
+            if let Some(winner_bid) = self.auction_bids(auction_state.id).last() {
+                // Decrease winner balance.
+                let winner = self.users().get(&winner_bid.public_key).unwrap();
+                self.confirm_user_bid(&winner.public_key, winner_bid.value);
+
+                // Increase seller balance.
+                let seller = self.users().get(&auction_state.auction.public_key).unwrap();
+                self.increase_user_balance(&seller.public_key, winner_bid.value, None);
+
+                // Remove possession from the seller.
+                self.user_owls(&seller.public_key)
+                    .remove(&auction_state.auction.owl_id);
+
+                // Pass it to the winner.
+                self.user_owls(&winner.public_key)
+                    .insert(auction_state.auction.owl_id);
+
+                // Change owl owner.
+                let owl_state = self
+                    .owls_state()
+                    .get(&auction_state.auction.owl_id)
+                    .unwrap();
+                self.owls_state().put(
+                    &auction_state.auction.owl_id,
+                    CryptoOwlState {
+                        owl: owl_state.owl,
+                        owner: winner.public_key,
+                        last_breeding: owl_state.last_breeding,
+                    },
+                );
+            };
+
+            self.owl_auction().remove(&auction_state.auction.owl_id);
+            // Close auction
+            self.auctions().set(
+                auction_state.id,
+                AuctionState {
+                    id: auction_state.id,
+                    auction: auction_state.auction,
+                    started_at: auction_state.started_at,
+                    bidding_merkle_root: auction_state.bidding_merkle_root,
+                    closed: true,
+                },
+            );
         }
     }
 }
 
 /// Module with description of all transactions.
 pub mod transactions {
-    use std::io::Cursor;
-
-    use byteorder::{BigEndian, ReadBytesExt};
     use chrono::{DateTime, Duration, Utc};
     use enum_primitive_derive::Primitive;
     use failure_derive::Fail;
     use num_traits::ToPrimitive;
-    use rand::distributions::{Sample, Weighted, WeightedChoice};
-    use rand::{IsaacRng, Rng, SeedableRng};
     use serde_derive::{Deserialize, Serialize};
 
     use exonum::blockchain::{
         ExecutionError, ExecutionResult, Schema, Transaction, TransactionContext,
     };
-    use exonum::crypto::{CryptoHash, Hash, PublicKey};
-    use exonum::storage::{Fork, Snapshot};
+    use exonum::crypto::{CryptoHash, Hash};
+    use exonum::exonum_merkledb::{self, ObjectHash, IndexAccess};
     use exonum_derive::{ProtobufConvert, TransactionSet};
     use exonum_time::schema::TimeSchema;
 
@@ -245,24 +440,6 @@ pub mod transactions {
         data_layout::*, schema::CryptoOwlsSchema, BREEDING_PRICE, BREEDING_TIMEOUT, ISSUE_AMOUNT,
         ISSUE_TIMEOUT,
     };
-
-    //     use byteorder::{BigEndian, ReadBytesExt};
-    //     use chrono::{DateTime, Duration, Utc};
-    //     use num_traits::ToPrimitive;
-    //     use rand::distributions::{Sample, Weighted, WeightedChoice};
-    //     use rand::{IsaacRng, Rng, SeedableRng};
-
-    //     use exonum::blockchain::{ExecutionError, ExecutionResult, Schema, Transaction};
-    //     use exonum::crypto::{CryptoHash, Hash, PublicKey};
-    //     use exonum::messages::Message;
-    //     use exonum::storage::{Fork, Snapshot};
-    //     use exonum_time::schema::TimeSchema;
-
-    //     use data_layout::{Auction, AuctionState, Bid, CryptoOwl, CryptoOwlState, User};
-    //     use schema;
-    //     use CryptoOwlsSchema;
-
-    //     use {BREEDING_PRICE, BREEDING_TIMEOUT, CRYPTOOWLS_SERVICE_ID, ISSUE_AMOUNT, ISSUE_TIMEOUT};
 
     /// Transaction to create a new user.
     #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, ProtobufConvert)]
@@ -334,16 +511,16 @@ pub mod transactions {
     }
 
     impl Transaction for CreateUser {
-        fn execute(&self, mut context: TransactionContext) -> ExecutionResult {
+        fn execute(&self, context: TransactionContext) -> ExecutionResult {
             let ts = current_time(context.fork()).unwrap();
 
             let state_hash = {
                 let info_schema = Schema::new(context.fork());
-                info_schema.state_hash_aggregator().merkle_root()
+                info_schema.state_hash_aggregator().object_hash()
             };
 
             let author = context.author();
-            let mut schema = CryptoOwlsSchema::new(context.fork());
+            let schema = CryptoOwlsSchema::new(context.fork());
 
             // Reject tx if the user with the same public key is already exists.
             if schema.users().get(&author).is_some() {
@@ -357,7 +534,7 @@ pub mod transactions {
                 reserved: 0,
                 last_fillup: ts,
             };
-            schema.users_mut().put(&author, user);
+            schema.users().put(&author, user);
 
             // New user gets 2 random owls.
             let starter_pack = vec![
@@ -374,16 +551,16 @@ pub mod transactions {
     }
 
     impl Transaction for MakeOwl {
-        fn execute(&self, mut context: TransactionContext) -> ExecutionResult {
+        fn execute(&self, context: TransactionContext) -> ExecutionResult {
             let author = context.author();
             let ts = current_time(context.fork()).unwrap();
 
             let state_hash = {
                 let info_schema = Schema::new(context.fork());
-                info_schema.state_hash_aggregator().merkle_root()
+                info_schema.state_hash_aggregator().object_hash()
             };
 
-            let mut schema = CryptoOwlsSchema::new(context.fork());
+            let schema = CryptoOwlsSchema::new(context.fork());
 
             // Find mother and father.
             // If someone is missed will get None response.
@@ -432,11 +609,11 @@ pub mod transactions {
     }
 
     impl Transaction for Issue {
-        fn execute(&self, mut context: TransactionContext) -> ExecutionResult {
+        fn execute(&self, context: TransactionContext) -> ExecutionResult {
             let ts = current_time(context.fork()).unwrap();
 
             let author = context.author();
-            let mut schema = CryptoOwlsSchema::new(context.fork());
+            let schema = CryptoOwlsSchema::new(context.fork());
             let user = schema.users().get(&author).unwrap();
 
             if (ts - user.last_fillup).num_seconds() < ISSUE_TIMEOUT {
@@ -450,11 +627,11 @@ pub mod transactions {
     }
 
     impl Transaction for CreateAuction {
-        fn execute(&self, mut context: TransactionContext) -> ExecutionResult {
+        fn execute(&self, context: TransactionContext) -> ExecutionResult {
             let author = context.author();
             let ts = current_time(context.fork()).unwrap();
 
-            let mut schema = CryptoOwlsSchema::new(context.fork());
+            let schema = CryptoOwlsSchema::new(context.fork());
             let auction = Auction {
                 public_key: author,
                 owl_id: self.owl_id,
@@ -495,18 +672,18 @@ pub mod transactions {
                 closed: false,
             };
 
-            schema.auctions_mut().push(state);
-            schema.owl_auction_mut().put(&owl_id, auction_id);
-            schema.user_auctions_mut(&user.public_key).push(auction_id);
+            schema.auctions().push(state);
+            schema.owl_auction().put(&owl_id, auction_id);
+            schema.user_auctions(&user.public_key).push(auction_id);
 
             Ok(())
         }
     }
 
     impl Transaction for MakeBid {
-        fn execute(&self, mut context: TransactionContext) -> ExecutionResult {
+        fn execute(&self, context: TransactionContext) -> ExecutionResult {
             let author = context.author();
-            let mut schema = CryptoOwlsSchema::new(context.fork());
+            let schema = CryptoOwlsSchema::new(context.fork());
 
             // Check if the user is registered.
             let user = schema
@@ -562,11 +739,11 @@ pub mod transactions {
                 public_key: author,
                 value: self.value,
             };
-            schema.auction_bids_mut(self.auction_id).push(bid);
+            schema.auction_bids(self.auction_id).push(bid);
 
             // Refresh the auction state.
-            let bidding_merkle_root = schema.auction_bids(self.auction_id).merkle_root();
-            schema.auctions_mut().set(
+            let bidding_merkle_root = schema.auction_bids(self.auction_id).object_hash();
+            schema.auctions().set(
                 auction_state.id,
                 AuctionState {
                     id: auction_state.id,
@@ -581,232 +758,6 @@ pub mod transactions {
         }
     }
 
-    /// Helper methods.
-    impl<T> CryptoOwlsSchema<T>
-    where
-        T: AsRef<Snapshot>,
-    {
-        // Method to generate new unique owl
-        pub fn make_uniq_owl(&self, genes: (u32, u32), name: &str, hash_seed: &Hash) -> CryptoOwl {
-            // Hash is a byte array [u8; 32]. To seed random number generator an array
-            // of 32-bit numbers &[u32] is required. So we use `std::io::Cursor` and build
-            // a new u32 number of each 4 bytes.
-
-            let hash_seed: &[u8] = hash_seed.as_ref();
-            let mut seed = [0u32; 4];
-            let mut cursor = Cursor::new(hash_seed);
-            for seed in seed.iter_mut().take(4) {
-                *seed = cursor.read_u32::<BigEndian>().unwrap();
-            }
-            let mut rng = IsaacRng::from_seed(&seed);
-
-            // Create a unique owl using infinite loop. Call `break` if resulted owl is unique.
-            loop {
-                let mut son_dna = 0u32;
-                // Checking every bit in parent DNAs.
-                for i in 0..32 {
-                    // Step by all `genes` and set them in accordance with parents genes.
-                    let mask = 2u32.pow(i);
-                    let (fg, mg) = (genes.0 & mask, genes.1 & mask);
-                    if fg == mg {
-                        // With a probability of 8/10 the child bits will be equal to parents bits
-                        // in the case if parents bits are equal.
-                        let mut possible_genes = vec![
-                            Weighted {
-                                weight: 8,
-                                item: fg,
-                            },
-                            Weighted {
-                                weight: 2,
-                                item: fg ^ mask,
-                            },
-                        ];
-
-                        let mut choices = WeightedChoice::new(&mut possible_genes);
-                        son_dna |= choices.sample(&mut rng);
-                    } else if rng.gen() {
-                        // If bits are different, the resulting bit will be selected
-                        // with probability 1/2.
-                        son_dna |= mask;
-                    }
-                }
-
-                // Create a new owls with given DNA.
-                // Break out of the loop if the resulted owl is unique.
-                // Otherwise, try again.
-                let newborn = CryptoOwl {
-                    name: name.to_owned(),
-                    dna: son_dna,
-                };
-                if self.owls_state().get(&newborn.hash()).is_none() {
-                    break newborn;
-                }
-            }
-        }
-    }
-
-    /// Mutable helper methods.
-    impl<'a> CryptoOwlsSchema<&'a mut Fork> {
-        /// Helper method to update owl state after breeding or creating.
-        pub fn refresh_owls(
-            &mut self,
-            owner_key: &PublicKey,
-            owls: Vec<CryptoOwl>,
-            last_breeding: DateTime<Utc>,
-        ) {
-            for owl in owls {
-                self.user_owls_mut(owner_key).insert(owl.hash());
-                self.owls_state_mut().put(
-                    &owl.hash(),
-                    CryptoOwlState {
-                        owl,
-                        owner: *owner_key,
-                        last_breeding,
-                    },
-                );
-            }
-        }
-
-        /// Helper method to increase user balance.
-        pub fn increase_user_balance(
-            &mut self,
-            user_id: &PublicKey,
-            balance: u64,
-            last_fillup: Option<DateTime<Utc>>,
-        ) {
-            let user = self.users().get(user_id).expect("User should be exist.");
-            let last_fillup = last_fillup.unwrap_or_else(|| user.last_fillup);
-            self.users_mut().put(
-                &user.public_key,
-                User {
-                    public_key: user.public_key,
-                    name: user.name,
-                    balance: user.balance + balance,
-                    reserved: user.reserved,
-                    last_fillup,
-                },
-            );
-        }
-
-        /// Helper method to decrease user balance.
-        pub fn decrease_user_balance(&mut self, user_id: &PublicKey, balance: u64) {
-            let user = self.users().get(user_id).expect("User should be exist.");
-            self.users_mut().put(
-                &user.public_key,
-                User {
-                    public_key: user.public_key,
-                    name: user.name,
-                    balance: user.balance - balance,
-                    reserved: user.reserved,
-                    last_fillup: user.last_fillup,
-                },
-            );
-        }
-
-        /// Helper method to decrease user reserved balance.
-        pub fn reserve_user_balance(&mut self, user_id: &PublicKey, reserve: u64) {
-            let user = self.users().get(user_id).expect("User should be exist.");
-            self.users_mut().put(
-                &user.public_key,
-                User {
-                    public_key: user.public_key,
-                    name: user.name,
-                    balance: user.balance - reserve,
-                    reserved: user.reserved + reserve,
-                    last_fillup: user.last_fillup,
-                },
-            );
-        }
-
-        /// Helper method to decrease user reserved balance.
-        pub fn release_user_balance(&mut self, user_id: &PublicKey, reserve: u64) {
-            let user = self.users().get(user_id).expect("User should be exist.");
-            self.users_mut().put(
-                &user.public_key,
-                User {
-                    public_key: user.public_key,
-                    name: user.name,
-                    balance: user.balance + reserve,
-                    reserved: user.reserved - reserve,
-                    last_fillup: user.last_fillup,
-                },
-            );
-        }
-
-        /// Helper method to decrease user bid with value.
-        pub fn confirm_user_bid(&mut self, user_id: &PublicKey, bid_value: u64) {
-            let user = self.users().get(user_id).expect("User should be exist.");
-            self.users_mut().put(
-                &user.public_key,
-                User {
-                    public_key: user.public_key,
-                    name: user.name,
-                    balance: user.balance,
-                    reserved: user.reserved - bid_value,
-                    last_fillup: user.last_fillup,
-                },
-            );
-        }
-
-        pub fn close_auction(&mut self, auction_id: u64) {
-            let ts = current_time(self.view).unwrap();
-            // Check if auction exists.
-            let auction_state = self
-                .auctions()
-                .get(auction_id)
-                .expect("Auction with the given id should be exist.");
-
-            assert!(!auction_state.closed);
-            let auction_ends_at = auction_state.ends_at();
-            assert!(ts >= auction_ends_at);
-
-            if let Some(winner_bid) = self.auction_bids(auction_state.id).last() {
-                // Decrease winner balance.
-                let winner = self.users().get(&winner_bid.public_key).unwrap();
-                self.confirm_user_bid(&winner.public_key, winner_bid.value);
-
-                // Increase seller balance.
-                let seller = self.users().get(&auction_state.auction.public_key).unwrap();
-                self.increase_user_balance(&seller.public_key, winner_bid.value, None);
-
-                // Remove possession from the seller.
-                self.user_owls_mut(&seller.public_key)
-                    .remove(&auction_state.auction.owl_id);
-
-                // Pass it to the winner.
-                self.user_owls_mut(&winner.public_key)
-                    .insert(auction_state.auction.owl_id);
-
-                // Change owl owner.
-                let owl_state = self
-                    .owls_state()
-                    .get(&auction_state.auction.owl_id)
-                    .unwrap();
-                self.owls_state_mut().put(
-                    &auction_state.auction.owl_id,
-                    CryptoOwlState {
-                        owl: owl_state.owl,
-                        owner: winner.public_key,
-                        last_breeding: owl_state.last_breeding,
-                    },
-                );
-            };
-
-            self.owl_auction_mut().remove(&auction_state.auction.owl_id);
-            // Close auction
-            self.auctions_mut().set(
-                auction_state.id,
-                AuctionState {
-                    id: auction_state.id,
-                    auction: auction_state.auction,
-                    started_at: auction_state.started_at,
-                    bidding_merkle_root: auction_state.bidding_merkle_root,
-                    closed: true,
-                },
-            );
-        }
-    }
-
     impl AuctionState {
         pub fn ends_at(&self) -> DateTime<Utc> {
             self.started_at + Duration::seconds(self.auction.duration as i64)
@@ -814,8 +765,8 @@ pub mod transactions {
     }
 
     // A helper function to get current time from the time oracle.
-    pub fn current_time(snapshot: &Snapshot) -> Option<DateTime<Utc>> {
-        let time_schema = TimeSchema::new(snapshot);
+    pub fn current_time<T: IndexAccess>(access: T) -> Option<DateTime<Utc>> {
+        let time_schema = TimeSchema::new(access);
         time_schema.time().get()
     }
 
@@ -916,14 +867,14 @@ mod api {
         /// User profile.
         fn get_user(state: &ServiceApiState, query: UserQuery) -> api::Result<Option<User>> {
             let snapshot = state.snapshot();
-            let schema = CryptoOwlsSchema::new(snapshot);
+            let schema = CryptoOwlsSchema::new(&snapshot);
             Ok(schema.users().get(&query.pub_key))
         }
 
         /// All users.
         fn get_users(state: &ServiceApiState, _query: ()) -> api::Result<Vec<User>> {
             let snapshot = state.snapshot();
-            let schema = CryptoOwlsSchema::new(snapshot);
+            let schema = CryptoOwlsSchema::new(&snapshot);
             let idx = schema.users();
             let users: Vec<User> = idx.values().collect();
             Ok(users)
@@ -935,14 +886,14 @@ mod api {
             query: OwlQuery,
         ) -> api::Result<Option<CryptoOwlState>> {
             let snapshot = state.snapshot();
-            let schema = CryptoOwlsSchema::new(snapshot);
+            let schema = CryptoOwlsSchema::new(&snapshot);
             Ok(schema.owls_state().get(&query.id))
         }
 
         /// All owls.
         fn get_owls(state: &ServiceApiState, _query: ()) -> api::Result<Vec<CryptoOwlState>> {
             let snapshot = state.snapshot();
-            let schema = CryptoOwlsSchema::new(snapshot);
+            let schema = CryptoOwlsSchema::new(&snapshot);
             let idx = schema.owls_state();
             let owls: Vec<CryptoOwlState> = idx.values().collect();
             Ok(owls)
@@ -954,7 +905,7 @@ mod api {
             query: UserQuery,
         ) -> api::Result<Option<Vec<CryptoOwlState>>> {
             let snapshot = state.snapshot();
-            let schema = CryptoOwlsSchema::new(snapshot);
+            let schema = CryptoOwlsSchema::new(&snapshot);
 
             Ok(schema.users().get(&query.pub_key).and({
                 let idx = schema.user_owls(&query.pub_key);
@@ -972,7 +923,7 @@ mod api {
             query: UserQuery,
         ) -> api::Result<Option<Vec<AuctionState>>> {
             let snapshot = state.snapshot();
-            let schema = CryptoOwlsSchema::new(snapshot);
+            let schema = CryptoOwlsSchema::new(&snapshot);
 
             Ok(schema.users().get(&query.pub_key).map(|user| {
                 let user_auctions = schema.user_auctions(&user.public_key);
@@ -989,7 +940,7 @@ mod api {
             query: AuctionQuery,
         ) -> api::Result<Option<(AuctionState, Vec<Bid>)>> {
             let snapshot = state.snapshot();
-            let schema = CryptoOwlsSchema::new(snapshot);
+            let schema = CryptoOwlsSchema::new(&snapshot);
 
             Ok(schema.auctions().get(query.id).map(|auction_state| {
                 let auction_bids = schema.auction_bids(auction_state.id);
@@ -1004,7 +955,7 @@ mod api {
             query: AuctionQuery,
         ) -> api::Result<Option<Vec<Bid>>> {
             let snapshot = state.snapshot();
-            let schema = CryptoOwlsSchema::new(snapshot);
+            let schema = CryptoOwlsSchema::new(&snapshot);
 
             Ok(schema.auctions().get(query.id).map(|auction_state| {
                 let auction_bids = schema.auction_bids(auction_state.id);
@@ -1015,7 +966,7 @@ mod api {
         /// All auctions.
         fn get_auctions(state: &ServiceApiState, _query: ()) -> api::Result<Vec<AuctionState>> {
             let snapshot = state.snapshot();
-            let schema = CryptoOwlsSchema::new(snapshot);
+            let schema = CryptoOwlsSchema::new(&snapshot);
             let auctions = schema.auctions();
             let auctions = auctions.into_iter().collect::<Vec<_>>();
             Ok(auctions)
@@ -1047,7 +998,7 @@ pub mod service {
     use exonum::crypto::Hash;
     use exonum::helpers::fabric::{Context, ServiceFactory};
     use exonum::messages::RawTransaction;
-    use exonum::storage::{Fork, Snapshot};
+    use exonum::exonum_merkledb::{Fork, Snapshot};
 
     use crate::{
         api::CryptoOwlsApi,
@@ -1067,7 +1018,7 @@ pub mod service {
             CRYPTOOWLS_SERVICE_NAME
         }
 
-        fn make_service(&mut self, _: &Context) -> Box<Service> {
+        fn make_service(&mut self, _: &Context) -> Box<dyn Service> {
             Box::new(CryptoOwlsService)
         }
     }
@@ -1082,19 +1033,19 @@ pub mod service {
         }
 
         // Tables hashes to be included into blockchain state hash.
-        fn state_hash(&self, snapshot: &Snapshot) -> Vec<Hash> {
+        fn state_hash(&self, snapshot: &dyn Snapshot) -> Vec<Hash> {
             let schema = CryptoOwlsSchema::new(snapshot);
             schema.state_hash()
         }
 
         // Method to deserialize transactions.
-        fn tx_from_raw(&self, raw: RawTransaction) -> Result<Box<Transaction>, failure::Error> {
+        fn tx_from_raw(&self, raw: RawTransaction) -> Result<Box<dyn Transaction>, failure::Error> {
             let tx = Transactions::tx_from_raw(raw)?;
             Ok(tx.into())
         }
 
         // Check open auctions state after each block's commit.
-        fn before_commit(&self, fork: &mut Fork) {
+        fn before_commit(&self, fork: &Fork) {
             let current_time = if let Some(time) = transactions::current_time(fork) {
                 time
             } else {
@@ -1102,7 +1053,7 @@ pub mod service {
             };
 
             // Check open auctions and close them if time expires.
-            let mut schema = CryptoOwlsSchema::new(fork);
+            let schema = CryptoOwlsSchema::new(fork);
             let open_auctions = schema
                 .owl_auction()
                 .into_iter()
