@@ -41,7 +41,7 @@ cache:
   directories:
   - node_modules
 
-dist: trusty
+dist: xenial
 
 env:
   global:
