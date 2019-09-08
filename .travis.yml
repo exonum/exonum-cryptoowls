@@ -3,7 +3,7 @@ language: rust
 addons:
   apt:
     sources:
-    - sourceline: 'ppa:giskou/librocksdb'
+    - sourceline: 'ppa:exonum/rocksdb'
     - sourceline: 'ppa:maarten-fonville/protobuf'
     - sourceline: 'ppa:fsgmhoward/shadowsocks-libev'
     packages:
@@ -17,7 +17,7 @@ addons:
     - libelf-dev
     - libiberty-dev
     - libprotobuf-dev
-    - librocksdb
+    - librocksdb5.17
     - libsnappy-dev
     - libsodium-dev
     - libssl-dev
@@ -48,7 +48,7 @@ env:
   - DEADLINKS_VERS=0.3.0
   - SODIUM_VERS=1.0.16
   - RUSTFLAGS="-D warnings"
-  - ROCKSDB_LIB_DIR=/usr/lib/x86_64-linux-gnu
+  - ROCKSDB_LIB_DIR=/usr/lib
   - SNAPPY_LIB_DIR=/usr/lib/x86_64-linux-gnu
 
 jobs:
