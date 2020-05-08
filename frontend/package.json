@@ -2,7 +2,7 @@
   "name": "exonum-cryptoowls",
   "version": "1.0.0",
   "description": "Exonum cryptoowls",
-  "author": "Exonum Team <exonum@bitfury.com>",
+  "author": "The Exonum Team <contact@exonum.com>",
   "license": "Apache-2.0",
   "scripts": {
     "proto": "pbjs --keep-case -t static-module ./proto/helpers.proto ../src/proto/transactions.proto ../src/proto/data_layout.proto -o ./proto/proto.js",
@@ -10,18 +10,18 @@
     "start": "node server.js"
   },
   "dependencies": {
-    "axios": "^0.19.0",
-    "big-integer": "^1.6.44",
-    "bootstrap": "^4.3.1",
+    "axios": "^0.19.2",
+    "big-integer": "^1.6.48",
+    "bootstrap": "^4.4.1",
     "exonum-client": "^0.16.9",
-    "jquery": "^3.5.0",
-    "moment": "^2.24.0",
+    "jquery": "^3.5.1",
+    "moment": "^2.25.3",
     "noty": "^3.2.0-beta",
-    "popper.js": "^1.15.0",
+    "popper.js": "^1.16.1",
     "svg.js": "^2.7.1",
-    "vue": "^2.6.10",
-    "vue-router": "^3.0.7",
-    "vuex": "^3.1.1"
+    "vue": "^2.6.11",
+    "vue-router": "^3.1.6",
+    "vuex": "^3.3.0"
   },
   "devDependencies": {
     "babel-core": "^6.26.3",
@@ -29,20 +29,21 @@
     "babel-preset-es2015": "^6.24.1",
     "babelify": "^8.0.0",
     "body-parser": "^1.19.0",
-    "browserify": "^16.3.0",
+    "browserify": "^16.5.1",
     "eslint": "^5.16.0",
     "eslint-plugin-vue": "^5.2.3",
     "express": "^4.17.1",
-    "grunt": "^1.0.4",
+    "grunt": "^1.1.0",
     "grunt-browserify": "^5.3.0",
     "grunt-cli": "^1.3.2",
     "grunt-contrib-clean": "^2.0.0",
     "grunt-contrib-watch": "^1.1.0",
     "grunt-eslint": "^21.1.0",
     "load-grunt-tasks": "^4.0.0",
-    "protobufjs": "^6.8.8",
-    "request": "^2.88.0",
+    "protobufjs": "^6.9.0",
+    "request": "^2.88.2",
+    "vue-template-compiler": "^2.6.11",
     "vueify": "^9.4.1",
-    "yargs-parser": "^13.1.1"
+    "yargs-parser": "^13.1.2"
   }
 }
