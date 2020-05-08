@@ -137,7 +137,7 @@ pub mod schema {
     /// Read-only tables.
     impl<T> CryptoOwlsSchema<T>
     where
-        T: AsRef<Snapshot>,
+        T: AsRef<dyn Snapshot>,
     {
         pub fn new(view: T) -> Self {
             CryptoOwlsSchema { view }
@@ -347,7 +347,7 @@ pub mod transactions {
 
             // Reject tx if the user with the same public key is already exists.
             if schema.users().get(&author).is_some() {
-                Err(ErrorKind::UserAlreadyRegistered)?;
+                return Err(ErrorKind::UserAlreadyRegistered.into());
             }
 
             let user = User {
@@ -398,18 +398,18 @@ pub mod transactions {
 
             // Check if user owns these owls.
             if parents.iter().any(|p| p.owner != user.public_key) {
-                Err(ErrorKind::AccessViolation)?;
+                return Err(ErrorKind::AccessViolation.into());
             }
 
             let (mother, father) = (parents[0].owl.clone(), parents[1].owl.clone());
             // Can not use the same owl as mother and father at the same time.
             if mother == father {
-                Err(ErrorKind::SelfBreeding)?;
+                return Err(ErrorKind::SelfBreeding.into());
             }
 
             // Check if user has enough funds for breeding.
             if user.balance < BREEDING_PRICE {
-                Err(ErrorKind::InsufficientFunds)?;
+                return Err(ErrorKind::InsufficientFunds.into());
             }
 
             // Check last breeding time for each owl.
@@ -417,7 +417,7 @@ pub mod transactions {
                 .iter()
                 .any(|p| (ts - p.last_breeding).num_seconds() < BREEDING_TIMEOUT)
             {
-                Err(ErrorKind::EarlyBreeding)?;
+                return Err(ErrorKind::EarlyBreeding.into());
             }
 
             // All conditions are fulfilled, start breeding.
@@ -441,7 +441,7 @@ pub mod transactions {
 
             if (ts - user.last_fillup).num_seconds() < ISSUE_TIMEOUT {
                 // Issue timeout is not expired.
-                Err(ErrorKind::EarlyIssue)?
+                return Err(ErrorKind::EarlyIssue.into());
             }
 
             schema.increase_user_balance(&user.public_key, ISSUE_AMOUNT, Some(ts));
@@ -476,12 +476,12 @@ pub mod transactions {
 
             // Check if the user owns the owl.
             if owl.owner != user.public_key {
-                Err(ErrorKind::OwlNotOwned)?;
+                return Err(ErrorKind::OwlNotOwned.into());
             }
 
             // Check if the owl isn't auctioned already.
             if schema.owl_auction().get(&auction.owl_id).is_some() {
-                Err(ErrorKind::OwlAlreadyAuctioned)?;
+                return Err(ErrorKind::OwlAlreadyAuctioned.into());
             }
 
             // Establish a new auction.
@@ -524,17 +524,17 @@ pub mod transactions {
 
             // Check if the auction is open.
             if auction_state.closed {
-                Err(ErrorKind::AuctionClosed)?;
+                return Err(ErrorKind::AuctionClosed.into());
             }
 
             // Check if the user has enough funds.
             if user.balance < self.value {
-                Err(ErrorKind::InsufficientFunds)?;
+                return Err(ErrorKind::InsufficientFunds.into());
             }
 
             // Bidding in own auction is prohibited.
             if user.public_key == auction.public_key {
-                Err(ErrorKind::NoSelfBidding)?;
+                return Err(ErrorKind::NoSelfBidding.into());
             }
 
             // Get the bid to beat.
@@ -545,7 +545,7 @@ pub mod transactions {
 
             // Check if the bid is higher than the min bid.
             if min_bid >= self.value {
-                Err(ErrorKind::BidTooLow)?;
+                return Err(ErrorKind::BidTooLow.into());
             }
 
             // Release balance of the previous bidder if any.
@@ -584,7 +584,7 @@ pub mod transactions {
     /// Helper methods.
     impl<T> CryptoOwlsSchema<T>
     where
-        T: AsRef<Snapshot>,
+        T: AsRef<dyn Snapshot>,
     {
         // Method to generate new unique owl
         pub fn make_uniq_owl(&self, genes: (u32, u32), name: &str, hash_seed: &Hash) -> CryptoOwl {
@@ -814,7 +814,7 @@ pub mod transactions {
     }
 
     // A helper function to get current time from the time oracle.
-    pub fn current_time(snapshot: &Snapshot) -> Option<DateTime<Utc>> {
+    pub fn current_time(snapshot: &dyn Snapshot) -> Option<DateTime<Utc>> {
         let time_schema = TimeSchema::new(snapshot);
         time_schema.time().get()
     }
@@ -1040,14 +1040,14 @@ mod api {
 
 /// Collecting everything together.
 pub mod service {
-    use failure;
-
-    use exonum::api::ServiceApiBuilder;
-    use exonum::blockchain::{Service, Transaction, TransactionSet};
-    use exonum::crypto::Hash;
-    use exonum::helpers::fabric::{Context, ServiceFactory};
-    use exonum::messages::RawTransaction;
-    use exonum::storage::{Fork, Snapshot};
+    use exonum::{
+        api::ServiceApiBuilder,
+        blockchain::{Service, Transaction, TransactionSet},
+        crypto::Hash,
+        helpers::fabric::{Context, ServiceFactory},
+        messages::RawTransaction,
+        storage::{Fork, Snapshot},
+    };
 
     use crate::{
         api::CryptoOwlsApi,
@@ -1067,7 +1067,7 @@ pub mod service {
             CRYPTOOWLS_SERVICE_NAME
         }
 
-        fn make_service(&mut self, _: &Context) -> Box<Service> {
+        fn make_service(&mut self, _: &Context) -> Box<dyn Service> {
             Box::new(CryptoOwlsService)
         }
     }
@@ -1082,13 +1082,13 @@ pub mod service {
         }
 
         // Tables hashes to be included into blockchain state hash.
-        fn state_hash(&self, snapshot: &Snapshot) -> Vec<Hash> {
+        fn state_hash(&self, snapshot: &dyn Snapshot) -> Vec<Hash> {
             let schema = CryptoOwlsSchema::new(snapshot);
             schema.state_hash()
         }
 
         // Method to deserialize transactions.
-        fn tx_from_raw(&self, raw: RawTransaction) -> Result<Box<Transaction>, failure::Error> {
+        fn tx_from_raw(&self, raw: RawTransaction) -> Result<Box<dyn Transaction>, failure::Error> {
             let tx = Transactions::tx_from_raw(raw)?;
             Ok(tx.into())
         }

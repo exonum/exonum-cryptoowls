@@ -12,16 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-extern crate exonum;
-extern crate exonum_configuration;
-extern crate exonum_time;
-
-extern crate exonum_cryptoowls as cryptoowls;
-
-use cryptoowls::service::CryptoOwlsServiceFactory;
-use exonum::helpers;
-use exonum::helpers::fabric::NodeBuilder;
+use exonum::{helpers, helpers::fabric::NodeBuilder};
 use exonum_configuration::ServiceFactory as ConfigurationServiceFactory;
+use exonum_cryptoowls::service::CryptoOwlsServiceFactory;
 use exonum_time::TimeServiceFactory;
 
 fn main() {
