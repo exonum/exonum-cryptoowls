@@ -3,7 +3,7 @@ language: rust
 addons:
   apt:
     sources:
-    - sourceline: 'ppa:exonum/rocksdb' 
+    - sourceline: 'ppa:exonum/rocksdb'
     - sourceline: 'ppa:maarten-fonville/protobuf'
     - sourceline: 'ppa:fsgmhoward/shadowsocks-libev'
     packages:
@@ -31,11 +31,6 @@ rust:
   # Sync with badge in README.md
   - 1.43.0
 
-matrix:
-  allow_failures:
-  - env: FEATURE=non-fatal-checks
-  fast_finish: true
-
 cache:
   cargo: true
   directories:
@@ -51,6 +46,9 @@ env:
   - SNAPPY_LIB_DIR=/usr/lib/x86_64-linux-gnu
 
 jobs:
+  fast_finish: true
+  allow_failures:
+    - env: FEATURE=non-fatal-checks
   include:
   # Formatting & other lints that do not require compilation
   - name: lints
