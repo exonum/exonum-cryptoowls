@@ -57,9 +57,7 @@ jobs:
     - rustfmt -V
     - nvm install 12 && nvm use 12
     - npm install cspell
-    - ./node_modules/.bin/cspell --version
     - npm install markdownlint-cli
-    - ./node_modules/.bin/markdownlint --version
     script:
     - cargo fmt -- --check
     - find . -not -path "./target/**" -name "*.rs" | xargs ./node_modules/.bin/cspell
